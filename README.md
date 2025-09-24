@@ -34,6 +34,8 @@ What You Should See
   - app/(tabs)/friends.tsx — Friends screen
   - app/(tabs)/profile.tsx — Profile screen
 - Futuristic signup/login placeholders with quick links back home and cross-navigation between auth pages.
+- Email signup flow with validation, password strength requirements, verification emails, and username uniqueness checks.
+- Email login flow with verification enforcement, password reset link, and Firestore profile creation after verification.
 - Redirect: app/index.tsx routes to /(tabs)/home
 
 Scripts
@@ -74,7 +76,7 @@ Project Structure (relevant)
 - app/(tabs)/profile.tsx
 
 Next Steps (planned)
-- Firebase setup (Auth + Firestore) for user profiles and play logs.
+- Phone number and Google authentication flows.
 - IGDB integration for game data (search, trending, details).
 - Theming and design polish (light/dark, typography, spacing system).
 - State management for tabs and data flows.
@@ -87,6 +89,11 @@ Environment Variables
   - `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET`
   - `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
   - `EXPO_PUBLIC_FIREBASE_APP_ID`
+
+Firebase Notes
+- Create a Firestore database (Start in test mode while iterating, then tighten rules).
+- For development you can use Firestore rules that allow access while testing, but deploy production rules that restrict profile writes to the authenticated user and enforce username ownership.
+- Email signup sends a verification link; users must verify before the login flow will complete and create Firestore documents.
 
 Notes
 - If tabs don’t appear on web after switching to Expo Router, restart the dev server (stop and run npm run start).
