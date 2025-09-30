@@ -1,27 +1,31 @@
-import { View, Text, StyleSheet, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Platform } from 'react-native';
 import { Link } from 'expo-router';
 
 export default function HomeScreen() {
+  const isWeb = Platform.OS === 'web';
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.logoPlaceholder}>
-          <Text style={styles.logoText}>Logo</Text>
+      {!isWeb && (
+        <View style={styles.header}>
+          <View style={styles.logoPlaceholder}>
+            <Text style={styles.logoText}>Logo</Text>
+          </View>
+          <TextInput
+            placeholder="Search games"
+            placeholderTextColor="#6b7280"
+            style={styles.searchInput}
+          />
+          <View style={styles.navLinks}>
+            <Link href="/signup" style={styles.navLink}>
+              Sign Up
+            </Link>
+            <Link href="/login" style={styles.navLink}>
+              Login
+            </Link>
+          </View>
         </View>
-        <TextInput
-          placeholder="Search games"
-          placeholderTextColor="#6b7280"
-          style={styles.searchInput}
-        />
-        <View style={styles.navLinks}>
-          <Link href="/signup" style={styles.navLink}>
-            Sign Up
-          </Link>
-          <Link href="/login" style={styles.navLink}>
-            Login
-          </Link>
-        </View>
-      </View>
+      )}
       <View style={styles.hero}>
         <Text style={styles.title}>Playlog</Text>
         <Text style={styles.subtitle}>Welcome! Track and discover games.</Text>

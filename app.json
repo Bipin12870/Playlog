@@ -3,6 +3,7 @@
     "name": "Playlog",
     "slug": "Playlog",
     "version": "1.0.0",
+    "scheme": "playlog",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -27,7 +28,8 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-web-browser"
     ]
   }
 }
