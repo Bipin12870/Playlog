@@ -10,6 +10,7 @@ import {
   type ConfirmationResult,
 } from 'firebase/auth';
 
+import { ensureUserProfile } from '../../lib/auth';
 import { auth } from '../../lib/firebase';
 import { signupStyles as styles } from './styles';
 
@@ -124,7 +125,7 @@ export function PhoneSignup({ onSuccess, onError, onVerificationError }: PhoneSi
   }, [e164Ok, normalizeAu, phone, termsAccepted]);
 
   const handleVerifyCode = useCallback(async () => {
-    if (!confirmResult || smsCode.trim().length < 4) {
+    if (!confirmResult || smsCode.trim().length < 6) {
       return;
     }
 
@@ -136,6 +137,8 @@ export function PhoneSignup({ onSuccess, onError, onVerificationError }: PhoneSi
       if (displayName.length > 1) {
         await updateProfile(credential.user, { displayName });
       }
+
+      await ensureUserProfile(credential.user);
 
       onVerificationError(null);
       onError(null);
@@ -159,9 +162,18 @@ export function PhoneSignup({ onSuccess, onError, onVerificationError }: PhoneSi
           message = err.message ?? message;
         }
       } else if (err instanceof Error) {
-        message = err.message;
+        if (err.message === 'DISPLAY_NAME_MISSING') {
+          message =
+            'We could not read your display name. Add a name before finishing signup or try another method.';
+        } else if (err.message === 'USERNAME_CONFLICT') {
+          message =
+            'That display name is already taken. Update it and try again, or contact support.';
+        } else {
+          message = err.message;
+        }
       }
       setPhoneError(message);
+      await signOut(auth).catch(() => {});
     } finally {
       setPhoneLoading(false);
     }
@@ -276,4 +288,3 @@ export function PhoneSignup({ onSuccess, onError, onVerificationError }: PhoneSi
     </View>
   );
 }
-
