@@ -1,122 +1,148 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  Image,
+  ImageBackground,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { EmailLogin } from './login/EmailLogin';
-import { GoogleLogin } from './login/GoogleLogin';
-import { PhoneLogin } from './login/PhoneLogin';
 import { loginStyles as styles } from './login/styles';
 
-type Method = 'none' | 'email' | 'phone' | 'google';
+const BACKDROP = require('../assets/glare.png');
+const RUNNER = require('../assets/characters.png');
+const LOGO = require('../assets/logo.png');
+const MARIO = require('../assets/mario.png');
 
 export default function LoginScreen() {
-  const [method, setMethod] = useState<Method>('none');
+  const { width } = useWindowDimensions();
+  const wide = width >= 900;
 
-  const pick = (next: Method) => {
-    setMethod((prev) => (prev === next ? 'none' : next));
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleLogin = () => {
+    // TODO: add your actual login logic later
+
+  };
+
+  const handleGoogleLogin = () => {
+
+  };
+  const handlePhoneLogin = () => {
+
   };
 
   return (
-    <View style={styles.container}>
+    <ImageBackground source={BACKDROP} style={styles.background} imageStyle={styles.backgroundImage}>
+      <View style={styles.scrim} />
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.shell, wide && styles.shellWide]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Link href="/(tabs)/home" style={styles.homeLink}>
-          <Ionicons name="arrow-back" size={20} color="#38bdf8" />
-          <Text style={styles.homeLinkText}>Home</Text>
-        </Link>
+        {/* LEFT HERO PANEL */}
+        <View
+          style={[
+            styles.leftPane,
+            wide ? styles.leftPaneWide : styles.leftPaneNarrow,
+            wide && styles.leftPaneStatic,
+          ]}
+        >
+          <ImageBackground style={styles.leftBackground} imageStyle={styles.leftBackgroundImage}>
+            <View style={styles.leftOverlay} />
+            <View style={styles.leftContent}>
+              {/* CLICKABLE LOGO */}
+              <Link href="/(tabs)/home" asChild>
+                <Pressable style={styles.brandRow}>
+                  <Image source={LOGO} style={styles.logoImg} />
+                  <View>
+                    <Text style={styles.brand}>Playlog</Text>
+                    <Text style={styles.brandSub}>Track. Discover. Play.</Text>
+                  </View>
+                </Pressable>
+              </Link>
 
-        <View style={styles.panel}>
-          <Text style={styles.kicker}>Welcome back</Text>
-          <Text style={styles.title}>Log in to your dashboard</Text>
-          <Text style={styles.subtitle}>
-            Track the games you follow, manage reviews, and stay on top of search results.
-          </Text>
+              {/* TAGLINE ABOVE CHARACTER */}
+              <View style={styles.leftCopy}>
+                <Text style={styles.tagline}>You are one login away.</Text>
+              </View>
 
-          <View style={styles.buttonStack}>
-            <Pressable
-              onPress={() => pick('email')}
-              style={({ pressed }) => [
-                method === 'email' ? styles.primaryButton : styles.secondaryButton,
-                method === 'email' && styles.primaryButtonActive,
-                pressed && styles.buttonPressed,
-              ]}
-            >
-              <Ionicons
-                name="mail-open"
-                size={18}
-                color={method === 'email' ? '#0f172a' : '#38bdf8'}
-              />
-              <Text
-                style={method === 'email' ? styles.primaryButtonText : styles.secondaryButtonText}
-              >
-                {method === 'email' ? 'Email login selected' : 'Log in with email'}
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => pick('phone')}
-              style={({ pressed }) => [
-                method === 'phone' ? styles.primaryButton : styles.secondaryButton,
-                method === 'phone' && styles.primaryButtonActive,
-                pressed && styles.buttonPressed,
-              ]}
-            >
-              <Ionicons name="call" size={18} color={method === 'phone' ? '#0f172a' : '#38bdf8'} />
-              <Text
-                style={method === 'phone' ? styles.primaryButtonText : styles.secondaryButtonText}
-              >
-                {method === 'phone' ? 'Phone login selected' : 'Continue with phone'}
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => pick('google')}
-              style={({ pressed }) => [
-                method === 'google' ? styles.primaryButton : styles.secondaryButton,
-                method === 'google' && styles.primaryButtonActive,
-                pressed && styles.buttonPressed,
-              ]}
-            >
-              <Ionicons
-                name="logo-google"
-                size={18}
-                color={method === 'google' ? '#0f172a' : '#38bdf8'}
-              />
-              <Text
-                style={method === 'google' ? styles.primaryButtonText : styles.secondaryButtonText}
-              >
-                {method === 'google' ? 'Google login selected' : 'Continue with Google'}
-              </Text>
-            </Pressable>
-          </View>
-
-          {method === 'email' && <EmailLogin />}
-
-          {method === 'phone' && <PhoneLogin />}
-
-          {method === 'google' && <GoogleLogin />}
-
-          {method === 'none' && (
-            <View style={styles.placeholderCard}>
-              <Ionicons name="options-outline" size={22} color="#38bdf8" />
-              <Text style={styles.placeholderText}>Choose a login method to continue.</Text>
+              {/* CHARACTER IMAGE */}
+              <Image source={RUNNER} style={styles.charactersImg} resizeMode="contain" />
             </View>
-          )}
+          </ImageBackground>
+        </View>
 
-          <Text style={styles.footerHint}>More sign-in options are on the way.</Text>
-          <View style={styles.altRouteRow}>
-            <Text style={styles.altRouteText}>New to Playlog?</Text>
-            <Link href="/signup" style={styles.altRouteLink}>
-              Sign up
-            </Link>
+        {/* RIGHT LOGIN FORM */}
+        <View style={styles.rightPane}>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Welcome back</Text>
+            <Text style={styles.cardSubtitle}>Log in to your Playlog account</Text>
+
+            <View style={styles.formGrid}>
+              {/* Username */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Email</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your email"
+                  placeholderTextColor="#94a3b8"
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
+                />
+              </View>
+
+              {/* Password */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Password</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your password"
+                  placeholderTextColor="#94a3b8"
+                  secureTextEntry
+                  value={password}
+                  onChangeText={setPassword}
+                />
+              </View>
+
+              {/* Login Button */}
+              <Pressable style={styles.primaryButton} onPress={handleLogin}>
+                <Text style={styles.primaryButtonText}>Log In</Text>
+              </Pressable>
+
+              {/* Google Login */}
+              <Pressable style={styles.googleButton} onPress={handleGoogleLogin}>
+                <Ionicons name="logo-google" size={20} color="#fff" />
+                <Text style={styles.googleButtonText}>Continue with Google</Text>
+              </Pressable>
+              <Pressable style={styles.googleButton} onPress={handlePhoneLogin}>
+                <Ionicons name="call" size={20} color="#fff" />
+                <Text style={styles.googleButtonText}>Login Using Mobile Number</Text>
+              </Pressable>
+            </View>
+
+            {/* Footer */}
+            <Text style={styles.footerHint}>Forgot your password?</Text>
+
+            <View style={styles.altRouteRow}>
+              <Text style={styles.altRouteText}>Don’t have an account?</Text>
+              <Link href="/signup" style={styles.altRouteLink}>
+                Sign up
+              </Link>
+            </View>
+
+            <Image source={MARIO} style={styles.hero} resizeMode="contain" />
+            <View style={styles.glossBox} />
           </View>
         </View>
       </ScrollView>
-    </View>
+    </ImageBackground>
   );
 }

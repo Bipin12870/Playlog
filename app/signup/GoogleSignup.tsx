@@ -194,4 +194,3 @@ export function GoogleSignup({ onError, onVerificationError }: GoogleSignupProps
     </View>
   );
 }
-

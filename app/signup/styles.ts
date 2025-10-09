@@ -72,7 +72,7 @@ export const signupStyles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  cardTitle: { color: '#ffffff', fontSize: 30, fontWeight: '800', textAlign: 'center' },
+  cardTitle: { color: '#ffffff', fontSize: 30,fontFamily:'PlayfairDisplay_400Regular', fontWeight: '800', textAlign: 'center' },
   cardSubtitle: { color: '#e2e8f0', fontSize: 14, textAlign: 'center', marginTop: 4, marginBottom: 20 },
   stepLabel: { color: '#94a3b8', fontSize: 13, fontWeight: '600', marginBottom: 12 },
 
@@ -196,7 +196,7 @@ export const signupStyles = StyleSheet.create({
   errorText: { color: '#fecaca', fontSize: 13, flex: 1 },
 
   footerHint: { color: '#64748b', fontSize: 13, textAlign: 'center', marginTop: 16 },
-  altRouteRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 4 },
+  altRouteRow: { top:10,flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 4 },
   altRouteText: { color: '#94a3b8', fontSize: 14 },
   altRouteLink: { color: '#c4b5fd', fontSize: 14, fontWeight: '600' },
 

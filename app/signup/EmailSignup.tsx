@@ -233,4 +233,3 @@ function ValidationStatus({ passed, text }: { passed: boolean; text: string }) {
     </View>
   );
 }
-

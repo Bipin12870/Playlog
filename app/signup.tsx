@@ -76,13 +76,15 @@ export default function SignupScreen() {
           <ImageBackground source={RUNNER} style={styles.leftBackground} imageStyle={styles.leftBackgroundImage}>
             <View style={styles.leftOverlay} />
             <View style={styles.leftContent}>
-              <View style={styles.brandRow}>
-                <Image source={LOGO} style={styles.logoImg} />
-                <View>
-                  <Text style={styles.brand}>Playlog</Text>
-                  <Text style={styles.brandSub}>Track. Discover. Play.</Text>
-                </View>
-              </View>
+            <Link href="/(tabs)/home" asChild>
+  <Pressable style={styles.brandRow}>
+    <Image source={LOGO} style={styles.logoImg} />
+    <View>
+      <Text style={styles.brand}>Playlog</Text>
+      <Text style={styles.brandSub}>Track. Discover. Play.</Text>
+    </View>
+  </Pressable>
+</Link>
               <View style={styles.leftCopy}>
                 <Text style={styles.tagline}>
                   Enjoy top-rated games{"\n"}no payment, just a free account.
@@ -187,7 +189,7 @@ export default function SignupScreen() {
                   </View>
                 )}
 
-                <Text style={styles.footerHint}>More ways to sign up are coming soon.</Text>
+
                 <View style={styles.altRouteRow}>
                   <Text style={styles.altRouteText}>Already have a profile?</Text>
                   <Link href="/login" style={styles.altRouteLink}>
@@ -202,10 +204,7 @@ export default function SignupScreen() {
           </View>
         </View>
 
-        <Link href="/(tabs)/home" style={styles.homeLink}>
-          <Ionicons name="arrow-back" size={18} color="#8b5cf6" />
-          <Text style={styles.homeText}>Home</Text>
-        </Link>
+       
       </ScrollView>
     </ImageBackground>
   );
