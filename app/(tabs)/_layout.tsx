@@ -1,6 +1,12 @@
 import { Link, Stack, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
+import { signOut } from 'firebase/auth';
+
+import { useAuthUser } from '../../lib/hooks/useAuthUser';
+import { auth } from '../../lib/firebase';
+
+const LOGO = require('../../assets/logo.png');
 
 const NAV_ITEMS = [
   { name: 'home', label: 'Home' },
@@ -21,6 +27,15 @@ type WebNavBarProps = {
 };
 
 function WebNavBar({ activeRoute, palette }: WebNavBarProps) {
+  const { user } = useAuthUser();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.warn('Failed to sign out', error);
+    }
+  };
   return (
     <View
       style={[
@@ -29,17 +44,7 @@ function WebNavBar({ activeRoute, palette }: WebNavBarProps) {
       ]}
     >
       <View style={styles.leftSection}>
-        <View
-          style={[
-            styles.logoPlaceholder,
-            {
-              borderColor: palette.border,
-              backgroundColor: palette.background === '#ffffff' ? '#f9fafb' : '#111827',
-            },
-          ]}
-        >
-          <Text style={[styles.logoText, { color: palette.muted }]}>Logo</Text>
-        </View>
+        <Image source={LOGO} style={styles.logo} resizeMode="contain" />
         <View style={styles.links}>
           {NAV_ITEMS.map(({ name, label }, index) => {
             const isActive = name === activeRoute;
@@ -73,13 +78,33 @@ function WebNavBar({ activeRoute, palette }: WebNavBarProps) {
         ]}
       />
       <View style={styles.authLinks}>
-        <Link href="/signup" style={[styles.loginLink, { color: palette.text }]}>Sign Up</Link>
-        <Link
-          href="/login"
-          style={[styles.loginLink, styles.authSpacing, { color: palette.text }]}
-        >
-          Login
-        </Link>
+        {user ? (
+          <Pressable
+            onPress={handleSignOut}
+            style={[styles.signOutButton, { borderColor: palette.border }]}
+          >
+            <Text
+              style={[
+                styles.signOutLabel,
+                {
+                  color: palette.background === '#ffffff' ? '#1f2937' : '#f1f5f9',
+                },
+              ]}
+            >
+              Sign out
+            </Text>
+          </Pressable>
+        ) : (
+          <>
+            <Link href="/signup" style={[styles.loginLink, { color: palette.text }]}>Sign Up</Link>
+            <Link
+              href="/login"
+              style={[styles.loginLink, styles.authSpacing, { color: palette.text }]}
+            >
+              Login
+            </Link>
+          </>
+        )}
       </View>
     </View>
   );
@@ -157,17 +182,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  logoPlaceholder: {
+  logo: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoText: {
-    fontSize: 12,
-    fontWeight: '600',
   },
   links: {
     flexDirection: 'row',
@@ -202,5 +219,16 @@ const styles = StyleSheet.create({
   },
   authSpacing: {
     marginLeft: 24,
+  },
+  signOutButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    backgroundColor: 'rgba(148, 163, 184, 0.15)',
+  },
+  signOutLabel: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

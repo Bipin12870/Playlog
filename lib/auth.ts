@@ -1,6 +1,6 @@
 import type { User } from 'firebase/auth';
-import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
-import { doc, runTransaction, serverTimestamp } from 'firebase/firestore';
+import { GoogleAuthProvider, signInWithCredential, signOut } from 'firebase/auth';
+import { doc, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
 
 import { auth, db } from './firebase';
 
@@ -31,7 +31,7 @@ export async function ensureUserProfile(user: User) {
       displayName,
       username: displayName,
       normalizedUsername: normalized,
-      email,
+      email: email ?? null,
       photoURL: user.photoURL ?? null,
       updatedAt: serverTimestamp(),
     };
@@ -60,13 +60,31 @@ type GoogleCredentialInput = {
   accessToken?: string | null;
 };
 
-export async function signInWithGoogleCredential({ idToken, accessToken }: GoogleCredentialInput) {
+type SignInWithGoogleOptions = {
+  requireExistingProfile?: boolean;
+};
+
+export async function signInWithGoogleCredential(
+  { idToken, accessToken }: GoogleCredentialInput,
+  options?: SignInWithGoogleOptions,
+) {
   if (!idToken && !accessToken) {
     throw new Error('GOOGLE_CREDENTIAL_MISSING');
   }
 
   const credential = GoogleAuthProvider.credential(idToken ?? undefined, accessToken ?? undefined);
   const result = await signInWithCredential(auth, credential);
+
+  if (options?.requireExistingProfile) {
+    const profileRef = doc(db, 'users', result.user.uid);
+    const profileSnapshot = await getDoc(profileRef);
+
+    if (!profileSnapshot.exists()) {
+      await signOut(auth).catch(() => {});
+      throw new Error('GOOGLE_PROFILE_MISSING');
+    }
+  }
+
   await ensureUserProfile(result.user);
   return result;
 }
