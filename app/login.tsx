@@ -1,42 +1,29 @@
 import { useState } from 'react';
-import {
-  Image,
-  ImageBackground,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { Image, ImageBackground, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { Link } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
+import { Feather, Ionicons } from '@expo/vector-icons';
 
+import { EmailLogin } from './login/EmailLogin';
+import { GoogleLogin } from './login/GoogleLogin';
+import { PhoneLogin } from './login/PhoneLogin';
 import { loginStyles as styles } from './login/styles';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const BACKDROP = require('../assets/glare.png');
 const RUNNER = require('../assets/characters.png');
 const LOGO = require('../assets/logo.png');
 const MARIO = require('../assets/mario.png');
 
+type Method = 'none' | 'google' | 'phone' | 'email';
+
 export default function LoginScreen() {
   const { width } = useWindowDimensions();
   const wide = width >= 900;
 
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-
-  const handleLogin = () => {
-    // TODO: add your actual login logic later
-
-  };
-
-  const handleGoogleLogin = () => {
-
-  };
-  const handlePhoneLogin = () => {
-
-  };
+  const [method, setMethod] = useState<Method>('email');
+  const pick = (next: Method) => setMethod((prev) => (prev === next ? 'none' : next));
 
   return (
     <ImageBackground source={BACKDROP} style={styles.background} imageStyle={styles.backgroundImage}>
@@ -85,51 +72,53 @@ export default function LoginScreen() {
             <Text style={styles.cardTitle}>Welcome back</Text>
             <Text style={styles.cardSubtitle}>Log in to your Playlog account</Text>
 
-            <View style={styles.formGrid}>
-              {/* Username */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Email</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter your email"
-                  placeholderTextColor="#94a3b8"
-                  value={username}
-                  onChangeText={setUsername}
-                  autoCapitalize="none"
-                />
-              </View>
-
-              {/* Password */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Password</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter your password"
-                  placeholderTextColor="#94a3b8"
-                  secureTextEntry
-                  value={password}
-                  onChangeText={setPassword}
-                />
-              </View>
-
-              {/* Login Button */}
-              <Pressable style={styles.primaryButton} onPress={handleLogin}>
-                <Text style={styles.primaryButtonText}>Log In</Text>
+            <Text style={styles.stepLabel}>Choose how you’d like to log in</Text>
+            <View style={styles.methodRow}>
+              <Pressable
+                onPress={() => pick('google')}
+                style={[styles.methodBtn, method === 'google' && styles.methodBtnActive]}
+              >
+                <Ionicons name="logo-google" size={18} color={method === 'google' ? '#0f172a' : '#8b5cf6'} />
+                <Text style={method === 'google' ? styles.methodTextActive : styles.methodText}>
+                  Continue with Google
+                </Text>
               </Pressable>
 
-              {/* Google Login */}
-              <Pressable style={styles.googleButton} onPress={handleGoogleLogin}>
-                <Ionicons name="logo-google" size={20} color="#fff" />
-                <Text style={styles.googleButtonText}>Continue with Google</Text>
+              <Pressable
+                onPress={() => pick('phone')}
+                style={[styles.methodBtn, method === 'phone' && styles.methodBtnActive]}
+              >
+                <Ionicons name="call" size={18} color={method === 'phone' ? '#0f172a' : '#8b5cf6'} />
+                <Text style={method === 'phone' ? styles.methodTextActive : styles.methodText}>
+                  Continue with phone
+                </Text>
               </Pressable>
-              <Pressable style={styles.googleButton} onPress={handlePhoneLogin}>
-                <Ionicons name="call" size={20} color="#fff" />
-                <Text style={styles.googleButtonText}>Login Using Mobile Number</Text>
+
+              <Pressable
+                onPress={() => pick('email')}
+                style={[styles.methodBtn, method === 'email' && styles.methodBtnActive]}
+              >
+                <Ionicons name="mail" size={18} color={method === 'email' ? '#0f172a' : '#8b5cf6'} />
+                <Text style={method === 'email' ? styles.methodTextActive : styles.methodText}>
+                  Continue with email
+                </Text>
               </Pressable>
             </View>
 
-            {/* Footer */}
-            <Text style={styles.footerHint}>Forgot your password?</Text>
+            {method === 'email' && (
+              <View style={styles.placeholderCard}>
+                <Feather name="log-in" size={18} color="#cbd5f5" />
+                <Text style={styles.placeholderText}>
+                  Pick a sign-in method to continue. Email lets you resend verification or reset your password.
+                </Text>
+              </View>
+            )}
+
+            {method === 'google' && <GoogleLogin />}
+            {method === 'phone' && <PhoneLogin />}
+            {method === 'email' && <EmailLogin />}
+
+            <Text style={styles.footerHint}>Need an account? Sign up to start tracking your games.</Text>
 
             <View style={styles.altRouteRow}>
               <Text style={styles.altRouteText}>Don’t have an account?</Text>

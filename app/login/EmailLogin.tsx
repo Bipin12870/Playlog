@@ -125,7 +125,7 @@ export function EmailLogin() {
 
     try {
       await sendPasswordResetEmail(auth, emailValue);
-      setInfoMessage('Password reset link sent. Check your inbox to continue.');
+      setInfoMessage('If an account exist with the email provided, password reset link is sent. Check your inbox to continue.');
     } catch (error) {
       let message = 'Unable to send the reset link. Try again later.';
       if (error instanceof FirebaseError) {
