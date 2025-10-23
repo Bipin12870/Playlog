@@ -8,6 +8,7 @@ import { EmailLogin } from './login/EmailLogin';
 import { GoogleLogin } from './login/GoogleLogin';
 import { PhoneLogin } from './login/PhoneLogin';
 import { loginStyles as styles } from './login/styles';
+import { SubscriptionOfferModal } from '../components/SubscriptionOfferModal';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -23,10 +24,16 @@ export default function LoginScreen() {
   const wide = width >= 900;
 
   const [method, setMethod] = useState<Method>('email');
+  const [showSubscriptionOffer, setShowSubscriptionOffer] = useState(true);
   const pick = (next: Method) => setMethod((prev) => (prev === next ? 'none' : next));
 
   return (
-    <ImageBackground source={BACKDROP} style={styles.background} imageStyle={styles.backgroundImage}>
+    <>
+      <SubscriptionOfferModal
+        visible={showSubscriptionOffer}
+        onClose={() => setShowSubscriptionOffer(false)}
+      />
+      <ImageBackground source={BACKDROP} style={styles.background} imageStyle={styles.backgroundImage}>
       <View style={styles.scrim} />
       <ScrollView
         contentContainerStyle={[styles.shell, wide && styles.shellWide]}
@@ -133,5 +140,6 @@ export default function LoginScreen() {
         </View>
       </ScrollView>
     </ImageBackground>
+    </>
   );
 }
