@@ -1,10 +1,20 @@
 import { Link, Stack, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Platform, Pressable, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
+import {
+  Image,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useColorScheme,
+} from 'react-native';
 import { signOut } from 'firebase/auth';
 
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
 import { auth } from '../../lib/firebase';
+import { GameSearchProvider, useGameSearch } from '../../lib/hooks/useGameSearch';
 
 const LOGO = require('../../assets/logo.png');
 
@@ -28,6 +38,7 @@ type WebNavBarProps = {
 
 function WebNavBar({ activeRoute, palette }: WebNavBarProps) {
   const { user } = useAuthUser();
+  const { term, setTerm, submit } = useGameSearch();
 
   const handleSignOut = async () => {
     try {
@@ -68,6 +79,12 @@ function WebNavBar({ activeRoute, palette }: WebNavBarProps) {
       <TextInput
         placeholder="Search games"
         placeholderTextColor={palette.muted}
+        value={term}
+        onChangeText={setTerm}
+        returnKeyType="search"
+        onSubmitEditing={() => submit()}
+        autoCorrect={false}
+        autoCapitalize="none"
         style={[
           styles.searchInput,
           {
@@ -123,49 +140,53 @@ export default function TabsLayout() {
 
   if (Platform.OS === 'web') {
     return (
-      <Stack
-        screenOptions={({ route }) => ({
-          header: () => <WebNavBar activeRoute={route.name} palette={palette} />,
-        })}
-      >
-        <Stack.Screen name="home" />
-        <Stack.Screen name="fav" />
-        <Stack.Screen name="friends" />
-        <Stack.Screen name="profile" />
-      </Stack>
+      <GameSearchProvider>
+        <Stack
+          screenOptions={({ route }) => ({
+            header: () => <WebNavBar activeRoute={route.name} palette={palette} />,
+          })}
+        >
+          <Stack.Screen name="home" />
+          <Stack.Screen name="fav" />
+          <Stack.Screen name="friends" />
+          <Stack.Screen name="profile" />
+        </Stack>
+      </GameSearchProvider>
     );
   }
 
   return (
-    <Tabs
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarActiveTintColor: accent,
-        tabBarIcon: ({ color, size }) => {
-          let icon: keyof typeof Ionicons.glyphMap = 'home';
-          switch (route.name) {
-            case 'home':
-              icon = 'home';
-              break;
-            case 'fav':
-              icon = 'heart';
-              break;
-            case 'friends':
-              icon = 'people';
-              break;
-            case 'profile':
-              icon = 'person';
-              break;
-          }
-          return <Ionicons name={icon} size={size} color={color} />;
-        },
-      })}
-    >
-      <Tabs.Screen name="home" options={{ title: 'Home' }} />
-      <Tabs.Screen name="fav" options={{ title: 'Favourites' }} />
-      <Tabs.Screen name="friends" options={{ title: 'Friends' }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
-    </Tabs>
+    <GameSearchProvider>
+      <Tabs
+        screenOptions={({ route }) => ({
+          headerShown: false,
+          tabBarActiveTintColor: accent,
+          tabBarIcon: ({ color, size }) => {
+            let icon: keyof typeof Ionicons.glyphMap = 'home';
+            switch (route.name) {
+              case 'home':
+                icon = 'home';
+                break;
+              case 'fav':
+                icon = 'heart';
+                break;
+              case 'friends':
+                icon = 'people';
+                break;
+              case 'profile':
+                icon = 'person';
+                break;
+            }
+            return <Ionicons name={icon} size={size} color={color} />;
+          },
+        })}
+      >
+        <Tabs.Screen name="home" options={{ title: 'Home' }} />
+        <Tabs.Screen name="fav" options={{ title: 'Favourites' }} />
+        <Tabs.Screen name="friends" options={{ title: 'Friends' }} />
+        <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+      </Tabs>
+    </GameSearchProvider>
   );
 }
 
