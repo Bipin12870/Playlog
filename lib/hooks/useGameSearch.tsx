@@ -1,4 +1,4 @@
-import { ReactNode, createContext, useContext, useMemo, useState } from 'react';
+import { ReactNode, createContext, useCallback, useContext, useMemo, useState } from 'react';
 
 type GameSearchContextValue = {
   term: string;
@@ -6,6 +6,7 @@ type GameSearchContextValue = {
   submittedTerm: string;
   submissionId: number;
   submit: (value?: string) => void;
+  resetSearch: () => void;
 };
 
 const GameSearchContext = createContext<GameSearchContextValue | undefined>(undefined);
@@ -15,18 +16,25 @@ export function GameSearchProvider({ children }: { children: ReactNode }) {
   const [submittedTerm, setSubmittedTerm] = useState('');
   const [submissionId, setSubmissionId] = useState(0);
 
-  const submit = (value?: string) => {
+  const resetSearch = useCallback(() => {
+    setTerm('');
+    setSubmittedTerm('');
+    setSubmissionId((id) => id + 1);
+  }, []);
+
+  const submit = useCallback(
+    (value?: string) => {
     const next = value?.trim() ?? term.trim();
     if (!next) {
-      setSubmissionId((id) => id + 1);
-      setSubmittedTerm('');
-      setTerm('');
+      resetSearch();
       return;
     }
     setTerm(next);
     setSubmittedTerm(next);
     setSubmissionId((id) => id + 1);
-  };
+    },
+    [term, resetSearch]
+  );
 
   const value = useMemo(
     () => ({
@@ -35,8 +43,9 @@ export function GameSearchProvider({ children }: { children: ReactNode }) {
       submittedTerm,
       submissionId,
       submit,
+      resetSearch,
     }),
-    [term, submittedTerm, submissionId]
+    [term, submittedTerm, submissionId, submit, resetSearch]
   );
 
   return <GameSearchContext.Provider value={value}>{children}</GameSearchContext.Provider>;

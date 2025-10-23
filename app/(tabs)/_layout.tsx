@@ -1,4 +1,4 @@
-import { Link, Stack, Tabs } from 'expo-router';
+import { Link, Stack, Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
   Image,
@@ -37,14 +37,22 @@ type WebNavBarProps = {
 };
 
 function WebNavBar({ activeRoute, palette }: WebNavBarProps) {
+  const router = useRouter();
   const { user } = useAuthUser();
-  const { term, setTerm, submit } = useGameSearch();
+  const { term, setTerm, submit, resetSearch } = useGameSearch();
 
   const handleSignOut = async () => {
     try {
       await signOut(auth);
     } catch (error) {
       console.warn('Failed to sign out', error);
+    }
+  };
+
+  const handleHomePress = () => {
+    resetSearch();
+    if (activeRoute !== 'home') {
+      router.push('/(tabs)/home');
     }
   };
   return (
@@ -55,7 +63,9 @@ function WebNavBar({ activeRoute, palette }: WebNavBarProps) {
       ]}
     >
       <View style={styles.leftSection}>
-        <Image source={LOGO} style={styles.logo} resizeMode="contain" />
+        <Pressable onPress={handleHomePress} style={styles.logoButton} hitSlop={8}>
+          <Image source={LOGO} style={styles.logo} resizeMode="contain" />
+        </Pressable>
         <View style={styles.links}>
           {NAV_ITEMS.map(({ name, label }, index) => {
             const isActive = name === activeRoute;
@@ -69,6 +79,12 @@ function WebNavBar({ activeRoute, palette }: WebNavBarProps) {
                   { color: isActive ? palette.text : palette.muted },
                   isActive && { borderBottomColor: palette.accent, borderBottomWidth: 2 },
                 ]}
+                onPress={(event) => {
+                  if (name === 'home') {
+                    event?.preventDefault();
+                    handleHomePress();
+                  }
+                }}
               >
                 {label}
               </Link>
@@ -206,6 +222,9 @@ const styles = StyleSheet.create({
   logo: {
     width: 40,
     height: 40,
+  },
+  logoButton: {
+    borderRadius: 20,
   },
   links: {
     flexDirection: 'row',
