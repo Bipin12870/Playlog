@@ -94,11 +94,16 @@ export function GameCard({
           </Text>
           <HeartComponent
             onPress={onToggleFavorite}
-            style={styles.favoriteBtn}
+            style={[styles.favoriteBtn, isFavorite && styles.favoriteBtnActive]}
             accessibilityRole={onToggleFavorite ? 'button' : undefined}
             accessibilityLabel="Toggle favourite"
+            hitSlop={8}
           >
-            <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={20} color="#f472b6" />
+            <Ionicons
+              name={isFavorite ? 'heart' : 'heart-outline'}
+              size={20}
+              color={isFavorite ? '#f8fafc' : '#f472b6'}
+            />
           </HeartComponent>
         </View>
 
@@ -180,6 +185,9 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 999,
     backgroundColor: 'rgba(244, 114, 182, 0.12)',
+  },
+  favoriteBtnActive: {
+    backgroundColor: '#f472b6',
   },
   ratingRow: {
     flexDirection: 'row',
