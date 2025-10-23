@@ -56,13 +56,15 @@ export function SearchResults({
   }
 
   return (
-    <View>
+    <View style={styles.wrapper}>
       <FlatList
+        style={styles.list}
         data={games}
         contentContainerStyle={[styles.listContent, contentContainerStyle]}
         numColumns={columnCount}
         keyExtractor={(item) => item.id.toString()}
         columnWrapperStyle={columnCount > 1 ? [styles.gridRow, gridRowStyle] : undefined}
+        keyboardShouldPersistTaps="handled"
         renderItem={renderItem}
         ListEmptyComponent={
           <View style={styles.emptyState}>
@@ -77,6 +79,8 @@ export function SearchResults({
 }
 
 const styles = StyleSheet.create({
+  wrapper: { flex: 1 },
+  list: { flex: 1 },
   listContent: { paddingBottom: 48 },
   gridRow: { gap: 20, paddingBottom: 20 },
   card: { flex: 1, marginBottom: 20, minWidth: 0 },
