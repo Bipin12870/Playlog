@@ -15,6 +15,7 @@ import { signOut } from 'firebase/auth';
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
 import { auth } from '../../lib/firebase';
 import { GameSearchProvider, useGameSearch } from '../../lib/hooks/useGameSearch';
+import { GameFavoritesProvider } from '../../lib/hooks/useGameFavorites';
 
 const LOGO = require('../../assets/logo.png');
 
@@ -156,53 +157,57 @@ export default function TabsLayout() {
 
   if (Platform.OS === 'web') {
     return (
-      <GameSearchProvider>
-        <Stack
-          screenOptions={({ route }) => ({
-            header: () => <WebNavBar activeRoute={route.name} palette={palette} />,
-          })}
-        >
-          <Stack.Screen name="home" />
-          <Stack.Screen name="fav" />
-          <Stack.Screen name="friends" />
-          <Stack.Screen name="profile" />
-        </Stack>
-      </GameSearchProvider>
+      <GameFavoritesProvider>
+        <GameSearchProvider>
+          <Stack
+            screenOptions={({ route }) => ({
+              header: () => <WebNavBar activeRoute={route.name} palette={palette} />,
+            })}
+          >
+            <Stack.Screen name="home" />
+            <Stack.Screen name="fav" />
+            <Stack.Screen name="friends" />
+            <Stack.Screen name="profile" />
+          </Stack>
+        </GameSearchProvider>
+      </GameFavoritesProvider>
     );
   }
 
   return (
-    <GameSearchProvider>
-      <Tabs
-        screenOptions={({ route }) => ({
-          headerShown: false,
-          tabBarActiveTintColor: accent,
-          tabBarIcon: ({ color, size }) => {
-            let icon: keyof typeof Ionicons.glyphMap = 'home';
-            switch (route.name) {
-              case 'home':
-                icon = 'home';
-                break;
-              case 'fav':
-                icon = 'heart';
-                break;
-              case 'friends':
-                icon = 'people';
-                break;
-              case 'profile':
-                icon = 'person';
-                break;
-            }
-            return <Ionicons name={icon} size={size} color={color} />;
-          },
-        })}
-      >
-        <Tabs.Screen name="home" options={{ title: 'Home' }} />
-        <Tabs.Screen name="fav" options={{ title: 'Favourites' }} />
-        <Tabs.Screen name="friends" options={{ title: 'Friends' }} />
-        <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
-      </Tabs>
-    </GameSearchProvider>
+    <GameFavoritesProvider>
+      <GameSearchProvider>
+        <Tabs
+          screenOptions={({ route }) => ({
+            headerShown: false,
+            tabBarActiveTintColor: accent,
+            tabBarIcon: ({ color, size }) => {
+              let icon: keyof typeof Ionicons.glyphMap = 'home';
+              switch (route.name) {
+                case 'home':
+                  icon = 'home';
+                  break;
+                case 'fav':
+                  icon = 'heart';
+                  break;
+                case 'friends':
+                  icon = 'people';
+                  break;
+                case 'profile':
+                  icon = 'person';
+                  break;
+              }
+              return <Ionicons name={icon} size={size} color={color} />;
+            },
+          })}
+        >
+          <Tabs.Screen name="home" options={{ title: 'Home' }} />
+          <Tabs.Screen name="fav" options={{ title: 'Favourites' }} />
+          <Tabs.Screen name="friends" options={{ title: 'Friends' }} />
+          <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+        </Tabs>
+      </GameSearchProvider>
+    </GameFavoritesProvider>
   );
 }
 

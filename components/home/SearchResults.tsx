@@ -11,6 +11,7 @@ import {
 
 import { GameCard } from '../GameCard';
 import { GameSummary } from '../../types/game';
+import { useGameFavorites } from '../../lib/hooks/useGameFavorites';
 
 type EmptyState = {
   title: string;
@@ -43,8 +44,16 @@ export function SearchResults({
     copy: 'Try a different title or check your spelling.',
   },
 }: SearchResultsProps) {
+  const { toggleFavourite, isFavourite } = useGameFavorites();
+
   const renderItem: ListRenderItem<GameSummary> = ({ item }) => (
-    <GameCard game={item} containerStyle={[styles.card, cardStyle]} onPress={() => onSelect(item)} />
+    <GameCard
+      game={item}
+      containerStyle={[styles.card, cardStyle]}
+      onPress={() => onSelect(item)}
+      onToggleFavorite={() => toggleFavourite(item)}
+      isFavorite={isFavourite(item.id)}
+    />
   );
 
   if (loading) {
@@ -63,7 +72,9 @@ export function SearchResults({
         contentContainerStyle={[styles.listContent, contentContainerStyle]}
         numColumns={columnCount}
         keyExtractor={(item) => item.id.toString()}
-        columnWrapperStyle={columnCount > 1 ? [styles.gridRow, gridRowStyle] : undefined}
+        columnWrapperStyle={
+          columnCount > 1 ? [styles.gridRow, gridRowStyle] : gridRowStyle ?? undefined
+        }
         keyboardShouldPersistTaps="handled"
         renderItem={renderItem}
         ListEmptyComponent={
