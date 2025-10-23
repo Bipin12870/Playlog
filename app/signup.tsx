@@ -16,6 +16,7 @@ import { EmailSignup } from './signup/EmailSignup';
 import { GoogleSignup } from './signup/GoogleSignup';
 import { PhoneSignup } from './signup/PhoneSignup';
 import { signupStyles as styles } from './signup/styles';
+import { SubscriptionOfferModal } from '../components/SubscriptionOfferModal';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -35,6 +36,7 @@ export default function SignupScreen() {
   const [verificationSent, setVerificationSent] = useState(false);
   const [sentEmail, setSentEmail] = useState('');
   const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [showSubscriptionOffer, setShowSubscriptionOffer] = useState(true);
 
   const pick = (next: Method) => {
     setErrorMessage(null);
@@ -63,7 +65,12 @@ export default function SignupScreen() {
   };
 
   return (
-    <ImageBackground source={BACKDROP} style={styles.background} imageStyle={styles.backgroundImage}>
+    <>
+      <SubscriptionOfferModal
+        visible={showSubscriptionOffer}
+        onClose={() => setShowSubscriptionOffer(false)}
+      />
+      <ImageBackground source={BACKDROP} style={styles.background} imageStyle={styles.backgroundImage}>
       <View style={styles.scrim} />
       <ScrollView
         contentContainerStyle={[styles.shell, wide && styles.shellWide]}
@@ -204,9 +211,9 @@ export default function SignupScreen() {
           </View>
         </View>
 
-       
+      
       </ScrollView>
     </ImageBackground>
+    </>
   );
 }
-
