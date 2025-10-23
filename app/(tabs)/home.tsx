@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, Text, TextInputProps, View, useWindowDimensions } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import {
   DiscoverySections,
@@ -20,6 +21,7 @@ export default function HomeScreen() {
   const isWeb = Platform.OS === 'web';
   const { width } = useWindowDimensions();
   const columnCount = getColumnCount(width);
+  const router = useRouter();
 
   const { term, setTerm, submit, submittedTerm, submissionId } = useGameSearch();
 
@@ -34,10 +36,15 @@ export default function HomeScreen() {
   const [exploreLoading, setExploreLoading] = useState(false);
   const [exploreError, setExploreError] = useState<string | null>(null);
 
-  const handleViewDetails = useCallback((selected: GameSummary) => {
-    // TODO: Navigate to a game details screen when available.
-    console.log('View details for', selected.name);
-  }, []);
+  const handleViewDetails = useCallback(
+    (selected: GameSummary) => {
+      router.push({
+        pathname: '/game/[id]',
+        params: { id: selected.id.toString(), name: selected.name },
+      });
+    },
+    [router]
+  );
 
   const fetchGames = useCallback(async (query: string) => {
     setLoading(true);

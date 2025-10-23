@@ -62,3 +62,46 @@ export async function fetchRandomGames() {
   `;
   return igdbQuery("games", query);
 }
+
+export async function fetchGameDetailsById(id: number) {
+  const query = `
+    fields
+      name,
+      cover.url,
+      summary,
+      storyline,
+      rating,
+      total_rating,
+      total_rating_count,
+      first_release_date,
+      platforms.slug,
+      platforms.abbreviation,
+      involved_companies.developer,
+      involved_companies.company.name,
+      genres.id,
+      genres.name,
+      artworks.url,
+      screenshots.url;
+    where id = ${id};
+    limit 1;
+  `;
+  return igdbQuery("games", query);
+}
+
+export async function fetchSimilarGamesByGenres(genreIds: number[], excludeId: number) {
+  if (!genreIds.length) return [];
+  const uniqueIds = Array.from(new Set(genreIds));
+  const genreList = uniqueIds.join(",");
+  const query = `
+    fields name, cover.url, summary, rating, first_release_date, platforms.slug, platforms.abbreviation;
+    where genres != null
+      & genres = (${genreList})
+      & id != ${excludeId}
+      & (category = null | category = 0)
+      & version_parent = null
+      & total_rating_count > 10;
+    sort total_rating desc;
+    limit 12;
+  `;
+  return igdbQuery("games", query);
+}

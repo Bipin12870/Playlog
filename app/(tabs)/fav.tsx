@@ -91,3 +91,6 @@ const styles = StyleSheet.create({
   singleColumnRow: { gap: 0, paddingBottom: 20 },
   singleColumnCard: { flex: 0, maxWidth: 420, width: '100%' },
 });
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  title: { fontSize: 24, fontWeight: '600' },
+});
