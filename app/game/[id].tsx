@@ -15,6 +15,9 @@ import {
   MAX_REVIEWS_PER_USER,
   setGameFavorite,
   submitGameReview,
+  submitReviewReply,
+  updateReviewReply,
+  deleteReviewReply,
   subscribeToFavoriteStatus,
   subscribeToGameReviewStats,
   subscribeToGameReviews,
@@ -72,6 +75,9 @@ export default function GameDetailsScreen() {
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [userReviewCount, setUserReviewCount] = useState<number | null>(null);
+  const [replySubmittingIds, setReplySubmittingIds] = useState<string[]>([]);
+  const [replyUpdatingIds, setReplyUpdatingIds] = useState<string[]>([]);
+  const [replyDeletingIds, setReplyDeletingIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (idMissing) {
@@ -352,6 +358,115 @@ export default function GameDetailsScreen() {
     [numericId, user, game],
   );
 
+  const handleSubmitReply = useCallback(
+    async (reviewId: string, input: { body: string }) => {
+      const gameId = numericId;
+      if (gameId === null) {
+        throw new Error('Missing game context for reply.');
+      }
+      if (!user) {
+        throw new Error('Sign in to reply to reviews.');
+      }
+      const trimmed = input.body?.trim() ?? '';
+      if (!trimmed) {
+        throw new Error('Reply text is required.');
+      }
+
+      setReplySubmittingIds((prev) => (prev.includes(reviewId) ? prev : [...prev, reviewId]));
+      try {
+        await submitReviewReply(gameId, reviewId, user, { body: trimmed });
+      } catch (err) {
+        console.error(err);
+        if (err instanceof Error) {
+          switch (err.message) {
+            case 'REVIEW_NOT_FOUND':
+              throw new Error('This review is no longer available.');
+            case 'REPLY_BODY_REQUIRED':
+              throw new Error('Reply text is required.');
+            default:
+              throw new Error(err.message || 'Unable to post reply right now.');
+          }
+        }
+        throw new Error('Unable to post reply right now.');
+      } finally {
+        setReplySubmittingIds((prev) => prev.filter((id) => id !== reviewId));
+      }
+    },
+    [numericId, user],
+  );
+
+  const handleUpdateReply = useCallback(
+    async (reviewId: string, replyId: string, input: { body: string }) => {
+      const gameId = numericId;
+      if (gameId === null) {
+        throw new Error('Missing game context for reply.');
+      }
+      if (!user) {
+        throw new Error('Sign in to update replies.');
+      }
+      const trimmed = input.body?.trim() ?? '';
+      if (!trimmed) {
+        throw new Error('Reply text is required.');
+      }
+
+      setReplyUpdatingIds((prev) => (prev.includes(replyId) ? prev : [...prev, replyId]));
+      try {
+        await updateReviewReply(gameId, reviewId, replyId, user, { body: trimmed });
+      } catch (err) {
+        console.error(err);
+        if (err instanceof Error) {
+          switch (err.message) {
+            case 'REPLY_NOT_FOUND':
+              throw new Error('This reply is no longer available.');
+            case 'REPLY_FORBIDDEN':
+              throw new Error('You can only edit your own replies.');
+            case 'REPLY_BODY_REQUIRED':
+              throw new Error('Reply text is required.');
+            default:
+              throw new Error(err.message || 'Unable to update reply right now.');
+          }
+        }
+        throw new Error('Unable to update reply right now.');
+      } finally {
+        setReplyUpdatingIds((prev) => prev.filter((id) => id !== replyId));
+      }
+    },
+    [numericId, user],
+  );
+
+  const handleDeleteReply = useCallback(
+    async (reviewId: string, replyId: string) => {
+      const gameId = numericId;
+      if (gameId === null) {
+        throw new Error('Missing game context for reply.');
+      }
+      if (!user) {
+        throw new Error('Sign in to remove replies.');
+      }
+
+      setReplyDeletingIds((prev) => (prev.includes(replyId) ? prev : [...prev, replyId]));
+      try {
+        await deleteReviewReply(gameId, reviewId, replyId, user);
+      } catch (err) {
+        console.error(err);
+        if (err instanceof Error) {
+          switch (err.message) {
+            case 'REPLY_NOT_FOUND':
+              throw new Error('This reply is no longer available.');
+            case 'REPLY_FORBIDDEN':
+              throw new Error('You can only delete your own replies.');
+            default:
+              throw new Error(err.message || 'Unable to remove reply right now.');
+          }
+        }
+        throw new Error('Unable to remove reply right now.');
+      } finally {
+        setReplyDeletingIds((prev) => prev.filter((id) => id !== replyId));
+      }
+    },
+    [numericId, user],
+  );
+
   const handleSelectSimilar = useCallback(
     (selected: GameSummary) => {
       router.replace({
@@ -414,6 +529,13 @@ export default function GameDetailsScreen() {
           favoriteError={favoriteError}
           onToggleFavorite={handleToggleFavorite}
           isFavorite={isFavorite}
+          currentUserId={user?.uid ?? null}
+          onSubmitReply={handleSubmitReply}
+          replySubmittingIds={replySubmittingIds}
+          onUpdateReply={handleUpdateReply}
+          onDeleteReply={handleDeleteReply}
+          replyUpdatingIds={replyUpdatingIds}
+          replyDeletingIds={replyDeletingIds}
           similarGames={similarGames}
           onSelectSimilar={handleSelectSimilar}
         />
@@ -445,7 +567,6 @@ function mapToDetails(raw: IgdbGame): GameDetailsData {
     first_release_date: raw.first_release_date ?? undefined,
     developer: developerEntry?.company?.name ?? null,
     releaseYear,
-    ratingLabel: deriveRatingLabel(raw),
     bannerUrl: artworkUrl ?? screenshotUrl ?? null,
     mediaUrl: screenshotUrl ?? artworkUrl ?? null,
     description: raw.storyline ?? raw.summary ?? null,
@@ -463,16 +584,6 @@ function mapToSummary(raw: IgdbGame | GameSummary): GameSummary {
     platforms: raw.platforms ?? undefined,
     first_release_date: raw.first_release_date ?? undefined,
   };
-}
-
-function deriveRatingLabel(raw: IgdbGame) {
-  if (typeof raw.total_rating !== 'number') return null;
-  const base = (raw.total_rating / 10).toFixed(1);
-  const voteCount =
-    typeof raw.total_rating_count === 'number' && raw.total_rating_count > 0
-      ? ` from ${raw.total_rating_count} votes`
-      : '';
-  return `${base}/10 Community${voteCount}`;
 }
 
 const styles = StyleSheet.create({

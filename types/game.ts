@@ -8,10 +8,19 @@ export type GameSummary = {
   first_release_date?: number;
 };
 
+export type GameReviewReply = {
+  id: string;
+  reviewId: string;
+  userId: string;
+  author: string;
+  body: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type GameDetailsData = GameSummary & {
   developer?: string | null;
   releaseYear?: number | null;
-  ratingLabel?: string | null;
   bannerUrl?: string | null;
   mediaUrl?: string | null;
   description?: string | null;
@@ -26,6 +35,7 @@ export type GameReview = {
   rating: number;
   createdAt?: string;
   updatedAt?: string;
+  replies?: GameReviewReply[];
 };
 
 export type UserReviewSummary = {
