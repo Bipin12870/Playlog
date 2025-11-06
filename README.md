@@ -1,100 +1,81 @@
 Playlog
 
-Overview
-- React Native + Expo (SDK 54) app scaffolded with TypeScript.
-- File‑based navigation powered by Expo Router.
-- Bottom tab navigation with four tabs: Home, Favourites, Friends, Profile.
-- Custom home header with logo/search/auth links and stylized auth screens inspired by a futuristic gaming hub.
+Playlog is a cross-platform (web, iOS, Android) game discovery companion built with Expo Router, React Native, and Firebase. It helps players search the IGDB catalog, curate favourites, and share quick community reviews while keeping profile data in sync across devices.
 
-Getting Started
-1) Requirements
-- Node.js 18+ and npm
-- iOS: Xcode + Simulator (macOS)
-- Android: Android Studio + Emulator
-- Expo Go app (optional) for running on device
+## Feature Highlights
+- Game discovery hub that surfaces featured, trending, and AI-recommended games, plus instant search backed by IGDB.
+- Full game details view with similar game suggestions, platform highlights, community review stats, and media galleries.
+- Community reviews stored in Firestore with live updates, 0-10 ratings, edit/delete support, and per-user limits to prevent spam.
+- Favourites synced to each user; free accounts can pin up to 10 titles, while premium accounts (flagged via custom claims) unlock unlimited slots.
+- Multi-provider authentication: email/password with verification, Google (Expo Auth Session), and phone sign-up on the web preview with reCAPTCHA, plus password reset and verification resend handling.
+- Profile management screen for updating display names, bios, preset avatars or custom URLs, review history, and account sign-out.
+- Responsive navigation that adapts between a desktop-navbar experience and native bottom tabs, shared through a single Expo Router codebase.
+- Subscription offer modal to upsell premium access and custom claims checks for entitlement-aware UI.
 
-2) Install
-- npm install
+## Architecture & Libraries
+- Expo SDK 54 with Expo Router for file-based navigation (stack + tabs).
+- React Native 0.81 + React 19 rendered natively and on the web.
+- Firebase Authentication and Firestore with transactional username enforcement and real-time subscriptions.
+- IGDB data pulled through a Vercel proxy (see `lib/igdb.ts:1`) that exchanges Twitch credentials for app tokens.
+- Expo Auth Session, WebBrowser, and Vector Icons for OAuth, deep linking flows, and shared iconography.
+- Context-driven hooks (`useAuthUser`, `useGameSearch`, `useGameFavorites`) to keep auth, search, and stateful data accessible across screens.
 
-3) Run
-- Start dev server: npm run start
-- Open on iOS: npm run ios
-- Open on Android: npm run android
-- Open on Web: npm run web
+## Getting Started
+1. **Requirements**
+   - Node.js 18+ and npm
+   - Xcode + iOS Simulator (macOS) for iOS builds
+   - Android Studio + Android Emulator
+   - Expo Go (optional) for device previews
+2. **Install**
+   - `npm install`
+3. **Environment**
+   - Create a `.env` file (gitignored) with the following keys:
+     ```
+     EXPO_PUBLIC_FIREBASE_API_KEY=
+     EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=
+     EXPO_PUBLIC_FIREBASE_PROJECT_ID=
+     EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=
+     EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+     EXPO_PUBLIC_FIREBASE_APP_ID=
+     EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=
+     EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID=
+     EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=
+     EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=
+     TWITCH_CLIENT_ID=
+     TWITCH_CLIENT_SECRET=
+     ```
+   - Enable Email/Password, Google, and Phone providers inside Firebase Authentication and add your Expo dev URLs (and production hosts) to the authorized domains list.
+   - Configure Firebase phone auth reCAPTCHA (web) and update any required site keys in the Firebase console.
+4. **Run**
+   - `npm run start` to launch Expo Dev Tools
+   - `npm run ios`, `npm run android`, or `npm run web` for platform targets
 
-What You Should See
-- Web and native show a header with the screen title and a bottom tab bar with four items: Home, Favourites, Friends, Profile.
-- The app redirects / to /home on web.
+## Firebase & IGDB Setup Notes
+- Firestore collections used in the app include `users`, `usernames`, `gameCommunity`, `userCommunity`, and nested `favorites` collections under each user. Security rules should constrain writes so users can only manage their own data and usernames remain unique.
+- Email flows send verification links before allowing profile creation; the app automatically signs users out until verification succeeds.
+- Custom claims (`subscriptionActive`, `plan`, or `tier`) unlock unlimited favourites. You can set these via Firebase Admin to simulate premium accounts during development.
+- The IGDB proxy currently points at `https://playlog-igdb-proxy-5j9ckofks-bipin12870s-projects.vercel.app/api/igdb`. Fork or redeploy your own proxy and update `API_BASE` in `lib/igdb.ts` if you need different credentials or rate limits.
 
-- Tabs and routes using Expo Router group layout
-  - app/_layout.tsx — root router stack
-  - app/(tabs)/_layout.tsx — bottom tabs config (icons, titles)
-  - app/(tabs)/home.tsx — Home screen
-  - app/(tabs)/fav.tsx — Favourites screen
-  - app/(tabs)/friends.tsx — Friends screen
-  - app/(tabs)/profile.tsx — Profile screen
-- Futuristic signup/login placeholders with quick links back home and cross-navigation between auth pages.
-- Email signup flow with validation, password strength requirements, verification emails, and username uniqueness checks.
-- Email login flow with verification enforcement, password reset link, and Firestore profile creation after verification.
-- Redirect: app/index.tsx routes to /(tabs)/home
+## Project Structure (highlights)
+- `app/_layout.tsx` - root stack with game details route registration.
+- `app/(tabs)/_layout.tsx` - shared tab/web layout, search bar, and providers.
+- `app/(tabs)/home.tsx` - discovery grid, IGDB search integration, hero header.
+- `app/(tabs)/fav.tsx` - favourites grid with entitlement-aware limits.
+- `app/(tabs)/profile.tsx` - profile editing, avatar presets, review management.
+- `app/game/[id].tsx` - game details view with community reviews and favourites.
+- `app/signup.tsx` + `app/login.tsx` - multi-provider auth flows and subscription upsell.
+- `components/home/*` - hero header, discovery sections, search grid, game details UI.
+- `lib` - Firebase initialization, auth helpers, IGDB client, community/review logic, and hooks.
+- `types/game.ts` - shared IGDB and review typing.
 
-Scripts
-- start: expo start
-- ios: expo start --ios
-- android: expo start --android
-- web: expo start --web
+## Development Tips
+- Wrap new screens that need game search or favourites state in the provided context providers instead of rolling bespoke data fetches.
+- Phone auth currently supports Australian numbers in E.164 format and only runs on the web preview; adjust validation if you expand to other regions.
+- `SubscriptionOfferModal` is presentation-only; hook a billing provider or server-driven entitlements into the `onSelectPlan` callback when ready.
+- When testing Firestore features, start with relaxed rules during development and tighten them before releasing.
 
-Dependencies
-- runtime
-  - expo ~54.0.9
-  - expo-router ~6.0.7
-  - @expo/vector-icons ^15.0.2
-  - firebase ^12.3.0
-  - @react-native-async-storage/async-storage ^2.2.0
-  - react 19.x, react-native 0.81.x, react-dom 19.x, react-native-web ^0.21.0
-  - expo-status-bar ~3.0.8
-- dev
-  - typescript ~5.9
-  - @types/react ~19.1
-
-Key Configuration
-- package.json
-  - main: expo-router/entry (required for file‑based routing)
-- app.json
-  - plugins: ["expo-router"]
-- tsconfig.json
-  - types: ["expo", "expo-router"]
-  - baseUrl + paths alias ("@/*" → project root)
-
-Project Structure (relevant)
-- app/_layout.tsx
-- app/index.tsx
-- app/(tabs)/_layout.tsx
-- app/(tabs)/home.tsx
-- app/(tabs)/fav.tsx
-- app/(tabs)/friends.tsx
-- app/(tabs)/profile.tsx
-
-Next Steps (planned)
-- Phone number and Google authentication flows.
-- IGDB integration for game data (search, trending, details).
-- Theming and design polish (light/dark, typography, spacing system).
-- State management for tabs and data flows.
-
-Environment Variables
-- Create a `.env` file (ignored by git) with the following keys copied from your Firebase project:
-  - `EXPO_PUBLIC_FIREBASE_API_KEY`
-  - `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`
-  - `EXPO_PUBLIC_FIREBASE_PROJECT_ID`
-  - `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET`
-  - `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
-  - `EXPO_PUBLIC_FIREBASE_APP_ID`
-
-Firebase Notes
-- Create a Firestore database (Start in test mode while iterating, then tighten rules).
-- For development you can use Firestore rules that allow access while testing, but deploy production rules that restrict profile writes to the authenticated user and enforce username ownership.
-- Email signup sends a verification link; users must verify before the login flow will complete and create Firestore documents.
-
-Notes
-- If tabs don’t appear on web after switching to Expo Router, restart the dev server (stop and run npm run start).
-- Ensure @expo/vector-icons is installed and imported as: import { Ionicons } from '@expo/vector-icons'.
+## Roadmap Ideas
+- Wire the Friends tab to real social data (currently placeholder copy).
+- Replace the static premium modal with actual subscription management and refreshed user claims.
+- Add offline caching or optimistic updates for IGDB responses and favourites.
+- Expand phone authentication beyond web and AU numbers.

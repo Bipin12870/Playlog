@@ -310,7 +310,11 @@ export default function GameDetailsScreen() {
   const handleSubmitReview = useCallback(
     async (input: { rating: number; body: string }) => {
       const gameId = numericId;
+      const currentGame = game;
       if (gameId === null) {
+        throw new Error('Missing game context for review.');
+      }
+      if (!currentGame) {
         throw new Error('Missing game context for review.');
       }
       if (!user) {
@@ -318,7 +322,14 @@ export default function GameDetailsScreen() {
       }
       setReviewSubmitting(true);
       try {
-        await submitGameReview(gameId, user, input);
+        await submitGameReview(gameId, user, {
+          ...input,
+          game: {
+            id: currentGame.id,
+            name: currentGame.name,
+            cover: currentGame.cover ?? null,
+          },
+        });
       } catch (err) {
         console.error(err);
         if (err instanceof Error) {
@@ -338,7 +349,7 @@ export default function GameDetailsScreen() {
         setReviewSubmitting(false);
       }
     },
-    [numericId, user],
+    [numericId, user, game],
   );
 
   const handleSelectSimilar = useCallback(
