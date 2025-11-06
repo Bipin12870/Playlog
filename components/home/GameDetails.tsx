@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -315,7 +316,7 @@ export function GameDetails({
   }, []);
 
   const handleSelectRating = useCallback((value: number) => {
-    setRatingInput((prev) => (prev === value ? 0 : value));
+    setRatingInput(value);
     setFormError(null);
   }, []);
 
@@ -535,6 +536,32 @@ export function GameDetails({
       }
     },
     [onDeleteReply],
+  );
+
+  const handleConfirmDeleteReply = useCallback(
+    (reviewId: string, replyId: string, isOwnReply: boolean) => {
+      if (!isOwnReply || !onDeleteReply) return;
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined') {
+          const confirmed = window.confirm('Delete reply? This will remove your comment permanently.');
+          if (confirmed) {
+            void handleDeleteReply(reviewId, replyId);
+          }
+        }
+        return;
+      }
+      Alert.alert('Delete reply?', 'This will remove your comment permanently.', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void handleDeleteReply(reviewId, replyId);
+          },
+        },
+      ]);
+    },
+    [handleDeleteReply, onDeleteReply],
   );
 
   const handleSubmitReview = useCallback(async () => {
@@ -941,22 +968,6 @@ export function GameDetails({
                         const isDeleting = replyDeletingSet.has(reply.id);
                         const showActions = isOwnReply && (onUpdateReply || onDeleteReply);
 
-                        const handleConfirmDelete = () => {
-                          if (!isOwnReply || !onDeleteReply) return;
-                          Alert.alert(
-                            'Delete reply?',
-                            'This will remove your comment permanently.',
-                            [
-                              { text: 'Cancel', style: 'cancel' },
-                              {
-                                text: 'Delete',
-                                style: 'destructive',
-                                onPress: () => handleDeleteReply(review.id, reply.id),
-                              },
-                            ],
-                          );
-                        };
-
                         return (
                           <View key={reply.id} style={styles.replyItem}>
                             <View style={styles.replyAvatar}>
@@ -1049,7 +1060,9 @@ export function GameDetails({
                                   ) : null}
                                   {onDeleteReply ? (
                                     <Pressable
-                                      onPress={handleConfirmDelete}
+                                      onPress={() =>
+                                        handleConfirmDeleteReply(review.id, reply.id, isOwnReply)
+                                      }
                                       disabled={isDeleting}
                                       style={({ pressed }) => [
                                         styles.replyDeleteButton,
