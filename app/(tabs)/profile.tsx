@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Timestamp } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -14,7 +15,10 @@ import {
 } from 'react-native';
 
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
+import { deleteGameReview } from '../../lib/community';
 import { updateUserProfile, useUserProfile } from '../../lib/userProfile';
+import { useUserReviews } from '../../lib/userReviews';
+import type { UserReviewSummary } from '../../types/game';
 
 type AvatarOption = {
   key: string;
@@ -58,10 +62,27 @@ function formatJoined(dateValue?: Timestamp | Date | null) {
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+function formatReviewTimestamp(value?: string | null) {
+  if (!value) return 'Unknown date';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Unknown date';
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
 export default function ProfileScreen() {
+  const router = useRouter();
   const { user, initializing } = useAuthUser();
   const uid = user?.uid ?? null;
   const { profile, loading, error } = useUserProfile(uid);
+  const {
+    reviews,
+    loading: reviewsLoading,
+    error: reviewsError,
+  } = useUserReviews(uid);
 
   const [displayName, setDisplayName] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
@@ -71,6 +92,10 @@ export default function ProfileScreen() {
     null,
   );
   const [saving, setSaving] = useState(false);
+  const [reviewFeedback, setReviewFeedback] = useState<
+    { type: 'success' | 'error'; message: string } | null
+  >(null);
+  const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile) {
@@ -161,6 +186,36 @@ export default function ProfileScreen() {
     setBio(profile.bio ?? '');
     setSelectedAvatar(profile.avatarKey ?? null);
     setFeedback(null);
+  };
+
+  const handleEditReview = (review: UserReviewSummary) => {
+    router.push({
+      pathname: '/game/[id]',
+      params: { id: review.gameId.toString(), name: review.gameName },
+    });
+  };
+
+  const handleDeleteReview = async (review: UserReviewSummary) => {
+    if (!user) return;
+    setReviewFeedback(null);
+    setDeletingReviewId(review.id);
+    try {
+      await deleteGameReview(review.gameId, user);
+      setReviewFeedback({ type: 'success', message: 'Review deleted.' });
+    } catch (err) {
+      console.error(err);
+      let message = 'Unable to delete review.';
+      if (err instanceof Error) {
+        if (err.message === 'REVIEW_NOT_FOUND') {
+          message = 'We could not find that review.';
+        } else {
+          message = err.message;
+        }
+      }
+      setReviewFeedback({ type: 'error', message });
+    } finally {
+      setDeletingReviewId(null);
+    }
   };
 
   if (initializing || loading) {
@@ -389,6 +444,80 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
       </View>
+
+      <View style={styles.reviewsCard}>
+        <View style={styles.reviewsHeader}>
+          <Text style={styles.sectionTitle}>Your reviews</Text>
+          {reviewsLoading ? <ActivityIndicator size="small" color="#818cf8" /> : null}
+        </View>
+        {reviewFeedback ? (
+          <Text
+            style={reviewFeedback.type === 'success' ? styles.successText : styles.errorText}
+          >
+            {reviewFeedback.message}
+          </Text>
+        ) : null}
+        {reviewsError ? <Text style={styles.errorText}>{reviewsError.message}</Text> : null}
+        {!reviewsLoading && !reviews.length ? (
+          <Text style={styles.emptyReviews}>
+            You haven’t posted any reviews yet. Share your thoughts from a game page to see it here.
+          </Text>
+        ) : null}
+        {reviews.map((review) => {
+          const isDeleting = deletingReviewId === review.id;
+          return (
+            <View key={review.id} style={styles.reviewItem}>
+              <View style={styles.reviewHeaderRow}>
+                <View style={styles.reviewHeaderCopy}>
+                  <Text style={styles.reviewGame}>{review.gameName}</Text>
+                  <Text style={styles.reviewDate}>
+                    {formatReviewTimestamp(review.createdAt ?? review.updatedAt)}
+                  </Text>
+                </View>
+                <View style={styles.reviewActions}>
+                  <Pressable
+                    onPress={() => handleEditReview(review)}
+                    style={({ pressed }) => [
+                      styles.reviewActionButton,
+                      pressed && styles.buttonPressed,
+                    ]}
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="create-outline" size={16} color="#2563eb" />
+                    <Text style={styles.reviewActionLabel}>Edit</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => handleDeleteReview(review)}
+                    disabled={isDeleting}
+                    style={({ pressed }) => [
+                      styles.reviewActionButton,
+                      styles.reviewDeleteButton,
+                      (pressed || isDeleting) && styles.reviewDeletePressed,
+                    ]}
+                    accessibilityRole="button"
+                  >
+                    {isDeleting ? (
+                      <ActivityIndicator size="small" color="#f8fafc" />
+                    ) : (
+                      <>
+                        <Ionicons name="trash-outline" size={16} color="#f8fafc" />
+                        <Text style={styles.reviewDeleteLabel}>Delete</Text>
+                      </>
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+              <View style={styles.reviewRatingRow}>
+                <Ionicons name="star" size={16} color="#facc15" />
+                <Text style={styles.reviewRatingValue}>{review.rating.toFixed(1)}/10</Text>
+              </View>
+              <Text style={styles.reviewBody} numberOfLines={4}>
+                {review.body}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
     </ScrollView>
   );
 }
@@ -615,5 +744,90 @@ const styles = StyleSheet.create({
     color: '#cbd5f5',
     fontSize: 14,
     textAlign: 'center',
+  },
+  reviewsCard: {
+    backgroundColor: '#1f2937',
+    borderRadius: 24,
+    padding: 24,
+    gap: 16,
+  },
+  reviewsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  emptyReviews: {
+    color: '#94a3b8',
+    fontSize: 14,
+  },
+  reviewItem: {
+    backgroundColor: '#111827',
+    borderRadius: 16,
+    padding: 16,
+    gap: 10,
+  },
+  reviewHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 16,
+  },
+  reviewHeaderCopy: {
+    flexShrink: 1,
+    gap: 2,
+  },
+  reviewGame: {
+    color: '#e0e7ff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  reviewDate: {
+    color: '#9ca3af',
+    fontSize: 12,
+  },
+  reviewActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reviewActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+  },
+  reviewActionLabel: {
+    color: '#2563eb',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  reviewDeleteButton: {
+    backgroundColor: '#ef4444',
+  },
+  reviewDeleteLabel: {
+    color: '#f8fafc',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  reviewDeletePressed: {
+    opacity: 0.75,
+  },
+  reviewRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  reviewRatingValue: {
+    color: '#fde68a',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  reviewBody: {
+    color: '#cbd5f5',
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

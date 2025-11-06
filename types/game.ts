@@ -27,3 +27,14 @@ export type GameReview = {
   createdAt?: string;
   updatedAt?: string;
 };
+
+export type UserReviewSummary = {
+  id: string;
+  gameId: number;
+  gameName: string;
+  rating: number;
+  body: string;
+  createdAt?: string;
+  updatedAt?: string;
+  gameCover?: { url?: string | null } | null;
+};

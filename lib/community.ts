@@ -20,6 +20,11 @@ export const MAX_REVIEWS_PER_USER = 10;
 type ReviewInput = {
   rating: number;
   body: string;
+  game?: {
+    id: number;
+    name: string;
+    cover?: { url?: string | null } | null;
+  };
 };
 
 type ReviewStats = {
@@ -126,6 +131,7 @@ export async function submitGameReview(gameId: number, user: User, input: Review
   const statsRef = doc(db, 'gameCommunity', docId);
   const reviewRef = doc(collection(statsRef, 'reviews'), user.uid);
   const userStatsRef = doc(db, 'userCommunity', user.uid);
+  const userReviewRef = doc(collection(userStatsRef, 'reviews'), docId);
 
   await runTransaction(db, async (transaction) => {
     const [statsSnap, reviewSnap, userStatsSnap] = await Promise.all([
@@ -141,6 +147,8 @@ export async function submitGameReview(gameId: number, user: User, input: Review
 
     const now = serverTimestamp();
     const author = user.displayName ?? user.email ?? 'Anonymous';
+    const gameName = input.game?.name ?? `Game #${gameId}`;
+    const gameCover = input.game?.cover ?? null;
 
     const userStatsData = userStatsSnap.exists() ? userStatsSnap.data() : {};
     const userReviewCount =
@@ -159,6 +167,7 @@ export async function submitGameReview(gameId: number, user: User, input: Review
       const existing = reviewSnap.data();
       const previousRating =
         typeof existing?.rating === 'number' && !Number.isNaN(existing.rating) ? existing.rating : 0;
+      const existingCreatedAt = existing?.createdAt ?? now;
       nextTotalRating = currentTotalRating - previousRating + rating;
       transaction.set(
         reviewRef,
@@ -171,6 +180,19 @@ export async function submitGameReview(gameId: number, user: User, input: Review
         },
         { merge: true },
       );
+      transaction.set(
+        userReviewRef,
+        {
+          gameId,
+          gameName,
+          gameCover,
+          rating,
+          body,
+          createdAt: existingCreatedAt ?? now,
+          updatedAt: now,
+        },
+        { merge: true },
+      );
     } else {
       nextCount = currentCount + 1;
       nextTotalRating = currentTotalRating + rating;
@@ -178,6 +200,15 @@ export async function submitGameReview(gameId: number, user: User, input: Review
       transaction.set(reviewRef, {
         userId: user.uid,
         author,
+        rating,
+        body,
+        createdAt: now,
+        updatedAt: now,
+      });
+      transaction.set(userReviewRef, {
+        gameId,
+        gameName,
+        gameCover,
         rating,
         body,
         createdAt: now,
@@ -206,6 +237,68 @@ export async function submitGameReview(gameId: number, user: User, input: Review
       },
       { merge: true },
     );
+  });
+}
+
+export async function deleteGameReview(gameId: number, user: User) {
+  const docId = resolveGameDocId(gameId);
+  const statsRef = doc(db, 'gameCommunity', docId);
+  const reviewRef = doc(collection(statsRef, 'reviews'), user.uid);
+  const userStatsRef = doc(db, 'userCommunity', user.uid);
+  const userReviewRef = doc(collection(userStatsRef, 'reviews'), docId);
+
+  await runTransaction(db, async (transaction) => {
+    const [statsSnap, reviewSnap, userStatsSnap] = await Promise.all([
+      transaction.get(statsRef),
+      transaction.get(reviewRef),
+      transaction.get(userStatsRef),
+    ]);
+
+    if (!reviewSnap.exists()) {
+      throw new Error('REVIEW_NOT_FOUND');
+    }
+
+    const statsData = statsSnap.exists() ? statsSnap.data() : {};
+    const currentCount = typeof statsData.reviewCount === 'number' ? statsData.reviewCount : 0;
+    const currentTotalRating =
+      typeof statsData.totalRating === 'number' ? statsData.totalRating : 0;
+
+    const existing = reviewSnap.data();
+    const previousRating =
+      typeof existing?.rating === 'number' && !Number.isNaN(existing.rating) ? existing.rating : 0;
+
+    const nextCount = Math.max(0, currentCount - 1);
+    const nextTotalRating = currentTotalRating - previousRating;
+    const averageRating = nextCount > 0 ? nextTotalRating / nextCount : null;
+    const now = serverTimestamp();
+
+    transaction.delete(reviewRef);
+    transaction.set(
+      statsRef,
+      {
+        reviewCount: nextCount,
+        totalRating: nextTotalRating,
+        averageRating,
+        updatedAt: now,
+      },
+      { merge: true },
+    );
+
+    const userStatsData = userStatsSnap.exists() ? userStatsSnap.data() : {};
+    const userReviewCount =
+      typeof userStatsData.reviewCount === 'number' ? userStatsData.reviewCount : 0;
+    const nextUserReviewCount = Math.max(0, userReviewCount - 1);
+
+    transaction.set(
+      userStatsRef,
+      {
+        reviewCount: nextUserReviewCount,
+        updatedAt: now,
+      },
+      { merge: true },
+    );
+
+    transaction.delete(userReviewRef);
   });
 }
 
