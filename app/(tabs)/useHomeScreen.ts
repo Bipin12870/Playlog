@@ -28,13 +28,17 @@ export function useHomeScreen() {
   const isMD = contentW >= 768 && contentW < 992;
   const isSM = contentW < 768;
 
-  const heroH = clamp(Math.round(contentW * (isWeb ? 0.33 : 0.42)), isWeb ? 260 : 180, isWeb ? 420 : 260);
-  const sideW = clamp(Math.round(heroH * (isWeb ? 0.45 : 0.0)), 120, isWeb ? 200 : 0);
+  const heroH = clamp(
+    Math.round(contentW * (isWeb ? 0.33 : 0.42)),
+    isWeb ? 260 : 180,
+    isWeb ? 420 : 260
+  );
+  const sideW = isWeb ? clamp(Math.round(heroH * 0.45), 120, 200) : 0;
 
   const ITEM_GAP = isWeb ? 18 : 12;
   const ITEM_WIDTH = isWeb
-    ? clamp(Math.round(contentW * (isXL ? 0.25 : isLG ? 0.28 : isMD ? 0.34 : 0.62)), 220, 360)
-    : clamp(Math.round(width * 0.76), 220, 360);
+    ? clamp(Math.round(contentW * (isXL ? 0.22 : isLG ? 0.26 : isMD ? 0.32 : 0.55)), 200, 320)
+    : clamp(Math.round(width * 0.68), 200, 320);
 
   const placeholderCount = isWeb ? 12 : 10;
   const placeholders = useMemo(() => Array.from({ length: placeholderCount }), [placeholderCount]);
