@@ -27,6 +27,7 @@ export type UserProfile = {
   photoURL?: string | null;
   avatarKey?: string | null;
   bio?: string | null;
+  profileVisibility?: 'public' | 'private';
   stats?: ProfileStats | null;
   createdAt?: Timestamp | null;
   updatedAt?: Timestamp | null;
@@ -37,6 +38,7 @@ type UpdateUserProfileInput = {
   photoURL?: string | null;
   bio?: string | null;
   avatarKey?: string | null;
+  profileVisibility?: 'public' | 'private';
 };
 
 export async function updateUserProfile(updates: UpdateUserProfileInput) {
@@ -104,6 +106,13 @@ export async function updateUserProfile(updates: UpdateUserProfileInput) {
       payload.avatarKey = updates.avatarKey ?? null;
       if (updates.avatarKey) {
         payload.photoURL = null;
+      }
+    }
+
+    if (updates.profileVisibility !== undefined) {
+      const nextVisibility = updates.profileVisibility === 'private' ? 'private' : 'public';
+      if (nextVisibility !== (data.profileVisibility ?? 'public')) {
+        payload.profileVisibility = nextVisibility;
       }
     }
 

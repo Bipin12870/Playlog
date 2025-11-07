@@ -11,11 +11,17 @@ import {
   useColorScheme,
 } from 'react-native';
 import { signOut } from 'firebase/auth';
+import { useEffect } from 'react';
 
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
 import { auth } from '../../lib/firebase';
-import { GameSearchProvider, useGameSearch } from '../../lib/hooks/useGameSearch';
+import {
+  GameSearchProvider,
+  useGameSearch,
+  type SearchScope,
+} from '../../lib/hooks/useGameSearch';
 import { GameFavoritesProvider } from '../../lib/hooks/useGameFavorites';
+import { useFollowRequests } from '../../lib/hooks/useFollowRequests';
 
 const LOGO = require('../../assets/logo.png');
 
@@ -35,12 +41,33 @@ type WebNavBarProps = {
     muted: string;
     accent: string;
   };
+  user: ReturnType<typeof useAuthUser>['user'];
+  pendingRequests: number;
 };
 
-function WebNavBar({ activeRoute, palette }: WebNavBarProps) {
+function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarProps) {
   const router = useRouter();
-  const { user } = useAuthUser();
-  const { term, setTerm, submit, resetSearch } = useGameSearch();
+  const { term, setTerm, submit, resetSearch, setScope } = useGameSearch();
+
+  const scopeByRoute: Record<string, SearchScope> = {
+    home: 'games',
+    fav: 'favourites',
+    friends: 'friends',
+    profile: 'games',
+  };
+  const placeholderByScope: Record<SearchScope, string> = {
+    games: 'Search games',
+    favourites: 'Search favourites',
+    friends: 'Search friends',
+  };
+  const nextScope = scopeByRoute[activeRoute] ?? 'games';
+
+  useEffect(() => {
+    setScope(nextScope);
+  }, [setScope, nextScope]);
+
+  const placeholder = placeholderByScope[nextScope] ?? 'Search';
+  const showSearch = activeRoute !== 'profile';
 
   const handleSignOut = async () => {
     try {
@@ -51,6 +78,7 @@ function WebNavBar({ activeRoute, palette }: WebNavBarProps) {
   };
 
   const handleHomePress = () => {
+    setScope('games');
     resetSearch();
     if (activeRoute !== 'home') {
       router.push('/(tabs)/home');
@@ -70,47 +98,54 @@ function WebNavBar({ activeRoute, palette }: WebNavBarProps) {
         <View style={styles.links}>
           {NAV_ITEMS.map(({ name, label }, index) => {
             const isActive = name === activeRoute;
+            const showRequestBadge = name === 'profile' && pendingRequests > 0;
             return (
-              <Link
-                key={name}
-                href={`/(tabs)/${name}`}
-                style={[
-                  styles.link,
-                  index > 0 && styles.linkSpacing,
-                  { color: isActive ? palette.text : palette.muted },
-                  isActive && { borderBottomColor: palette.accent, borderBottomWidth: 2 },
-                ]}
-                onPress={(event) => {
-                  if (name === 'home') {
-                    event?.preventDefault();
-                    handleHomePress();
-                  }
-                }}
-              >
-                {label}
-              </Link>
+              <View key={name} style={styles.linkWrapper}>
+                <Link
+                  href={`/(tabs)/${name}`}
+                  style={[
+                    styles.link,
+                    index > 0 && styles.linkSpacing,
+                    { color: isActive ? palette.text : palette.muted },
+                    isActive && { borderBottomColor: palette.accent, borderBottomWidth: 2 },
+                  ]}
+                  onPress={(event) => {
+                    if (name === 'home') {
+                      event?.preventDefault();
+                      handleHomePress();
+                    }
+                  }}
+                >
+                  {label}
+                </Link>
+                {showRequestBadge ? <View style={styles.navBadge} /> : null}
+              </View>
             );
           })}
         </View>
       </View>
-      <TextInput
-        placeholder="Search games"
-        placeholderTextColor={palette.muted}
-        value={term}
-        onChangeText={setTerm}
-        returnKeyType="search"
-        onSubmitEditing={() => submit()}
-        autoCorrect={false}
-        autoCapitalize="none"
-        style={[
-          styles.searchInput,
-          {
-            borderColor: palette.border,
-            color: palette.text,
-            backgroundColor: palette.background === '#ffffff' ? '#ffffff' : '#1f2937',
-          },
-        ]}
-      />
+      {showSearch ? (
+        <TextInput
+          placeholder={placeholder}
+          placeholderTextColor={palette.muted}
+          value={term}
+          onChangeText={setTerm}
+          returnKeyType="search"
+          onSubmitEditing={() => submit()}
+          autoCorrect={false}
+          autoCapitalize="none"
+          style={[
+            styles.searchInput,
+            {
+              borderColor: palette.border,
+              color: palette.text,
+              backgroundColor: palette.background === '#ffffff' ? '#ffffff' : '#1f2937',
+            },
+          ]}
+        />
+      ) : (
+        <View style={styles.searchPlaceholder} />
+      )}
       <View style={styles.authLinks}>
         {user ? (
           <Pressable
@@ -147,6 +182,11 @@ function WebNavBar({ activeRoute, palette }: WebNavBarProps) {
 export default function TabsLayout() {
   const scheme = useColorScheme();
   const accent = scheme === 'dark' ? '#7dcfff' : '#2b6cb0';
+  const { user } = useAuthUser();
+  const followRequests = useFollowRequests(user?.uid ?? null);
+  const pendingRequests = followRequests.requests.length;
+  const profileBadge =
+    pendingRequests > 0 ? (pendingRequests > 99 ? '99+' : pendingRequests) : undefined;
   const palette = {
     background: scheme === 'dark' ? '#111827' : '#ffffff',
     border: scheme === 'dark' ? '#1f2937' : '#e5e7eb',
@@ -161,7 +201,14 @@ export default function TabsLayout() {
         <GameSearchProvider>
           <Stack
             screenOptions={({ route }) => ({
-              header: () => <WebNavBar activeRoute={route.name} palette={palette} />,
+              header: () => (
+                <WebNavBar
+                  activeRoute={route.name}
+                  palette={palette}
+                  user={user}
+                  pendingRequests={pendingRequests}
+                />
+              ),
             })}
           >
             <Stack.Screen name="home" />
@@ -204,7 +251,13 @@ export default function TabsLayout() {
           <Tabs.Screen name="home" options={{ title: 'Home' }} />
           <Tabs.Screen name="fav" options={{ title: 'Favourites' }} />
           <Tabs.Screen name="friends" options={{ title: 'Friends' }} />
-          <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+          <Tabs.Screen
+            name="profile"
+            options={{
+              title: 'Profile',
+              tabBarBadge: profileBadge,
+            }}
+          />
         </Tabs>
       </GameSearchProvider>
     </GameFavoritesProvider>
@@ -245,6 +298,18 @@ const styles = StyleSheet.create({
   linkSpacing: {
     marginLeft: 24,
   },
+  linkWrapper: {
+    position: 'relative',
+  },
+  navBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#f97316',
+  },
   searchInput: {
     flex: 1,
     height: 36,
@@ -252,6 +317,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderWidth: 1,
     borderRadius: 999,
+  },
+  searchPlaceholder: {
+    flex: 1,
+    marginHorizontal: 32,
   },
   loginLink: {
     fontSize: 16,

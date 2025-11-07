@@ -1,6 +1,23 @@
-import { ReactNode, createContext, useCallback, useContext, useMemo, useState } from 'react';
+import {
+  ReactNode,
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
+
+export type SearchScope = 'games' | 'favourites' | 'friends';
+
+type ScopeState = {
+  term: string;
+  submittedTerm: string;
+  submissionId: number;
+};
 
 type GameSearchContextValue = {
+  scope: SearchScope;
+  setScope: (scope: SearchScope) => void;
   term: string;
   setTerm: (value: string) => void;
   submittedTerm: string;
@@ -9,44 +26,92 @@ type GameSearchContextValue = {
   resetSearch: () => void;
 };
 
+const DEFAULT_SCOPE_STATE: ScopeState = {
+  term: '',
+  submittedTerm: '',
+  submissionId: 0,
+};
+
+const INITIAL_STATE: Record<SearchScope, ScopeState> = {
+  games: { ...DEFAULT_SCOPE_STATE },
+  favourites: { ...DEFAULT_SCOPE_STATE },
+  friends: { ...DEFAULT_SCOPE_STATE },
+};
+
 const GameSearchContext = createContext<GameSearchContextValue | undefined>(undefined);
 
 export function GameSearchProvider({ children }: { children: ReactNode }) {
-  const [term, setTerm] = useState('');
-  const [submittedTerm, setSubmittedTerm] = useState('');
-  const [submissionId, setSubmissionId] = useState(0);
+  const [scope, setScope] = useState<SearchScope>('games');
+  const [scopes, setScopes] = useState<Record<SearchScope, ScopeState>>(INITIAL_STATE);
 
-  const resetSearch = useCallback(() => {
-    setTerm('');
-    setSubmittedTerm('');
-    setSubmissionId((id) => id + 1);
-  }, []);
+  const setTerm = useCallback((value: string) => {
+    setScopes((prev) => {
+      const current = prev[scope];
+      return {
+        ...prev,
+        [scope]: {
+          ...current,
+          term: value,
+        },
+      };
+    });
+  }, [scope]);
 
   const submit = useCallback(
     (value?: string) => {
-    const next = value?.trim() ?? term.trim();
-    if (!next) {
-      resetSearch();
-      return;
-    }
-    setTerm(next);
-    setSubmittedTerm(next);
-    setSubmissionId((id) => id + 1);
+      setScopes((prev) => {
+        const current = prev[scope];
+        const nextValue = value?.trim() ?? current.term.trim();
+        if (!nextValue) {
+          return {
+            ...prev,
+            [scope]: {
+              term: '',
+              submittedTerm: '',
+              submissionId: current.submissionId + 1,
+            },
+          };
+        }
+        return {
+          ...prev,
+          [scope]: {
+            term: nextValue,
+            submittedTerm: nextValue,
+            submissionId: current.submissionId + 1,
+          },
+        };
+      });
     },
-    [term, resetSearch]
+    [scope],
   );
 
-  const value = useMemo(
-    () => ({
-      term,
+  const resetSearch = useCallback(() => {
+    setScopes((prev) => {
+      const current = prev[scope];
+      return {
+        ...prev,
+        [scope]: {
+          term: '',
+          submittedTerm: '',
+          submissionId: current.submissionId + 1,
+        },
+      };
+    });
+  }, [scope]);
+
+  const value = useMemo(() => {
+    const current = scopes[scope];
+    return {
+      scope,
+      setScope,
+      term: current.term,
       setTerm,
-      submittedTerm,
-      submissionId,
+      submittedTerm: current.submittedTerm,
+      submissionId: current.submissionId,
       submit,
       resetSearch,
-    }),
-    [term, submittedTerm, submissionId, submit, resetSearch]
-  );
+    };
+  }, [scope, scopes, setTerm, submit, resetSearch]);
 
   return <GameSearchContext.Provider value={value}>{children}</GameSearchContext.Provider>;
 }
