@@ -1,11 +1,13 @@
-import { useCallback, useMemo } from 'react';
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Platform, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 
 import { SearchResults } from '../../components/home';
 import { useGameFavorites } from '../../lib/hooks/useGameFavorites';
+import { useGameSearch } from '../../lib/hooks/useGameSearch';
 import type { GameSummary } from '../../types/game';
 
 export default function FavScreen() {
+  const isWeb = Platform.OS === 'web';
   const {
     favourites,
     maxFavourites,
@@ -15,6 +17,16 @@ export default function FavScreen() {
   } = useGameFavorites();
   const { width } = useWindowDimensions();
   const columnCount = getColumnCount(width);
+  const { term, setTerm, submit, submittedTerm, submissionId, setScope } = useGameSearch();
+  const [activeQuery, setActiveQuery] = useState('');
+
+  useEffect(() => {
+    setScope('favourites');
+  }, [setScope]);
+
+  useEffect(() => {
+    setActiveQuery(submittedTerm.trim());
+  }, [submittedTerm, submissionId]);
 
   const handleSelect = useCallback((game: GameSummary) => {
     // TODO: Route to a dedicated game details view when available.
@@ -31,7 +43,7 @@ export default function FavScreen() {
     return `Saved ${favourites.length} / ${maxFavourites} games`;
   }, [isAuthenticated, hasUnlimitedFavorites, favourites.length, maxFavourites]);
 
-  const emptyState = useMemo(
+  const baseEmptyState = useMemo(
     () =>
       isAuthenticated
         ? {
@@ -45,6 +57,28 @@ export default function FavScreen() {
     [isAuthenticated]
   );
 
+  const filteredFavourites = useMemo(() => {
+    const query = activeQuery.toLowerCase();
+    if (!query) {
+      return favourites;
+    }
+    return favourites.filter((game) => game.name.toLowerCase().includes(query));
+  }, [activeQuery, favourites]);
+
+  const emptyState = useMemo(() => {
+    if (activeQuery) {
+      return {
+        title: 'No favourites match your search',
+        copy: 'Try another title or clear the search to see all saved games.',
+      };
+    }
+    return baseEmptyState;
+  }, [activeQuery, baseEmptyState]);
+
+  const handleSubmit = useCallback(() => {
+    submit();
+  }, [submit]);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -54,8 +88,23 @@ export default function FavScreen() {
           <Text style={styles.limitNotice}>You have reached your current limit.</Text>
         ) : null}
       </View>
+      {!isWeb ? (
+        <View style={styles.searchBar}>
+          <TextInput
+            value={term}
+            onChangeText={setTerm}
+            placeholder="Search favourites"
+            placeholderTextColor="#9ca3af"
+            returnKeyType="search"
+            onSubmitEditing={handleSubmit}
+            autoCorrect={false}
+            autoCapitalize="none"
+            style={styles.searchInput}
+          />
+        </View>
+      ) : null}
       <SearchResults
-        games={favourites}
+        games={filteredFavourites}
         loading={false}
         error={null}
         columnCount={columnCount}
@@ -86,6 +135,17 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '700', color: '#111827' },
   subtitle: { fontSize: 14, color: '#4b5563' },
   limitNotice: { fontSize: 13, color: '#ef4444', fontWeight: '600' },
+  searchBar: {
+    marginBottom: 16,
+    borderRadius: 12,
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  searchInput: {
+    fontSize: 16,
+    color: '#111827',
+  },
   resultsContent: { paddingBottom: 48 },
   singleColumnContent: { alignItems: 'center' },
   singleColumnRow: { gap: 0, paddingBottom: 20 },
