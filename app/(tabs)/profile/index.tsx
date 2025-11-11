@@ -5,10 +5,14 @@ import {
   ActivityIndicator,
   Image,
   ImageSourcePropType,
+  Platform,
   Pressable,
+  SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
@@ -16,6 +20,8 @@ import { useAuthUser } from '../../../lib/hooks/useAuthUser';
 import { useUserProfile } from '../../../lib/userProfile';
 import { useFollowRequests } from '../../../lib/hooks/useFollowRequests';
 import { getProfileVisibility } from '../../../lib/profileVisibility';
+import { useGameFavorites } from '../../../lib/hooks/useGameFavorites';
+import type { GameSummary } from '../../../types/game';
 
 type ProfileAction = {
   key: 'followers' | 'following' | 'blocked' | 'requests' | 'edit' | 'reviews';
@@ -25,42 +31,12 @@ type ProfileAction = {
 };
 
 const ACTIONS: ProfileAction[] = [
-  {
-    key: 'followers',
-    title: 'Followers',
-    description: 'See everyone keeping up with your activity.',
-    icon: 'people',
-  },
-  {
-    key: 'following',
-    title: 'Following',
-    description: 'Manage the players and friends you follow.',
-    icon: 'person-add',
-  },
-  {
-    key: 'blocked',
-    title: 'Blocked users',
-    description: 'Review and manage your blocked list.',
-    icon: 'ban',
-  },
-  {
-    key: 'requests',
-    title: 'Follow requests',
-    description: 'Approve or decline new followers.',
-    icon: 'mail',
-  },
-  {
-    key: 'edit',
-    title: 'Edit Profile',
-    description: 'Update your display name, avatar, and bio.',
-    icon: 'create',
-  },
-  {
-    key: 'reviews',
-    title: 'Reviews',
-    description: 'Revisit and manage the reviews you have shared.',
-    icon: 'chatbubble-ellipses',
-  },
+  { key: 'followers', title: 'Followers', description: 'See everyone keeping up with your activity.', icon: 'people' },
+  { key: 'following', title: 'Following', description: 'Manage the players and friends you follow.', icon: 'person-add' },
+  { key: 'blocked', title: 'Blocked users', description: 'Review and manage your blocked list.', icon: 'ban' },
+  { key: 'requests', title: 'Follow requests', description: 'Approve or decline new followers.', icon: 'mail' },
+  { key: 'edit', title: 'Edit Profile', description: 'Update your display name, avatar, and bio.', icon: 'create' },
+  { key: 'reviews', title: 'Reviews', description: 'Revisit and manage shared reviews.', icon: 'chatbubble-ellipses' },
 ];
 
 const PRESET_AVATAR_MAP: Record<string, ImageSourcePropType> = {
@@ -88,8 +64,10 @@ export default function ProfileHomeScreen() {
   const uid = user?.uid ?? null;
   const { profile, loading, error } = useUserProfile(uid);
   const followRequests = useFollowRequests(uid);
+  const { favourites } = useGameFavorites();
   const pendingRequests = followRequests.requests.length;
   const visibility = getProfileVisibility(profile ?? undefined);
+  const isMobile = Platform.OS !== 'web';
 
   const joinedLabel = useMemo(() => {
     if (!profile?.createdAt) return null;
@@ -103,9 +81,7 @@ export default function ProfileHomeScreen() {
 
   const heroAvatar: ImageSourcePropType | null = useMemo(() => {
     if (!profile) return null;
-    if (profile.photoURL) {
-      return { uri: profile.photoURL };
-    }
+    if (profile.photoURL) return { uri: profile.photoURL };
     if (profile.avatarKey && PRESET_AVATAR_MAP[profile.avatarKey]) {
       return PRESET_AVATAR_MAP[profile.avatarKey];
     }
@@ -133,11 +109,25 @@ export default function ProfileHomeScreen() {
         <Ionicons name="person-circle-outline" size={64} color="#94a3b8" />
         <Text style={styles.emptyTitle}>Sign in to manage your profile</Text>
         <Text style={styles.emptyCopy}>
-          Log in to customise your Playlog presence. Update your display name, avatar, and bio once
-          you’re signed in.
+          Log in to customise your Playlog presence. Update your display name, avatar, and bio once you’re signed in.
         </Text>
         {error ? <Text style={styles.errorText}>{error.message}</Text> : null}
       </View>
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <MobileProfile
+        profile={profile}
+        heroAvatar={heroAvatar}
+        stats={stats}
+        visibility={visibility}
+        joinedLabel={joinedLabel}
+        favourites={favourites}
+        pendingRequests={pendingRequests}
+        onNavigate={handleNavigate}
+      />
     );
   }
 
@@ -193,225 +183,254 @@ export default function ProfileHomeScreen() {
 
       <View style={styles.actionsCard}>
         <Text style={styles.actionsTitle}>Manage your profile</Text>
-          <View style={styles.actionList}>
-            {ACTIONS.map((action) => (
-              <Pressable
-                key={action.key}
-                style={({ pressed }) => [
-                styles.actionItem,
-                pressed && styles.actionItemPressed,
+        <View style={styles.actionList}>
+          {ACTIONS.map((action) => (
+            <Pressable
+              key={action.key}
+              style={({ pressed }) => [
+                styles.actionRow,
+                pressed && { backgroundColor: 'rgba(99,102,241,0.08)' },
               ]}
               onPress={() => handleNavigate(action)}
-              accessibilityRole="button"
-              accessibilityLabel={action.title}
-              >
-                <View style={styles.actionIcon}>
-                  <Ionicons name={action.icon} size={22} color="#6366f1" />
+            >
+              <View style={styles.actionIconWrap}>
+                <Ionicons name={action.icon} size={20} color="#6366f1" />
+              </View>
+              <View style={styles.actionCopy}>
+                <Text style={styles.actionTitle}>{action.title}</Text>
+                <Text style={styles.actionDescription}>{action.description}</Text>
+              </View>
+              {action.key === 'requests' && pendingRequests > 0 ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeLabel}>{pendingRequests}</Text>
                 </View>
-                <View style={styles.actionCopy}>
-                  <Text style={styles.actionTitle}>{action.title}</Text>
-                  <Text style={styles.actionSubtitle}>{action.description}</Text>
-                  {action.key === 'requests' && pendingRequests > 0 ? (
-                    <View style={styles.badge}>
-                      <Text style={styles.badgeLabel}>{pendingRequests}</Text>
-                    </View>
-                  ) : null}
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
-              </Pressable>
-            ))}
-          </View>
+              ) : null}
+              <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
+            </Pressable>
+          ))}
+        </View>
       </View>
     </ScrollView>
   );
 }
 
+function MobileProfile({
+  profile,
+  heroAvatar,
+  stats,
+  visibility,
+  joinedLabel,
+  favourites,
+  pendingRequests,
+  onNavigate,
+}: {
+  profile: any;
+  heroAvatar: ImageSourcePropType | null;
+  stats: any;
+  visibility: ReturnType<typeof getProfileVisibility>;
+  joinedLabel: string | null;
+  favourites: GameSummary[];
+  pendingRequests: number;
+  onNavigate: (action: ProfileAction) => void;
+}) {
+  const favouritePreview = favourites.slice(0, 6);
+  return (
+    <SafeAreaView style={styles.mobileSafe}>
+      <StatusBar barStyle="light-content" />
+      <ScrollView contentContainerStyle={styles.mobileScroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.mobileHeaderRow}>
+          <View style={styles.mobileLogoPill}>
+            <Text style={styles.mobileLogoText}>Playlog</Text>
+          </View>
+          <View style={styles.mobileSearchBox}>
+            <TextInput placeholder="Search..." placeholderTextColor="#9ca3af" editable={false} style={styles.mobileSearchInput} />
+          </View>
+          <View style={styles.mobileProfileBubble}>
+            <Ionicons name="person" size={20} color="#f8fafc" />
+          </View>
+        </View>
+
+        <View style={styles.mobileHeroCard}>
+          <View style={styles.mobileHeroRow}>
+            <View style={styles.avatarWrapper}>
+              {heroAvatar ? <Image source={heroAvatar} style={styles.avatarImage} /> : <Ionicons name="person" size={42} color="#1f2937" />}
+            </View>
+            <View style={styles.mobileHeroDetails}>
+              <Text style={styles.displayName}>{profile.displayName}</Text>
+              {profile.bio ? <Text style={styles.mobileBio}>{profile.bio}</Text> : null}
+              {joinedLabel ? <Text style={styles.mobileJoined}>Joined {joinedLabel}</Text> : null}
+            </View>
+          </View>
+          <View style={styles.mobileStatRow}>
+            <MobileStat label="Following" value={formatCount(stats.following)} />
+            <MobileStat label="Followers" value={formatCount(stats.followers)} />
+            <MobileStat label="Blocked" value={formatCount(stats.blocked)} />
+          </View>
+        </View>
+
+        <View style={styles.mobileFavSection}>
+          <Text style={styles.mobileSectionTitle}>Favourite Games</Text>
+          <View style={styles.mobileFavGrid}>
+            {favouritePreview.length ? (
+              favouritePreview.map((game) => (
+                <View key={game.id} style={styles.mobileFavCard}>
+                  <Text style={styles.mobileFavThumb}>Thumbnail</Text>
+                  <Text style={styles.mobileFavName} numberOfLines={1}>
+                    {game.name}
+                  </Text>
+                  <Text style={styles.mobileFavMeta}>
+                    ⭐ {game.rating ? (game.rating / 10).toFixed(1) : 'N/A'} GG
+                  </Text>
+                  <Pressable style={styles.mobileFavBtn}>
+                    <Text style={styles.mobileFavBtnLabel}>View Details</Text>
+                  </Pressable>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.mobileEmptyCopy}>No favourites yet. Save games to see them here.</Text>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.mobileActionsBlock}>
+          {ACTIONS.map((action) => (
+            <Pressable key={action.key} style={styles.mobileActionRow} onPress={() => onNavigate(action)}>
+              <Ionicons name={action.icon} size={18} color="#f8fafc" />
+              <Text style={styles.mobileActionLabel}>{action.title}</Text>
+              {action.key === 'requests' && pendingRequests > 0 ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeLabel}>{pendingRequests}</Text>
+                </View>
+              ) : null}
+              <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
+            </Pressable>
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function MobileStat({ label, value }: { label: string; value: number }) {
+  return (
+    <View style={styles.mobileStatBlock}>
+      <Text style={styles.mobileStatValue}>{value}</Text>
+      <Text style={styles.mobileStatLabel}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  page: {
-    padding: 24,
-    gap: 24,
-    backgroundColor: '#0f172a',
-  },
+  page: { padding: 24, gap: 24 },
   heroCard: {
-    backgroundColor: '#374151',
-    borderRadius: 24,
     padding: 24,
-    gap: 16,
-  },
-  heroRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  avatarWrapper: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#d1d5db',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  heroDetails: {
-    flex: 1,
-    gap: 6,
-  },
-  displayName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#f9fafb',
-  },
-  bioText: {
-    color: '#e0e7ff',
-    fontSize: 14,
-  },
-  joinedText: {
-    color: '#cbd5f5',
-    fontSize: 12,
-  },
-  visibilityRow: {
-    gap: 6,
-  },
-  visibilityBadge: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
+    borderRadius: 28,
+    backgroundColor: '#0f172a',
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.45)',
-    backgroundColor: 'rgba(15, 23, 42, 0.35)',
+    borderColor: 'rgba(99,102,241,0.2)',
+    gap: 18,
   },
-  visibilityLabel: {
-    color: '#f9fafb',
-    fontSize: 13,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  visibilityHint: {
-    color: '#cbd5f5',
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statBlock: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#f9fafb',
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#cbd5f5',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  actionsCard: {
-    backgroundColor: '#1f2937',
+  heroRow: { flexDirection: 'row', gap: 16 },
+  avatarWrapper: {
+    width: 72,
+    height: 72,
     borderRadius: 24,
-    padding: 24,
-    gap: 16,
+    backgroundColor: '#1f2937',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  actionsTitle: {
-    color: '#f9fafb',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  actionList: {
-    gap: 12,
-  },
-  actionItem: {
-    backgroundColor: '#111827',
-    borderRadius: 20,
-    padding: 16,
+  avatarImage: { width: 72, height: 72, borderRadius: 24 },
+  heroDetails: { flex: 1, gap: 6 },
+  displayName: { color: '#f8fafc', fontSize: 24, fontWeight: '800' },
+  bioText: { color: '#cbd5f5', fontSize: 14 },
+  joinedText: { color: '#94a3b8', fontSize: 12 },
+  visibilityRow: { gap: 6 },
+  visibilityBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-  },
-  actionItemPressed: {
-    transform: [{ scale: 0.98 }],
-  },
-  actionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(99, 102, 241, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  actionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#f9fafb',
-  },
-  actionSubtitle: {
-    fontSize: 13,
-    color: '#cbd5f5',
-  },
-  badge: {
-    marginTop: 6,
-    alignSelf: 'flex-start',
-    backgroundColor: '#f97316',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(15,23,42,0.8)',
     borderRadius: 999,
+  },
+  visibilityLabel: { color: '#f8fafc', fontSize: 12, fontWeight: '600' },
+  visibilityHint: { color: '#94a3b8', fontSize: 12 },
+  statRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  statBlock: { flex: 1, alignItems: 'center' },
+  statValue: { color: '#f8fafc', fontSize: 22, fontWeight: '800' },
+  statLabel: { color: '#cbd5f5', fontSize: 13 },
+  actionsCard: {
+    padding: 24,
+    borderRadius: 28,
+    backgroundColor: '#0b1120',
+    borderWidth: 1,
+    borderColor: 'rgba(99,102,241,0.15)',
+    gap: 18,
+  },
+  actionsTitle: { color: '#f8fafc', fontSize: 18, fontWeight: '700' },
+  actionList: { gap: 12 },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 16,
+    borderRadius: 18,
+  },
+  actionIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(99,102,241,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionCopy: { flex: 1, gap: 4 },
+  actionTitle: { color: '#f8fafc', fontWeight: '700' },
+  actionDescription: { color: '#94a3b8', fontSize: 13 },
+  badge: {
+    minWidth: 28,
     paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  badgeLabel: {
-    color: '#f8fafc',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  loadingState: {
-    flex: 1,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#f97316',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0f172a',
-    gap: 12,
   },
-  loadingText: {
-    color: '#e2e8f0',
-    fontSize: 16,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-    gap: 16,
-    backgroundColor: '#0f172a',
-  },
-  emptyTitle: {
-    color: '#f9fafb',
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  emptyCopy: {
-    color: '#cbd5f5',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  errorText: {
-    color: '#fca5a5',
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  badgeLabel: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { color: '#475569' },
+  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
+  emptyCopy: { color: '#4b5563', textAlign: 'center' },
+  errorText: { color: '#ef4444', marginTop: 8 },
+  mobileSafe: { flex: 1, backgroundColor: '#0d0d0f' },
+  mobileScroll: { padding: 20, gap: 24 },
+  mobileHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  mobileLogoPill: { backgroundColor: '#1f1f21', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
+  mobileLogoText: { color: '#f8fafc', fontWeight: '700' },
+  mobileSearchBox: { flex: 1, borderRadius: 18, backgroundColor: '#252529', paddingHorizontal: 14, paddingVertical: 6 },
+  mobileSearchInput: { color: '#f8fafc', fontSize: 14 },
+  mobileProfileBubble: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#1f1f21', alignItems: 'center', justifyContent: 'center' },
+  mobileHeroCard: { backgroundColor: '#1c1c21', borderRadius: 28, padding: 20, gap: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  mobileHeroRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  mobileHeroDetails: { flex: 1 },
+  mobileBio: { color: '#cbd5f5', fontSize: 13, marginTop: 4 },
+  mobileJoined: { color: '#9ca3af', fontSize: 12, marginTop: 2 },
+  mobileStatRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  mobileStatBlock: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 12, backgroundColor: '#26262b' },
+  mobileStatValue: { color: '#f8fafc', fontSize: 18, fontWeight: '800' },
+  mobileStatLabel: { color: '#cbd5f5', fontSize: 12 },
+  mobileFavSection: { gap: 12 },
+  mobileSectionTitle: { color: '#f8fafc', fontSize: 20, fontWeight: '800' },
+  mobileFavGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+  mobileFavCard: { flexBasis: '48%', backgroundColor: '#1e1e22', borderRadius: 18, padding: 14, gap: 8 },
+  mobileFavThumb: { color: '#cbd5f5', textAlign: 'center', paddingVertical: 30, backgroundColor: '#2c2c31', borderRadius: 12 },
+  mobileFavName: { color: '#f8fafc', fontWeight: '700' },
+  mobileFavMeta: { color: '#cbd5f5', fontSize: 12 },
+  mobileFavBtn: { marginTop: 4, borderRadius: 12, backgroundColor: '#3a3a40', alignItems: 'center', paddingVertical: 8 },
+  mobileFavBtnLabel: { color: '#f8fafc', fontWeight: '700' },
+  mobileEmptyCopy: { color: '#9ca3af' },
+  mobileActionsBlock: { marginTop: 12, borderRadius: 24, backgroundColor: '#1c1c21', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  mobileActionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.08)', gap: 12 },
+  mobileActionLabel: { flex: 1, color: '#f8fafc', fontWeight: '600' },
 });
