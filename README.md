@@ -41,6 +41,7 @@ Playlog is a cross-platform (web, iOS, Android) game discovery companion built w
      EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID=
      EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=
      EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=
+     EXPO_PUBLIC_PERSPECTIVE_API_KEY=
      TWITCH_CLIENT_ID=
      TWITCH_CLIENT_SECRET=
      ```
