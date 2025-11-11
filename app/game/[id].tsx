@@ -340,6 +340,8 @@ export default function GameDetailsScreen() {
         console.error(err);
         if (err instanceof Error) {
           switch (err.message) {
+            case 'CONTENT_BLOCKED_BY_MODERATION':
+              throw new Error('Please remove offensive or abusive language before posting.');
             case 'REVIEW_LIMIT_REACHED':
               throw new Error('You have used all available review slots. Update an existing review instead.');
             case 'INVALID_RATING_RANGE':
@@ -381,6 +383,8 @@ export default function GameDetailsScreen() {
           switch (err.message) {
             case 'REVIEW_NOT_FOUND':
               throw new Error('This review is no longer available.');
+            case 'CONTENT_BLOCKED_BY_MODERATION':
+              throw new Error('Please remove offensive or abusive language before posting.');
             case 'REPLY_BODY_REQUIRED':
               throw new Error('Reply text is required.');
             default:
@@ -420,6 +424,8 @@ export default function GameDetailsScreen() {
               throw new Error('This reply is no longer available.');
             case 'REPLY_FORBIDDEN':
               throw new Error('You can only edit your own replies.');
+            case 'CONTENT_BLOCKED_BY_MODERATION':
+              throw new Error('Please remove offensive or abusive language before posting.');
             case 'REPLY_BODY_REQUIRED':
               throw new Error('Reply text is required.');
             default:

@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 
 import { db } from './firebase';
+import { moderateText } from './moderation';
 import type { GameDetailsData, GameReview, GameReviewReply } from '../types/game';
 
 export const MAX_REVIEWS_PER_USER = 10;
@@ -40,6 +41,15 @@ const DEFAULT_STATS: ReviewStats = {
   reviewCount: 0,
   averageRating: null,
 };
+
+const CONTENT_BLOCKED_ERROR = 'CONTENT_BLOCKED_BY_MODERATION';
+
+async function assertContentAllowed(body: string) {
+  const verdict = await moderateText(body);
+  if (!verdict.allowed) {
+    throw new Error(CONTENT_BLOCKED_ERROR);
+  }
+}
 
 function resolveGameDocId(gameId: number) {
   return gameId.toString();
@@ -215,6 +225,7 @@ export async function submitGameReview(gameId: number, user: User, input: Review
   if (!body) {
     throw new Error('REVIEW_BODY_REQUIRED');
   }
+  await assertContentAllowed(body);
 
   const docId = resolveGameDocId(gameId);
   const statsRef = doc(db, 'gameCommunity', docId);
@@ -339,6 +350,7 @@ export async function submitReviewReply(
   if (!body) {
     throw new Error('REPLY_BODY_REQUIRED');
   }
+  await assertContentAllowed(body);
 
   const docId = resolveGameDocId(gameId);
   const reviewRef = doc(db, 'gameCommunity', docId, 'reviews', reviewId);
@@ -375,6 +387,7 @@ export async function updateReviewReply(
   if (!body) {
     throw new Error('REPLY_BODY_REQUIRED');
   }
+  await assertContentAllowed(body);
 
   const docId = resolveGameDocId(gameId);
   const replyRef = doc(db, 'gameCommunity', docId, 'reviews', reviewId, 'replies', replyId);
