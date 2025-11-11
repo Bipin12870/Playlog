@@ -12,7 +12,6 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
@@ -220,7 +219,6 @@ function MobileProfile({
   stats,
   visibility,
   joinedLabel,
-  favourites,
   pendingRequests,
   onNavigate,
 }: {
@@ -229,22 +227,14 @@ function MobileProfile({
   stats: any;
   visibility: ReturnType<typeof getProfileVisibility>;
   joinedLabel: string | null;
-  favourites: GameSummary[];
   pendingRequests: number;
   onNavigate: (action: ProfileAction) => void;
 }) {
-  const favouritePreview = favourites.slice(0, 6);
   return (
     <SafeAreaView style={styles.mobileSafe}>
       <StatusBar barStyle="light-content" />
       <ScrollView contentContainerStyle={styles.mobileScroll} showsVerticalScrollIndicator={false}>
         <View style={styles.mobileHeaderRow}>
-          <View style={styles.mobileLogoPill}>
-            <Text style={styles.mobileLogoText}>Playlog</Text>
-          </View>
-          <View style={styles.mobileSearchBox}>
-            <TextInput placeholder="Search..." placeholderTextColor="#9ca3af" editable={false} style={styles.mobileSearchInput} />
-          </View>
           <View style={styles.mobileProfileBubble}>
             <Ionicons name="person" size={20} color="#f8fafc" />
           </View>
@@ -265,30 +255,6 @@ function MobileProfile({
             <MobileStat label="Following" value={formatCount(stats.following)} />
             <MobileStat label="Followers" value={formatCount(stats.followers)} />
             <MobileStat label="Blocked" value={formatCount(stats.blocked)} />
-          </View>
-        </View>
-
-        <View style={styles.mobileFavSection}>
-          <Text style={styles.mobileSectionTitle}>Favourite Games</Text>
-          <View style={styles.mobileFavGrid}>
-            {favouritePreview.length ? (
-              favouritePreview.map((game) => (
-                <View key={game.id} style={styles.mobileFavCard}>
-                  <Text style={styles.mobileFavThumb}>Thumbnail</Text>
-                  <Text style={styles.mobileFavName} numberOfLines={1}>
-                    {game.name}
-                  </Text>
-                  <Text style={styles.mobileFavMeta}>
-                    ⭐ {game.rating ? (game.rating / 10).toFixed(1) : 'N/A'} GG
-                  </Text>
-                  <Pressable style={styles.mobileFavBtn}>
-                    <Text style={styles.mobileFavBtnLabel}>View Details</Text>
-                  </Pressable>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.mobileEmptyCopy}>No favourites yet. Save games to see them here.</Text>
-            )}
           </View>
         </View>
 
@@ -403,13 +369,9 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
   emptyCopy: { color: '#4b5563', textAlign: 'center' },
   errorText: { color: '#ef4444', marginTop: 8 },
-  mobileSafe: { flex: 1, backgroundColor: '#0d0d0f' },
-  mobileScroll: { padding: 20, gap: 24 },
-  mobileHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  mobileLogoPill: { backgroundColor: '#1f1f21', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
-  mobileLogoText: { color: '#f8fafc', fontWeight: '700' },
-  mobileSearchBox: { flex: 1, borderRadius: 18, backgroundColor: '#252529', paddingHorizontal: 14, paddingVertical: 6 },
-  mobileSearchInput: { color: '#f8fafc', fontSize: 14 },
+  mobileSafe: { flex: 1, backgroundColor: '#0f172a' },
+  mobileScroll: { padding: 20, gap: 24, backgroundColor: '#0f172a' },
+  mobileHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
   mobileProfileBubble: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#1f1f21', alignItems: 'center', justifyContent: 'center' },
   mobileHeroCard: { backgroundColor: '#1c1c21', borderRadius: 28, padding: 20, gap: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   mobileHeroRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
@@ -420,16 +382,6 @@ const styles = StyleSheet.create({
   mobileStatBlock: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 12, backgroundColor: '#26262b' },
   mobileStatValue: { color: '#f8fafc', fontSize: 18, fontWeight: '800' },
   mobileStatLabel: { color: '#cbd5f5', fontSize: 12 },
-  mobileFavSection: { gap: 12 },
-  mobileSectionTitle: { color: '#f8fafc', fontSize: 20, fontWeight: '800' },
-  mobileFavGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
-  mobileFavCard: { flexBasis: '48%', backgroundColor: '#1e1e22', borderRadius: 18, padding: 14, gap: 8 },
-  mobileFavThumb: { color: '#cbd5f5', textAlign: 'center', paddingVertical: 30, backgroundColor: '#2c2c31', borderRadius: 12 },
-  mobileFavName: { color: '#f8fafc', fontWeight: '700' },
-  mobileFavMeta: { color: '#cbd5f5', fontSize: 12 },
-  mobileFavBtn: { marginTop: 4, borderRadius: 12, backgroundColor: '#3a3a40', alignItems: 'center', paddingVertical: 8 },
-  mobileFavBtnLabel: { color: '#f8fafc', fontWeight: '700' },
-  mobileEmptyCopy: { color: '#9ca3af' },
   mobileActionsBlock: { marginTop: 12, borderRadius: 24, backgroundColor: '#1c1c21', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   mobileActionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.08)', gap: 12 },
   mobileActionLabel: { flex: 1, color: '#f8fafc', fontWeight: '600' },

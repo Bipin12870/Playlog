@@ -2,7 +2,7 @@ import { StyleSheet } from 'react-native';
 
 export const loginStyles = StyleSheet.create({
   /* BACKGROUND */
-  background: { flex: 1 },
+  background: { flex: 1, backgroundColor: '#0f172a' },
   backgroundImage: { resizeMode: 'cover' },
   scrim: {
     ...StyleSheet.absoluteFillObject,
@@ -12,6 +12,7 @@ export const loginStyles = StyleSheet.create({
   /* LAYOUT */
   shell: { padding: 24, gap: 24, minHeight: '100%', flexGrow: 1 },
   shellWide: { flexDirection: 'row', alignItems: 'stretch' },
+  shellNarrow: { paddingVertical: 24, justifyContent: 'center' },
 
   /* LEFT SIDE (hero section) */
   leftPane: {
@@ -70,26 +71,89 @@ export const loginStyles = StyleSheet.create({
   /* RIGHT PANEL (form card) */
   rightPane: { flex: 0.8, minWidth: 320 },
   card: {
-    borderRadius: 24,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    padding: 24,
+    borderRadius: 28,
+    backgroundColor: 'rgba(5, 10, 22, 0.92)',
+    padding: 28,
     borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.2)',
+    borderColor: 'rgba(96, 165, 250, 0.2)',
     minHeight: 560,
     position: 'relative',
     overflow: 'hidden',
   },
   cardTitle: { color: '#ffffff', fontSize: 30, fontFamily:'PlayfairDisplay_400Regular', fontWeight: '800', textAlign: 'center' },
-  cardSubtitle: { color: '#e2e8f0', fontSize: 14, textAlign: 'center', marginTop: 4, marginBottom: 20 },
+  cardSubtitle: { color: '#cbd5f5', fontSize: 14, textAlign: 'center', marginTop: 4, marginBottom: 20 },
   stepLabel: { color: '#94a3b8', fontSize: 13, fontWeight: '600', marginBottom: 12 },
+  cardMobile: {
+    borderRadius: 32,
+    backgroundColor: 'rgba(6, 12, 26, 0.95)',
+    borderWidth: 0,
+    padding: 22,
+    shadowColor: '#01030a',
+    shadowOpacity: 0.45,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 8,
+    minHeight: undefined,
+    gap: 12,
+  },
+  mobileCardWrapper: { width: '100%', maxWidth: 420, alignSelf: 'center', paddingHorizontal: 8 },
+  mobileBrandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  mobileBrandLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  mobileLogoMark: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.3)',
+  },
+  mobileBrand: { color: '#f8fafc', fontSize: 22, fontWeight: '800' },
+  mobileBrandMeta: { color: '#cbd5f5', fontSize: 12 },
+  mobileCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(15,23,42,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mobileTagline: { color: '#cbd5f5', textAlign: 'center', marginBottom: 12, fontSize: 13 },
+  mobilePanel: {
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(124, 58, 237, 0.25)',
+    padding: 16,
+    backgroundColor: 'rgba(10, 14, 35, 0.9)',
+    gap: 16,
+  },
+  mobilePanelHeader: { alignItems: 'center', gap: 4 },
+  mobileCharactersImg: { width: '90%', height: 140 },
+  cardTitleMobile: {
+    fontSize: 34,
+    textAlign: 'center',
+    fontFamily:'PlayfairDisplay_400Regular',
+    color: '#fff',
+  },
+  cardSubtitleMobile: { fontSize: 15, color: '#cbd5f5', textAlign: 'center', marginBottom: 4 },
+  mobileFooterTextBlock: { alignItems: 'center', gap: 6 },
+  mobileFooterText: { color: '#cbd5f5', fontSize: 13 },
 
   /* METHOD BUTTONS */
+  accordionStack: { gap: 10 },
+  accordionBlock: {
+    borderRadius: 18,
+    gap: 10,
+  },
   methodRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   methodBtn: {
-    flexGrow: 1,
-    minWidth: 160,
-    height: 52,
-    borderRadius: 16,
+    height: 48,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: 'rgba(139, 92, 246, 0.4)',
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
@@ -107,10 +171,10 @@ export const loginStyles = StyleSheet.create({
   },
   methodText: { fontSize: 16, fontWeight: '600', color: '#e0e7ff' },
   methodTextActive: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
+  methodChevron: { marginLeft: 'auto' },
 
   /* PLACEHOLDER PANEL */
   placeholderCard: {
-    marginTop: 18,
     borderRadius: 18,
     padding: 18,
     backgroundColor: 'rgba(2,6,23,0.75)',
@@ -129,14 +193,6 @@ export const loginStyles = StyleSheet.create({
   altRouteLink: { color: '#c4b5fd', fontSize: 14, fontWeight: '600' },
 
   /* HERO MARIO + GLOSS */
-  hero: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    width: 200,
-    height: 200,
-    opacity: 0.35,
-  },
   glossBox: {
     position: 'absolute',
     top: 0,
@@ -148,15 +204,16 @@ export const loginStyles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.04)',
     pointerEvents: 'none',
   },
+  mobileGlossBox: { borderRadius: 32, borderColor: 'rgba(255,255,255,0.08)' },
 
   /* SHARED FORM STYLES FOR AUTH FLOWS */
   formCard: {
     marginTop: 18,
-    borderRadius: 18,
+    borderRadius: 22,
     padding: 18,
-    backgroundColor: 'rgba(2,6,23,0.75)',
+    backgroundColor: 'rgba(4, 7, 18, 0.85)',
     borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.25)',
+    borderColor: 'rgba(56, 189, 248, 0.2)',
     gap: 14,
   },
   formGrid: { gap: 16, marginTop: 18 },
@@ -165,24 +222,24 @@ export const loginStyles = StyleSheet.create({
   label: { color: '#cbd5f5', fontSize: 13, fontWeight: '600' },
   input: {
     height: 48,
-    borderRadius: 12,
-    backgroundColor: '#e5e7eb',
-    paddingHorizontal: 14,
-    color: '#111827',
+    borderRadius: 16,
+    backgroundColor: '#f3f3ff',
+    paddingHorizontal: 16,
+    color: '#0f172a',
   },
   inputRow: {
     height: 48,
-    borderRadius: 12,
-    backgroundColor: '#e5e7eb',
-    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: '#f3f3ff',
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
-  inputField: { flex: 1, height: 48, color: '#111827' },
+  inputField: { flex: 1, height: 48, color: '#0f172a' },
   primaryButton: {
     height: 52,
-    borderRadius: 16,
+    borderRadius: 18,
     backgroundColor: '#c4b5fd',
     flexDirection: 'row',
     alignItems: 'center',

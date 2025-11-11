@@ -110,6 +110,17 @@ export default function PublicProfileScreen() {
   }, [profile?.createdAt]);
 
   const stats = profile?.stats ?? {};
+  const statItems = [
+    { key: 'following', label: 'Following', value: formatCount(stats.following) },
+    { key: 'followers', label: 'Followers', value: formatCount(stats.followers) },
+    { key: 'blocked', label: 'Blocked', value: formatCount(stats.blocked) },
+  ];
+  const visibilityIcon = visibility === 'private' ? 'lock-closed' : 'globe';
+  const visibilityLabel = visibility === 'private' ? 'Private profile' : 'Public profile';
+  const visibilityHint =
+    visibility === 'private'
+      ? 'Only approved followers see their favourites and reviews.'
+      : 'Anyone on Playlog can see their favourites and reviews.';
 
   const handleNavigate = (action: ProfileAction) => {
     if (!targetUid) return;
@@ -149,37 +160,50 @@ export default function PublicProfileScreen() {
             )}
           </View>
           <View style={styles.heroDetails}>
-            <View style={styles.heroHeaderRow}>
-              <Text style={styles.displayName}>{profile.displayName}</Text>
-              {!isSelf ? (
-                <View style={styles.heroActions}>
-                  <FollowButton targetUid={profile.uid} onAuthRequired={() => router.push('/login')} />
-                  <BlockButton targetUid={profile.uid} onAuthRequired={() => router.push('/login')} />
+            <Text style={styles.displayName}>{profile.displayName}</Text>
+            {profile.username ? (
+              <Text style={styles.username}>@{profile.username}</Text>
+            ) : null}
+            {profile.bio ? <Text style={styles.bioText}>{profile.bio}</Text> : null}
+            <View style={styles.heroChips}>
+              <View style={styles.heroChip}>
+                <Ionicons name={visibilityIcon} size={14} color="#cbd5f5" />
+                <Text style={styles.heroChipText}>{visibilityLabel}</Text>
+              </View>
+              {joinedLabel ? (
+                <View style={styles.heroChip}>
+                  <Ionicons name="calendar" size={14} color="#cbd5f5" />
+                  <Text style={styles.heroChipText}>Joined {joinedLabel}</Text>
                 </View>
               ) : null}
             </View>
-            {profile.bio ? <Text style={styles.bioText}>{profile.bio}</Text> : null}
-            {joinedLabel ? (
-              <View style={styles.metaRow}>
-                <Text style={styles.joinedText}>Joined {joinedLabel}</Text>
+            {!isSelf ? (
+              <View style={styles.heroActions}>
+                <FollowButton
+                  targetUid={profile.uid}
+                  currentUid={viewerUid}
+                  onAuthRequired={() => router.push('/login')}
+                  style={styles.heroActionButton}
+                />
+                <BlockButton
+                  targetUid={profile.uid}
+                  currentUid={viewerUid}
+                  onAuthRequired={() => router.push('/login')}
+                  style={styles.heroActionButton}
+                />
               </View>
             ) : null}
           </View>
         </View>
-        <View style={styles.statRow}>
-          <View style={styles.statBlock}>
-            <Text style={styles.statValue}>{formatCount(stats.following)}</Text>
-            <Text style={styles.statLabel}>Following</Text>
-          </View>
-          <View style={styles.statBlock}>
-            <Text style={styles.statValue}>{formatCount(stats.followers)}</Text>
-            <Text style={styles.statLabel}>Followers</Text>
-          </View>
-          <View style={styles.statBlock}>
-            <Text style={styles.statValue}>{formatCount(stats.blocked)}</Text>
-            <Text style={styles.statLabel}>Blocked</Text>
-          </View>
+        <View style={styles.statGrid}>
+          {statItems.map((stat) => (
+            <View key={stat.key} style={styles.statCard}>
+              <Text style={styles.statValue}>{stat.value}</Text>
+              <Text style={styles.statLabel}>{stat.label}</Text>
+            </View>
+          ))}
         </View>
+        <Text style={styles.visibilityHint}>{visibilityHint}</Text>
       </View>
 
       {!canView ? (
@@ -247,10 +271,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
   },
   heroCard: {
-    backgroundColor: '#374151',
-    borderRadius: 24,
+    backgroundColor: '#111827',
+    borderRadius: 28,
     padding: 24,
-    gap: 16,
+    gap: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(99,102,241,0.25)',
   },
   heroRow: {
     flexDirection: 'row',
@@ -274,42 +300,66 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 8,
   },
-  heroHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 16,
-  },
-  heroActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
   displayName: {
     fontSize: 24,
     fontWeight: '700',
     color: '#f9fafb',
   },
+  username: {
+    color: '#cbd5f5',
+    fontSize: 14,
+  },
   bioText: {
     color: '#e0e7ff',
     fontSize: 14,
   },
-  metaRow: {
+  heroChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  heroChip: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(148,163,184,0.15)',
   },
-  joinedText: {
+  heroChipText: {
     color: '#cbd5f5',
     fontSize: 12,
+    fontWeight: '600',
   },
-  statRow: {
+  heroActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 12,
   },
-  statBlock: {
-    flex: 1,
+  heroActionButton: {
+    flexGrow: 1,
+    flexBasis: '48%',
+    minWidth: 140,
+  },
+  statGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  statCard: {
+    flexGrow: 1,
+    flexBasis: '30%',
+    minWidth: 110,
+    backgroundColor: '#0b1220',
+    borderRadius: 16,
+    paddingVertical: 16,
     alignItems: 'center',
     gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(99,102,241,0.15)',
   },
   statValue: {
     fontSize: 20,
@@ -322,6 +372,11 @@ const styles = StyleSheet.create({
     color: '#cbd5f5',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
+  },
+  visibilityHint: {
+    color: '#94a3b8',
+    fontSize: 12,
+    marginTop: 4,
   },
   actionsCard: {
     backgroundColor: '#1f2937',

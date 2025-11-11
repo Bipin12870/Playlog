@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -107,8 +108,15 @@ export function GameDetails({
 
   const coverUri = resolveCoverUri(game.cover?.url ?? null);
   const showcaseUri = resolveCoverUri(game.mediaUrl ?? null) ?? coverUri;
+  const heroBackdrop = resolveCoverUri(game.bannerUrl ?? null) ?? showcaseUri ?? coverUri;
   const releaseLine = buildReleaseLine(game);
   const description = game.description ?? game.summary ?? 'No description available.';
+  const heroBlurb = useMemo(() => {
+    const source = game.description ?? game.summary ?? '';
+    const trimmed = source.trim();
+    if (!trimmed) return null;
+    return trimmed.length > 160 ? `${trimmed.slice(0, 157)}…` : trimmed;
+  }, [game.description, game.summary]);
 
   const [ratingInput, setRatingInput] = useState<number | null>(
     typeof userReview?.rating === 'number' ? userReview.rating : null,
@@ -289,6 +297,66 @@ export function GameDetails({
 
   const reviewCountLabel = communityReviewCount === 1 ? '1 review' : `${communityReviewCount} reviews`;
   const canShowAverage = typeof communityAverage === 'number' && !Number.isNaN(communityAverage);
+  const communityAverageValue =
+    canShowAverage && typeof communityAverage === 'number'
+      ? communityAverage.toFixed(1)
+      : null;
+  const platformLine = useMemo(
+    () => platforms.map((platform) => platform.label).filter(Boolean).slice(0, 4).join(' • '),
+    [platforms],
+  );
+  const genreLine = useMemo(
+    () =>
+      (game.genres ?? [])
+        .map((genre) => genre?.name)
+        .filter((name): name is string => Boolean(name))
+        .slice(0, 3)
+        .join(' • '),
+    [game.genres],
+  );
+  const heroFacts = useMemo(
+    () =>
+      [
+        genreLine ? { label: 'Genres', value: genreLine } : null,
+        platformLine ? { label: 'Platforms', value: platformLine } : null,
+        game.developer ? { label: 'Studio', value: game.developer } : null,
+        releaseLine ? { label: 'Released', value: releaseLine } : null,
+      ].filter((fact): fact is { label: string; value: string } => Boolean(fact)),
+    [genreLine, platformLine, game.developer, releaseLine],
+  );
+  const quickMetrics = useMemo(
+    () => {
+      const metrics: Array<{ key: string; label: string; value: string; suffix?: string; meta?: string }> =
+        [];
+      const igdbScore =
+        typeof game.rating === 'number' && !Number.isNaN(game.rating)
+          ? Math.round(game.rating).toString()
+          : '—';
+      metrics.push({
+        key: 'igdb',
+        label: 'IGDB score',
+        value: igdbScore,
+        suffix: igdbScore === '—' ? undefined : '/100',
+        meta: 'Critic aggregate',
+      });
+      metrics.push({
+        key: 'community',
+        label: 'Community rating',
+        value: communityAverageValue ?? '—',
+        suffix: communityAverageValue ? '/10' : undefined,
+        meta: communityAverageValue ? reviewCountLabel : 'No reviews yet',
+      });
+      if (game.releaseYear) {
+        metrics.push({
+          key: 'year',
+          label: 'Release year',
+          value: game.releaseYear.toString(),
+        });
+      }
+      return metrics;
+    },
+    [game.rating, communityAverageValue, reviewCountLabel, game.releaseYear],
+  );
   const personalReviewCount =
     typeof userReviewCount === 'number' && !Number.isNaN(userReviewCount)
       ? Math.max(0, userReviewCount)
@@ -600,149 +668,194 @@ export function GameDetails({
   }, [onToggleFavorite]);
 
   const reviewCtaDisabled = !canSubmitReview || reviewSubmitting || ratingInput === null;
+  const hasTrailer = Boolean(game.mediaUrl);
+
+  const handleWatchTrailer = useCallback(() => {
+    if (!hasTrailer || !game.mediaUrl) {
+      return;
+    }
+    Linking.openURL(game.mediaUrl).catch((err) => console.warn('Failed to open trailer', err));
+  }, [hasTrailer, game.mediaUrl]);
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-      <View style={[styles.heroRow, isWide && styles.heroRowWide]}>
-        <View style={styles.mediaColumn}>
-          <View style={styles.coverCard}>
+      <View style={styles.heroShell}>
+        {heroBackdrop ? <Image source={{ uri: heroBackdrop }} style={styles.heroBackdrop} /> : null}
+        <View style={styles.heroGradient} />
+        <View style={[styles.heroRow, isWide && styles.heroRowWide]}>
+          <View style={styles.heroTextColumn}>
+            <Text style={styles.heroEyebrow}>
+              {releaseLine ?? 'Upcoming release'}
+              {game.developer ? ` • ${game.developer}` : ''}
+            </Text>
+            <Text style={styles.title}>{game.name}</Text>
+            {heroBlurb ? <Text style={styles.heroSummary}>{heroBlurb}</Text> : null}
+
+            {heroFacts.length ? (
+              <View style={styles.heroFactsRow}>
+                {heroFacts.map((fact) => (
+                  <View key={fact.label} style={styles.heroFactCard}>
+                    <Text style={styles.heroFactLabel}>{fact.label}</Text>
+                    <Text style={styles.heroFactValue}>{fact.value}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            <View style={styles.heroActionsRow}>
+              <Pressable
+                onPress={handleWatchTrailer}
+                disabled={!hasTrailer}
+                style={({ pressed }) => [
+                  styles.heroPrimaryButton,
+                  pressed && styles.heroPrimaryButtonPressed,
+                  !hasTrailer && styles.heroActionDisabled,
+                ]}
+                accessibilityRole="button"
+              >
+                <Ionicons name="play" size={16} color="#0f172a" />
+                <Text style={styles.heroPrimaryButtonLabel}>
+                  {hasTrailer ? 'Watch trailer' : 'Trailer unavailable'}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={handleFavoritePress}
+                style={({ pressed }) => [
+                  styles.heroSecondaryButton,
+                  isFavorite && styles.heroSecondaryButtonActive,
+                  (favoriteDisabled || pressed) && styles.heroSecondaryButtonPressed,
+                ]}
+                accessibilityRole="button"
+                disabled={favoriteDisabled}
+              >
+                {favoriteDisabled ? (
+                  <ActivityIndicator size="small" color="#f8fafc" />
+                ) : (
+                  <>
+                    <Ionicons
+                      name={isFavorite ? 'heart' : 'heart-outline'}
+                      size={16}
+                      color="#f8fafc"
+                    />
+                    <Text style={styles.heroSecondaryButtonLabel}>
+                      {isFavorite ? 'Favourited' : 'Add to list'}
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+            {favoriteError ? <Text style={styles.favoriteError}>{favoriteError}</Text> : null}
+          </View>
+
+          <View style={styles.heroPosterCard}>
             {coverUri ? (
-              <Image source={{ uri: coverUri }} style={styles.coverImage} />
+              <Image source={{ uri: coverUri }} style={styles.heroPosterImage} />
             ) : (
-              <View style={styles.coverFallback}>
-                <Text style={styles.coverFallbackText}>No artwork</Text>
+              <View style={styles.heroPosterFallback}>
+                <Text style={styles.heroPosterFallbackText}>No artwork</Text>
               </View>
             )}
           </View>
+        </View>
+      </View>
 
-          <View style={styles.showcaseCard}>
-            {showcaseUri ? (
-              <Image source={{ uri: showcaseUri }} style={styles.showcaseImage} />
-            ) : (
-              <View style={styles.showcaseFallback}>
-                <Ionicons name="image-outline" size={24} color="#d1d5db" />
-                <Text style={styles.showcaseFallbackText}>Gameplay media</Text>
+      <View style={styles.detailSurface}>
+        {quickMetrics.length ? (
+          <View style={styles.metricRow}>
+            {quickMetrics.map((metric) => (
+              <View key={metric.key} style={styles.metricCard}>
+                <Text style={styles.metricLabel}>{metric.label}</Text>
+                <View style={styles.metricValueRow}>
+                  <Text style={styles.metricValue}>{metric.value}</Text>
+                  {metric.suffix ? <Text style={styles.metricSuffix}>{metric.suffix}</Text> : null}
+                </View>
+                {metric.meta ? <Text style={styles.metricMeta}>{metric.meta}</Text> : null}
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {showcaseUri ? (
+          <View style={styles.mediaGallery}>
+            <View style={styles.mediaCard}>
+              <Image source={{ uri: showcaseUri }} style={styles.mediaImage} />
+            </View>
+          </View>
+        ) : null}
+
+        <View style={[styles.overviewRow, !isWide && styles.overviewColumn]}>
+          <View style={styles.descriptionCard}>
+            <Text style={styles.cardHeading}>Overview</Text>
+            <Text style={styles.descriptionText}>{description}</Text>
+          </View>
+
+          <View style={styles.ratingCard}>
+            <Text style={styles.cardHeading}>Community rating</Text>
+            <View style={styles.communityRatingBlock}>
+              {canShowAverage ? (
+                <>
+                  <Text style={styles.communityRatingValue}>{communityAverage.toFixed(1)}/10</Text>
+                  <Text style={styles.communityRatingMeta}>{reviewCountLabel}</Text>
+                </>
+              ) : (
+                <Text style={styles.communityRatingPlaceholder}>No reviews yet</Text>
+              )}
+              {reviewLimit ? (
+                <Text style={styles.communityRatingMeta}>
+                  {reviewLimit} reviews per user available right now.
+                </Text>
+              ) : null}
+            </View>
+            {platforms.length > 0 && (
+              <View style={styles.platformRow}>
+                {platforms.map((platform) => (
+                  <View key={platform.id} style={styles.platformPill}>
+                    <Text style={styles.platformText}>{platform.label}</Text>
+                  </View>
+                ))}
               </View>
             )}
           </View>
         </View>
 
-        <View style={styles.detailsColumn}>
-          <View style={styles.headerRow}>
-            <View style={styles.titleGroup}>
-              <Text style={styles.title}>{game.name}</Text>
-              {releaseLine ? <Text style={styles.subtitle}>{releaseLine}</Text> : null}
-            </View>
-            <Pressable
-              onPress={handleFavoritePress}
-              style={({ pressed }) => [
-                styles.favoriteButton,
-                isFavorite && styles.favoriteButtonActive,
-                (favoriteDisabled || pressed) && styles.favoriteButtonPressed,
-              ]}
-              accessibilityRole="button"
-              disabled={favoriteDisabled}
-            >
-              {favoriteDisabled ? (
-                <ActivityIndicator size="small" color="#f8fafc" />
-              ) : (
-                <>
-                  <Ionicons
-                    name={isFavorite ? 'heart' : 'heart-outline'}
-                    size={18}
-                    color="#f8fafc"
-                  />
-                  <Text style={styles.favoriteButtonLabel}>
-                    {isFavorite ? 'Favourited' : 'Add to favourites'}
-                  </Text>
-                </>
-              )}
-            </Pressable>
-          </View>
-          {favoriteError ? <Text style={styles.favoriteError}>{favoriteError}</Text> : null}
-
-          <View style={[styles.overviewRow, !isWide && styles.overviewColumn]}>
-            <View style={styles.descriptionCard}>
-              <Text style={styles.cardHeading}>Overview</Text>
-              <Text style={styles.descriptionText}>{description}</Text>
-            </View>
-
-            <View style={styles.ratingCard}>
-              <Text style={styles.cardHeading}>Community rating</Text>
-              <View style={styles.communityRatingBlock}>
-                {canShowAverage ? (
-                  <>
-                    <Text style={styles.communityRatingValue}>
-                      {communityAverage.toFixed(1)}/10
-                    </Text>
-                    <Text style={styles.communityRatingMeta}>{reviewCountLabel}</Text>
-                  </>
-                ) : (
-                  <Text style={styles.communityRatingPlaceholder}>No reviews yet</Text>
-                )}
-                {reviewLimit ? (
-                  <Text style={styles.communityRatingMeta}>
-                    {reviewLimit} reviews per user available right now.
-                  </Text>
-                ) : null}
-              </View>
-              {platforms.length > 0 && (
-                <View style={styles.platformRow}>
-                  {platforms.map((platform) => (
-                    <View key={platform.id} style={styles.platformPill}>
-                      <Text style={styles.platformText}>{platform.label}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.adCard}>
-            {game.bannerUrl ? (
-              <Image
-                source={{ uri: resolveCoverUri(game.bannerUrl) ?? game.bannerUrl }}
-                style={styles.adImage}
-              />
-            ) : (
-              <View style={styles.adPlaceholder}>
-                <Text style={styles.adTitle}>Ad Banner</Text>
-                <Text style={styles.adSubtitle}>Promote your upcoming release here.</Text>
-              </View>
-            )}
-          </View>
-
-          {!isAuthenticated && (
-            <View style={styles.authPrompt}>
-              <Text style={styles.authHeading}>Join Playlog</Text>
-              <Text style={styles.authCopy}>
-                Create an account to favourite games, rate them, and leave community reviews.
-              </Text>
-              <View style={styles.authActions}>
-                <Pressable
-                  onPress={onSignUp}
-                  style={({ pressed }) => [
-                    styles.primaryBtn,
-                    pressed && styles.primaryBtnPressed,
-                  ]}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.primaryBtnLabel}>Sign up</Text>
-                </Pressable>
-                <Pressable
-                  onPress={onSignIn}
-                  style={({ pressed }) => [
-                    styles.secondaryBtn,
-                    pressed && styles.secondaryBtnPressed,
-                  ]}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.secondaryBtnLabel}>Sign in</Text>
-                </Pressable>
-              </View>
+        <View style={styles.adCard}>
+          {game.bannerUrl ? (
+            <Image
+              source={{ uri: resolveCoverUri(game.bannerUrl) ?? game.bannerUrl }}
+              style={styles.adImage}
+            />
+          ) : (
+            <View style={styles.adPlaceholder}>
+              <Text style={styles.adTitle}>Ad Banner</Text>
+              <Text style={styles.adSubtitle}>Promote your upcoming release here.</Text>
             </View>
           )}
         </View>
+
+        {!isAuthenticated && (
+          <View style={styles.authPrompt}>
+            <Text style={styles.authHeading}>Join Playlog</Text>
+            <Text style={styles.authCopy}>
+              Create an account to favourite games, rate them, and leave community reviews.
+            </Text>
+            <View style={styles.authActions}>
+              <Pressable
+                onPress={onSignUp}
+                style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
+                accessibilityRole="button"
+              >
+                <Text style={styles.primaryBtnLabel}>Sign up</Text>
+              </Pressable>
+              <Pressable
+                onPress={onSignIn}
+                style={({ pressed }) => [styles.secondaryBtn, pressed && styles.secondaryBtnPressed]}
+                accessibilityRole="button"
+              >
+                <Text style={styles.secondaryBtnLabel}>Sign in</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
       </View>
 
       <View style={styles.section}>
@@ -1221,112 +1334,215 @@ const styles = StyleSheet.create({
     gap: 32,
     backgroundColor: '#0f172a',
   },
+  heroShell: {
+    borderRadius: 32,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.35)',
+    position: 'relative',
+    shadowColor: '#01030a',
+    shadowOpacity: 0.35,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 18 },
+    elevation: 6,
+  },
+  heroBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.35,
+  },
+  heroGradient: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(7, 11, 25, 0.85)',
+  },
   heroRow: {
     gap: 24,
+    padding: 24,
+    position: 'relative',
   },
   heroRowWide: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
   },
-  mediaColumn: {
-    flex: 0.8,
-    gap: 16,
-  },
-  coverCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: '#1f2937',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
-  },
-  coverImage: {
-    width: '100%',
-    aspectRatio: 3 / 4,
-  },
-  coverFallback: {
-    height: 280,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#111827',
-  },
-  coverFallbackText: {
-    color: '#94a3b8',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  showcaseCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: '#1f2937',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
-    minHeight: 180,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  showcaseImage: {
-    width: '100%',
-    height: '100%',
-    minHeight: 220,
-  },
-  showcaseFallback: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 48,
+  heroTextColumn: {
+    flex: 1,
     gap: 12,
   },
-  showcaseFallbackText: {
-    color: '#e2e8f0',
-    fontSize: 14,
-  },
-  detailsColumn: {
-    flex: 1.2,
-    gap: 24,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 16,
-  },
-  titleGroup: {
-    flex: 1,
-    gap: 4,
+  heroEyebrow: {
+    color: '#94a3b8',
+    fontSize: 13,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
+    fontSize: 34,
+    fontWeight: '800',
     color: '#f8fafc',
   },
-  subtitle: {
-    fontSize: 16,
+  heroSummary: {
     color: '#cbd5f5',
+    fontSize: 14,
+    lineHeight: 20,
   },
-  favoriteButton: {
+  heroFactsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  heroFactCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.2)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+  },
+  heroFactLabel: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  heroFactValue: {
+    color: '#f8fafc',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  heroActionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    alignItems: 'center',
+  },
+  heroPrimaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     borderRadius: 999,
-    backgroundColor: 'rgba(99, 102, 241, 0.2)',
+    backgroundColor: '#4ade80',
+  },
+  heroPrimaryButtonPressed: {
+    opacity: 0.85,
+  },
+  heroPrimaryButtonLabel: {
+    color: '#0f172a',
+    fontWeight: '700',
+  },
+  heroSecondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.4)',
+    borderColor: 'rgba(148, 163, 184, 0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
   },
-  favoriteButtonPressed: {
-    opacity: 0.7,
+  heroSecondaryButtonPressed: {
+    opacity: 0.75,
   },
-  favoriteButtonActive: {
-    backgroundColor: '#6366f1',
-    borderColor: '#6366f1',
+  heroSecondaryButtonActive: {
+    borderColor: '#f8fafc',
+    backgroundColor: 'rgba(248, 250, 252, 0.08)',
   },
-  favoriteButtonLabel: {
+  heroSecondaryButtonLabel: {
     color: '#f8fafc',
-    fontSize: 14,
     fontWeight: '600',
+  },
+  heroActionDisabled: {
+    opacity: 0.5,
   },
   favoriteError: {
     color: '#fca5a5',
     fontSize: 13,
+  },
+  heroPosterCard: {
+    width: 140,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.3)',
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+  },
+  heroPosterImage: {
+    width: '100%',
+    aspectRatio: 2 / 3,
+  },
+  heroPosterFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  heroPosterFallbackText: {
+    color: '#94a3b8',
+    fontWeight: '600',
+  },
+  metricRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  metricCard: {
+    flexGrow: 1,
+    flexBasis: 120,
+    borderRadius: 18,
+    backgroundColor: 'rgba(8, 13, 28, 0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.2)',
+    padding: 16,
+    gap: 4,
+  },
+  metricLabel: {
+    color: '#94a3b8',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  metricValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  metricValue: {
+    color: '#f8fafc',
+    fontSize: 26,
+    fontWeight: '800',
+  },
+  metricSuffix: {
+    color: '#94a3b8',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  metricMeta: {
+    color: '#94a3b8',
+    fontSize: 12,
+  },
+  detailSurface: {
+    gap: 24,
+    borderRadius: 28,
+    padding: 24,
+    backgroundColor: 'rgba(4, 7, 18, 0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.2)',
+  },
+  mediaGallery: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.2)',
+  },
+  mediaCard: {
+    width: '100%',
+    backgroundColor: '#0b1120',
+  },
+  mediaImage: {
+    width: '100%',
+    height: 220,
   },
   overviewRow: {
     flexDirection: 'row',

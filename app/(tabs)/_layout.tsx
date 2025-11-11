@@ -40,6 +40,7 @@ type WebNavBarProps = {
     text: string;
     muted: string;
     accent: string;
+    isDark: boolean;
   };
   user: ReturnType<typeof useAuthUser>['user'];
   pendingRequests: number;
@@ -68,6 +69,9 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
 
   const placeholder = placeholderByScope[nextScope] ?? 'Search';
   const showSearch = activeRoute !== 'profile';
+  const isDarkSurface = palette.isDark;
+  const inputBackground = isDarkSurface ? '#1f2937' : '#ffffff';
+  const signOutTextColor = isDarkSurface ? '#f1f5f9' : '#1f2937';
 
   const handleSignOut = async () => {
     try {
@@ -139,7 +143,7 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
             {
               borderColor: palette.border,
               color: palette.text,
-              backgroundColor: palette.background === '#ffffff' ? '#ffffff' : '#1f2937',
+              backgroundColor: inputBackground,
             },
           ]}
         />
@@ -153,13 +157,13 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
             style={[styles.signOutButton, { borderColor: palette.border }]}
           >
             <Text
-              style={[
-                styles.signOutLabel,
-                {
-                  color: palette.background === '#ffffff' ? '#1f2937' : '#f1f5f9',
-                },
-              ]}
-            >
+            style={[
+              styles.signOutLabel,
+              {
+                color: signOutTextColor,
+              },
+            ]}
+          >
               Sign out
             </Text>
           </Pressable>
@@ -187,12 +191,17 @@ export default function TabsLayout() {
   const pendingRequests = followRequests.requests.length;
   const profileBadge =
     pendingRequests > 0 ? (pendingRequests > 99 ? '99+' : pendingRequests) : undefined;
+  const pageBackground = '#0f172a';
+  const navBackground = pageBackground;
+  const navBorder = '#1e293b';
+  const navMuted = '#94a3b8';
   const palette = {
-    background: scheme === 'dark' ? '#111827' : '#ffffff',
-    border: scheme === 'dark' ? '#1f2937' : '#e5e7eb',
-    text: scheme === 'dark' ? '#f9fafb' : '#111827',
-    muted: scheme === 'dark' ? '#9ca3af' : '#4b5563',
+    background: navBackground,
+    border: navBorder,
+    text: '#f8fafc',
+    muted: navMuted,
     accent,
+    isDark: true,
   };
 
   if (Platform.OS === 'web') {
@@ -209,6 +218,7 @@ export default function TabsLayout() {
                   pendingRequests={pendingRequests}
                 />
               ),
+              contentStyle: { backgroundColor: pageBackground },
             })}
           >
             <Stack.Screen name="home" />
@@ -228,6 +238,12 @@ export default function TabsLayout() {
           screenOptions={({ route }) => ({
             headerShown: false,
             tabBarActiveTintColor: accent,
+            tabBarInactiveTintColor: navMuted,
+            tabBarStyle: {
+              backgroundColor: navBackground,
+              borderTopColor: navBorder,
+            },
+            sceneContainerStyle: { backgroundColor: pageBackground },
             tabBarIcon: ({ color, size }) => {
               let icon: keyof typeof Ionicons.glyphMap = 'home';
               switch (route.name) {

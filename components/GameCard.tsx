@@ -38,7 +38,9 @@ const ICON_MAP: Array<{ match: RegExp; icon: keyof typeof Ionicons.glyphMap }> =
 
 function resolveCoverUri(raw?: string | null) {
   if (!raw) return undefined;
-  const normalized = raw.replace('t_thumb', 't_cover_big');
+  const normalized = raw
+    .replace('t_thumb', 't_cover_big')
+    .replace('t_cover_big', 't_720p');
   return normalized.startsWith('http') ? normalized : `https:${normalized}`;
 }
 
@@ -72,12 +74,12 @@ export function GameCard({
   const coverUri = resolveCoverUri(game.cover?.url ?? null);
   const ratingDisplay = resolveRating(game.rating);
   const platformIcons = extractPlatformIcons(game.platforms);
-  const ThumbnailWrapper = onPress ? Pressable : View;
   const HeartComponent = onToggleFavorite ? Pressable : View;
+  const baseCardStyle = [styles.card, containerStyle];
 
-  return (
-    <View style={[styles.card, containerStyle]}>
-      <ThumbnailWrapper onPress={onPress} style={styles.thumbnailWrapper}>
+  const cardContents = (
+    <>
+      <View style={styles.thumbnailWrapper}>
         {coverUri ? (
           <Image source={{ uri: coverUri }} style={styles.thumbnail} />
         ) : (
@@ -85,7 +87,7 @@ export function GameCard({
             <Text style={styles.thumbnailFallbackText}>No art</Text>
           </View>
         )}
-      </ThumbnailWrapper>
+      </View>
 
       <View style={styles.body}>
         <View style={styles.headerRow}>
@@ -107,78 +109,81 @@ export function GameCard({
           </HeartComponent>
         </View>
 
-        {ratingDisplay && (
+        {ratingDisplay ? (
           <View style={styles.ratingRow}>
-            <Ionicons name="star" size={14} color="#fbbf24" style={styles.ratingIcon} />
-            <Text style={styles.ratingText}>{ratingDisplay}/10 IGDB</Text>
+            <Ionicons name="star" size={12} color="#fbbf24" style={styles.ratingIcon} />
+            <Text style={styles.ratingText}>{ratingDisplay}/10</Text>
           </View>
-        )}
+        ) : null}
 
         {platformIcons.length > 0 && (
           <View style={styles.platformRow}>
             {platformIcons.map((icon) => (
-              <Ionicons key={icon} name={icon} size={18} color="#cbd5f5" />
+              <Ionicons key={icon} name={icon} size={16} color="#94a3b8" />
             ))}
           </View>
         )}
-
-        <Pressable
-          onPress={onPress}
-          disabled={!onPress}
-          style={({ pressed }) => [
-            styles.detailsBtn,
-            onPress && pressed && styles.detailsBtnPressed,
-            !onPress && styles.detailsBtnDisabled,
-          ]}
-          accessibilityRole={onPress ? 'button' : undefined}
-        >
-          <Text style={styles.detailsLabel}>View Details</Text>
-        </Pressable>
       </View>
-    </View>
+    </>
   );
+
+  if (onPress) {
+    return (
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [...baseCardStyle, pressed && styles.cardPressed]}
+      >
+        {cardContents}
+      </Pressable>
+    );
+  }
+
+  return <View style={baseCardStyle}>{cardContents}</View>;
 }
 
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#1f2937',
-    borderRadius: 16,
-    overflow: 'hidden',
-    padding: 16,
-    gap: 16,
-  },
-  thumbnailWrapper: {
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#374151',
+    padding: 10,
+    gap: 8,
+  },
+  cardPressed: { opacity: 0.85 },
+  thumbnailWrapper: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.2)',
+    aspectRatio: 2 / 3,
   },
   thumbnail: {
     width: '100%',
-    aspectRatio: 332 / 187,
+    height: '100%',
+    resizeMode: 'cover',
   },
   thumbnailFallback: {
-    height: 180,
     alignItems: 'center',
     justifyContent: 'center',
+    flex: 1,
   },
   thumbnailFallbackText: {
     color: '#94a3b8',
     fontSize: 16,
     fontWeight: '600',
   },
-  body: {
-    gap: 12,
-  },
+  body: { gap: 8 },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: 8,
   },
   title: {
     flex: 1,
     color: '#f8fafc',
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '700',
   },
   favoriteBtn: {
@@ -192,36 +197,18 @@ const styles = StyleSheet.create({
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   ratingIcon: {
     marginTop: 1,
   },
   ratingText: {
-    color: '#e2e8f0',
-    fontSize: 14,
+    color: '#cbd5f5',
+    fontSize: 12,
     fontWeight: '600',
   },
   platformRow: {
     flexDirection: 'row',
-    gap: 12,
-  },
-  detailsBtn: {
-    marginTop: 4,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#4b5563',
-    alignItems: 'center',
-  },
-  detailsBtnPressed: {
-    backgroundColor: '#6366f1',
-  },
-  detailsBtnDisabled: {
-    opacity: 0.6,
-  },
-  detailsLabel: {
-    color: '#f8fafc',
-    fontSize: 15,
-    fontWeight: '600',
+    gap: 8,
   },
 });
