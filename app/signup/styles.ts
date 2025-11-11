@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native';
 
 export const signupStyles = StyleSheet.create({
-  background: { flex: 1 },
+  background: { flex: 1, backgroundColor: '#0f172a' },
   backgroundImage: { resizeMode: 'cover' },
   scrim: {
     ...StyleSheet.absoluteFillObject,
@@ -9,6 +9,7 @@ export const signupStyles = StyleSheet.create({
   },
   shell: { padding: 24, gap: 24, minHeight: '100%', flexGrow: 1 },
   shellWide: { flexDirection: 'row', alignItems: 'stretch' },
+  shellNarrow: { paddingVertical: 24, justifyContent: 'center' },
 
   leftPane: {
     flex: 1.2,
@@ -63,11 +64,11 @@ export const signupStyles = StyleSheet.create({
 
   rightPane: { flex: 0.8, minWidth: 320 },
   card: {
-    borderRadius: 24,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    padding: 24,
+    borderRadius: 28,
+    backgroundColor: 'rgba(5, 10, 22, 0.92)',
+    padding: 28,
     borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.2)',
+    borderColor: 'rgba(96, 165, 250, 0.2)',
     minHeight: 560,
     position: 'relative',
     overflow: 'hidden',
@@ -75,30 +76,29 @@ export const signupStyles = StyleSheet.create({
   cardTitle: { color: '#ffffff', fontSize: 30,fontFamily:'PlayfairDisplay_400Regular', fontWeight: '800', textAlign: 'center' },
   cardSubtitle: { color: '#e2e8f0', fontSize: 14, textAlign: 'center', marginTop: 4, marginBottom: 20 },
   stepLabel: { color: '#94a3b8', fontSize: 13, fontWeight: '600', marginBottom: 12 },
-
-  methodRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  methodBtn: {
-    flexGrow: 1,
-    minWidth: 160,
-    height: 52,
-    borderRadius: 16,
+  stepLabelMobile: { textAlign: 'center', marginBottom: 14 },
+  accordionStack: { gap: 10 },
+  accordionBlock: { borderRadius: 18, gap: 10 },
+  accordionBlockActive: {
+    backgroundColor: 'rgba(5, 8, 20, 0.8)',
     borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.4)',
+    borderColor: 'rgba(99,102,241,0.25)',
+    padding: 10,
+  },
+  accordionHeader: {
+    height: 48,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.35)',
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 12,
+    paddingHorizontal: 16,
   },
-  methodBtnActive: {
-    backgroundColor: '#c4b5fd',
-    shadowColor: '#c4b5fd',
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-  },
-  methodText: { fontSize: 16, fontWeight: '600', color: '#e0e7ff' },
-  methodTextActive: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
+  accordionLabel: { fontSize: 16, fontWeight: '600', color: '#e0e7ff' },
+  accordionBody: { marginTop: 6 },
+  methodChevron: { marginLeft: 'auto' },
 
   formCard: {
     marginTop: 18,
@@ -215,14 +215,6 @@ export const signupStyles = StyleSheet.create({
   primaryLink: { color: '#c4b5fd', fontWeight: '700', fontSize: 16 },
   secondaryLink: { color: '#38bdf8', fontWeight: '600', fontSize: 15 },
 
-  hero: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    width: 220,
-    height: 220,
-    opacity: 0.35,
-  },
   glossBox: {
     position: 'absolute',
     top: 0,
@@ -234,7 +226,52 @@ export const signupStyles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.04)',
     pointerEvents: 'none',
   },
-
+  cardMobile: {
+    borderRadius: 32,
+    backgroundColor: 'rgba(6, 12, 26, 0.95)',
+    padding: 22,
+    borderWidth: 0,
+    shadowColor: '#01030a',
+    shadowOpacity: 0.45,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 8,
+    gap: 16,
+  },
+  mobileCardWrapper: { width: '100%', maxWidth: 420, alignSelf: 'center', paddingHorizontal: 8 },
+  mobileBrandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  mobileBrandLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  mobileLogoMark: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.3)',
+  },
+  mobileBrand: { color: '#f8fafc', fontSize: 22, fontWeight: '800' },
+  mobileBrandMeta: { color: '#cbd5f5', fontSize: 12 },
+  mobileCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(15,23,42,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mobileTagline: { color: '#cbd5f5', textAlign: 'center', fontSize: 14 },
+  mobilePanelHeader: { alignItems: 'center' },
+  mobileCharactersImg: { width: '90%', height: 140 },
+  mobilePanel: { borderRadius: 28, borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.25)', padding: 16, gap: 16 },
+  mobileFooterTextBlock: { alignItems: 'center', gap: 4 },
+  mobileFooterText: { color: '#cbd5f5', fontSize: 13 },
+  mobileGlossBox: { borderRadius: 32, borderColor: 'rgba(255,255,255,0.08)' },
   homeLink: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   homeText: { color: '#8b5cf6', fontWeight: '600' },
 });

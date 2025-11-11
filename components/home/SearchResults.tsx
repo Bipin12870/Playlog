@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -28,6 +29,8 @@ type SearchResultsProps = {
   gridRowStyle?: StyleProp<ViewStyle>;
   cardStyle?: StyleProp<ViewStyle>;
   emptyState?: EmptyState;
+  headerComponent?: ReactElement | null;
+  footerComponent?: ReactElement | null;
 };
 
 export function SearchResults({
@@ -43,6 +46,8 @@ export function SearchResults({
     title: 'No matches found',
     copy: 'Try a different title or check your spelling.',
   },
+  headerComponent = null,
+  footerComponent = null,
 }: SearchResultsProps) {
   const { toggleFavourite, isFavourite } = useGameFavorites();
 
@@ -72,11 +77,11 @@ export function SearchResults({
         contentContainerStyle={[styles.listContent, contentContainerStyle]}
         numColumns={columnCount}
         keyExtractor={(item) => item.id.toString()}
-        columnWrapperStyle={
-          columnCount > 1 ? [styles.gridRow, gridRowStyle] : gridRowStyle ?? undefined
-        }
+        columnWrapperStyle={columnCount > 1 ? [styles.gridRow, gridRowStyle] : undefined}
         keyboardShouldPersistTaps="handled"
         renderItem={renderItem}
+        ListHeaderComponent={headerComponent}
+        ListFooterComponent={footerComponent}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>{emptyState.title}</Text>

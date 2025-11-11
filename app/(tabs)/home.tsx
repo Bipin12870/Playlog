@@ -600,9 +600,51 @@ function NativeGameCard({
   const coverUri = resolveCoverUri(game?.cover?.url ?? null);
   const ratingDisplay = formatRating(game?.rating);
   const platformIcons = getPlatformIcons(game);
+  const cardBase = [nativeStyles.card, { width }];
+
+  if (onPress) {
+    return (
+      <Pressable
+        style={({ pressed }) => [...cardBase, pressed && nativeStyles.cardPressed]}
+        onPress={onPress}
+        accessibilityRole="button"
+      >
+        <NativeCardContent
+          coverUri={coverUri}
+          platformIcons={platformIcons}
+          ratingDisplay={ratingDisplay}
+          game={game}
+        />
+      </Pressable>
+    );
+  }
+
   return (
-    <View style={[nativeStyles.card, { width }]}>
-      <Pressable style={nativeStyles.thumbnail} onPress={onPress} disabled={!onPress}>
+    <View style={cardBase}>
+      <NativeCardContent
+        coverUri={coverUri}
+        platformIcons={platformIcons}
+        ratingDisplay={ratingDisplay}
+        game={game}
+      />
+    </View>
+  );
+}
+
+function NativeCardContent({
+  coverUri,
+  platformIcons,
+  ratingDisplay,
+  game,
+}: {
+  coverUri?: string;
+  platformIcons: Array<keyof typeof Ionicons.glyphMap>;
+  ratingDisplay: string | null;
+  game?: GameSummary | null;
+}) {
+  return (
+    <>
+      <View style={nativeStyles.thumbnail}>
         {coverUri ? (
           <Image source={{ uri: coverUri }} style={nativeStyles.thumbnailImage} />
         ) : (
@@ -610,7 +652,7 @@ function NativeGameCard({
             <Text style={nativeStyles.thumbText}>Image</Text>
           </View>
         )}
-      </Pressable>
+      </View>
       <Text style={nativeStyles.gameTitle} numberOfLines={1}>
         {game?.name ?? 'Coming soon'}
       </Text>
@@ -633,15 +675,7 @@ function NativeGameCard({
           ))}
         </View>
       ) : null}
-      <Pressable
-        style={nativeStyles.detailsBtn}
-        onPress={onPress}
-        accessibilityRole={onPress ? 'button' : undefined}
-        disabled={!onPress}
-      >
-        <Text style={nativeStyles.detailsText}>{onPress ? 'View Details' : 'Stay tuned'}</Text>
-      </Pressable>
-    </View>
+    </>
   );
 }
 
@@ -657,8 +691,10 @@ function WebGameCard({
   const coverUri = resolveCoverUri(game?.cover?.url ?? null);
   const ratingDisplay = formatRating(game?.rating);
   const platformIcons = getPlatformIcons(game);
-  return (
-    <View style={[webStyles.card, { width }]}>
+  const baseStyle = [webStyles.card, { width }];
+
+  const content = (
+    <>
       <View style={webStyles.thumbWrap}>
         {coverUri ? (
           <Image source={{ uri: coverUri }} style={webStyles.thumbImage} />
@@ -687,16 +723,22 @@ function WebGameCard({
           ))}
         </View>
       ) : null}
-      <Pressable
-        style={webStyles.viewBtn}
-        onPress={onPress}
-        accessibilityRole={onPress ? 'button' : undefined}
-        disabled={!onPress}
-      >
-        <Text style={webStyles.viewBtnText}>{onPress ? 'View Details' : 'Stay tuned'}</Text>
-      </Pressable>
-    </View>
+    </>
   );
+
+  if (onPress) {
+    return (
+      <Pressable
+        style={({ pressed }) => [...baseStyle, pressed && webStyles.cardPressed]}
+        onPress={onPress}
+        accessibilityRole="button"
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return <View style={baseStyle}>{content}</View>;
 }
 
 function SectionTitle({ title, tight }: { title: string; tight?: boolean }) {
@@ -887,7 +929,7 @@ function getPlatformIcons(game?: GameSummary | null) {
 }
 
 const nativeStyles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0a0a' },
+  container: { flex: 1, backgroundColor: '#0f172a' },
   scrollContent: { paddingBottom: 80 },
   header: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 8 },
   logoBox: { backgroundColor: '#2e2e2e', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 },
@@ -940,13 +982,16 @@ const nativeStyles = StyleSheet.create({
     paddingBottom: 6,
   },
   card: { backgroundColor: '#1e1e1e', borderRadius: 10, padding: 12, gap: 8 },
+  cardPressed: { opacity: 0.9 },
   thumbnail: {
     width: '100%',
-    aspectRatio: 16 / 9,
-    borderRadius: 12,
+    aspectRatio: 2 / 3,
+    borderRadius: 14,
     backgroundColor: '#1c1c1f',
     marginBottom: 8,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.2)',
   },
   thumbnailImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   thumbnailFallback: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -954,9 +999,7 @@ const nativeStyles = StyleSheet.create({
   gameTitle: { color: '#fff', fontWeight: '700', fontSize: 14 },
   rating: { color: '#ccc', fontSize: 12, marginVertical: 4 },
   ratingPlaceholder: { color: '#6b7280', fontSize: 12, marginVertical: 4 },
-  platformRow: { flexDirection: 'row', gap: 10, marginBottom: 6 },
-  detailsBtn: { backgroundColor: '#999', paddingVertical: 6, borderRadius: 6, alignItems: 'center' },
-  detailsText: { color: '#0a0a0a', fontWeight: '700', fontSize: 12 },
+  platformRow: { flexDirection: 'row', gap: 10, marginBottom: 2 },
   searchResults: { paddingHorizontal: 16 },
   modalBackdrop: {
     flex: 1,
@@ -987,7 +1030,7 @@ const nativeStyles = StyleSheet.create({
 });
 
 const webStyles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { flex: 1, backgroundColor: '#0f172a' },
   scroll: { paddingBottom: 48 },
   shell: { alignSelf: 'center', width: '100%', paddingTop: 16 },
   heroRow: { flexDirection: 'row', alignItems: 'stretch', paddingVertical: 24 },
@@ -1021,11 +1064,21 @@ const webStyles = StyleSheet.create({
   card: {
     backgroundColor: '#3f3f46',
     borderRadius: 12,
-    padding: 12,
+    padding: 10,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
   },
-  thumbWrap: { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#2c2c30', borderRadius: 12, marginBottom: 12, overflow: 'hidden' },
+  cardPressed: { opacity: 0.9 },
+  thumbWrap: {
+    width: '100%',
+    aspectRatio: 2 / 3,
+    backgroundColor: '#2c2c30',
+    borderRadius: 14,
+    marginBottom: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.2)',
+  },
   thumbImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   thumbFallback: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   thumbText: { color: '#d1d5db', fontSize: 12 },
@@ -1033,8 +1086,6 @@ const webStyles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
   metaText: { color: '#e5e7eb', fontSize: 12 },
   platformRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
-  viewBtn: { height: 36, borderRadius: 8, backgroundColor: '#9ca3af', alignItems: 'center', justifyContent: 'center' },
-  viewBtnText: { color: '#0b0b0c', fontSize: 13, fontWeight: '800' },
   footerOuter: {
     backgroundColor: '#0c0f18',
     borderTopWidth: StyleSheet.hairlineWidth,

@@ -1,6 +1,14 @@
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth, GoogleAuthProvider, PhoneAuthProvider } from 'firebase/auth';
+import {
+  getAuth,
+  GoogleAuthProvider,
+  PhoneAuthProvider,
+  initializeAuth,
+  getReactNativePersistence,
+} from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -24,7 +32,12 @@ if (
 
 const apps = getApps();
 const app = apps.length === 0 ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
+const auth =
+  apps.length === 0 && Platform.OS !== 'web'
+    ? initializeAuth(app, {
+        persistence: getReactNativePersistence(AsyncStorage),
+      })
+    : getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 const phoneProvider = new PhoneAuthProvider(auth);

@@ -13,9 +13,11 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDocs,
+  onSnapshot,
   serverTimestamp,
   setDoc,
+  type DocumentData,
+  type QuerySnapshot,
 } from 'firebase/firestore';
 
 import type { GameSummary } from '../../types/game';
@@ -42,11 +44,8 @@ export function GameFavoritesProvider({ children }: { children: ReactNode }) {
   const [hasUnlimitedFavorites, setHasUnlimitedFavorites] = useState(false);
   const { user } = useAuthUser();
 
-  const loadFavourites = useCallback(async (currentUser: User) => {
-    const favouritesRef = collection(db, 'users', currentUser.uid, 'favorites');
-    const snapshot = await getDocs(favouritesRef);
-
-    const entries = snapshot.docs
+  const parseFavouritesSnapshot = useCallback((snapshot: QuerySnapshot<DocumentData>) => {
+    return snapshot.docs
       .map((docSnap) => {
         const data = docSnap.data() as Partial<GameSummary> & {
           savedAt?: { toMillis?: () => number };
@@ -76,8 +75,6 @@ export function GameFavoritesProvider({ children }: { children: ReactNode }) {
       )
       .sort((a, b) => b.savedAt - a.savedAt)
       .map((entry) => entry.game);
-
-    return entries;
   }, []);
 
   useEffect(() => {
@@ -122,28 +119,28 @@ export function GameFavoritesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) {
       setFavourites([]);
-      return;
+      return undefined;
     }
 
-    let cancelled = false;
-
-    loadFavourites(user)
-      .then((games) => {
-        if (!cancelled) {
+    const favouritesRef = collection(db, 'users', user.uid, 'favorites');
+    const unsubscribe = onSnapshot(
+      favouritesRef,
+      (snapshot) => {
+        try {
+          const games = parseFavouritesSnapshot(snapshot);
           setFavourites(games);
+        } catch (error) {
+          console.warn('Failed to parse favourites snapshot', error);
         }
-      })
-      .catch((error) => {
-        console.warn('Failed to load favourites', error);
-        if (!cancelled) {
-          setFavourites([]);
-        }
-      });
+      },
+      (error) => {
+        console.warn('Failed to subscribe to favourites', error);
+        setFavourites([]);
+      }
+    );
 
-    return () => {
-      cancelled = true;
-    };
-  }, [user, loadFavourites]);
+    return () => unsubscribe();
+  }, [user, parseFavouritesSnapshot]);
 
   const isFavourite = useCallback(
     (gameId: number) => favourites.some((game) => game.id === gameId),
