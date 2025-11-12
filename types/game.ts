@@ -4,6 +4,7 @@ export type GameSummary = {
   summary?: string;
   rating?: number;
   cover?: { url?: string | null };
+  mediaUrl?: string | null;
   platforms?: { slug?: string | null; abbreviation?: string | null }[];
   first_release_date?: number;
 };

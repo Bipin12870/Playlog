@@ -581,6 +581,15 @@ function mapToDetails(raw: IgdbGame): GameDetailsData {
 }
 
 function mapToSummary(raw: IgdbGame | GameSummary): GameSummary {
+  const anyRaw = raw as any;
+  const screenshotUrl = Array.isArray(anyRaw?.screenshots)
+    ? anyRaw.screenshots.find((shot: IgdbImage) => shot?.url)?.url ?? null
+    : null;
+  const artworkUrl = Array.isArray(anyRaw?.artworks)
+    ? anyRaw.artworks.find((art: IgdbImage) => art?.url)?.url ?? null
+    : null;
+  const mediaUrl = anyRaw?.mediaUrl ?? screenshotUrl ?? artworkUrl ?? null;
+
   return {
     id: raw.id,
     name: raw.name,
@@ -589,6 +598,7 @@ function mapToSummary(raw: IgdbGame | GameSummary): GameSummary {
     cover: raw.cover ?? undefined,
     platforms: raw.platforms ?? undefined,
     first_release_date: raw.first_release_date ?? undefined,
+    mediaUrl,
   };
 }
 

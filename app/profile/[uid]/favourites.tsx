@@ -3,6 +3,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -31,7 +32,9 @@ export default function PublicFavouritesScreen() {
   const { user, initializing } = useAuthUser();
   const viewerUid = user?.uid ?? null;
   const { width } = useWindowDimensions();
-  const columnCount = useMemo(() => getColumnCount(width), [width]);
+  const rawColumnCount = useMemo(() => getColumnCount(width), [width]);
+  const columnCount = Platform.OS === 'web' ? 6 : Math.max(rawColumnCount, 3);
+  const isSingleColumn = rawColumnCount === 1;
 
   const { profile, loading: profileLoading, error } = useUserProfile(targetUid);
   const { isFollowing, hasPendingRequest } = useFollowState({
@@ -88,9 +91,9 @@ export default function PublicFavouritesScreen() {
         error={favorites.error?.message}
         columnCount={columnCount}
         onSelect={handleSelect}
-        contentContainerStyle={columnCount === 1 ? styles.singleColumnContent : undefined}
-        gridRowStyle={columnCount === 1 ? styles.singleColumnRow : undefined}
-        cardStyle={columnCount === 1 ? styles.singleColumnCard : undefined}
+        contentContainerStyle={isSingleColumn ? styles.singleColumnContent : undefined}
+        gridRowStyle={isSingleColumn ? styles.singleColumnRow : undefined}
+        cardStyle={isSingleColumn ? styles.singleColumnCard : undefined}
         emptyState={{
           title: 'No favourites yet',
           copy: `${profile.displayName} has not favourited any games.`,

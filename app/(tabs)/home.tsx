@@ -20,6 +20,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
+import { GameCard } from '../../components/GameCard';
 import { SearchResults } from '../../components/home';
 import type { DiscoverySection } from '../../components/home/DiscoverySections';
 import {
@@ -55,7 +56,8 @@ export default function HomeScreen() {
   const [exploreLoading, setExploreLoading] = useState(false);
   const [exploreError, setExploreError] = useState<string | null>(null);
 
-  const columnCount = getColumnCount(sizes.contentW);
+  const baseColumnCount = getColumnCount(sizes.contentW);
+  const columnCount = Platform.OS === 'web' ? 6 : Math.max(baseColumnCount, 3);
   const heroItems = useMemo<HeroGame[]>(() => {
     if (recommendedGames.length) return shuffleGames(recommendedGames);
     if (featuredGames.length) return shuffleGames(featuredGames);
@@ -227,6 +229,7 @@ export default function HomeScreen() {
     onSelect: handleViewDetails,
     theme: 'dark' as const,
     cardVariant,
+    query: activeQuery,
   };
 
   const discoveryState = {
@@ -277,6 +280,7 @@ type SearchResultsProps = {
   onSelect: (game: GameSummary) => void;
   theme?: 'light' | 'dark';
   cardVariant?: 'default' | 'compact';
+  query?: string;
 };
 
 type DiscoveryState = {
@@ -320,7 +324,7 @@ function NativeHome({
   const [hideGate, setHideGate] = useState(false);
   const showGate = !initializing && !user && !hideGate;
   const heroGame = heroItems[heroIndex] ?? null;
-  const heroCover = resolveCoverUri(heroGame?.cover?.url ?? null);
+  const heroCover = resolveHeroUri(heroGame);
 
   return (
     <SafeAreaView style={nativeStyles.container}>
@@ -346,41 +350,50 @@ function NativeHome({
           </View>
         </View>
 
-        <View style={nativeStyles.hero}>
-          <Animated.View style={[nativeStyles.heroAnimatedWrap, heroAnimatedStyle]}>
-            <Pressable
-              style={[nativeStyles.heroBanner, { height: sizes.heroH }]}
-              onPress={heroGame ? () => onSelectGame(heroGame) : undefined}
-              disabled={!heroGame}
-            >
-              {heroCover ? (
-                <Image source={{ uri: heroCover }} style={nativeStyles.heroImage} />
-              ) : (
-                <View style={nativeStyles.heroPlaceholder}>
-                  <Ionicons name="arrow-forward-circle-outline" size={28} color="#d1d5db" />
+        {!hasActiveSearch && (
+          <View style={nativeStyles.hero}>
+            <Animated.View style={[nativeStyles.heroAnimatedWrap, heroAnimatedStyle]}>
+              <Pressable
+                style={[nativeStyles.heroBanner, { height: sizes.heroH }]}
+                onPress={heroGame ? () => onSelectGame(heroGame) : undefined}
+                disabled={!heroGame}
+              >
+                {heroCover ? (
+                  <Image source={{ uri: heroCover }} style={nativeStyles.heroImage} />
+                ) : (
+                  <View style={nativeStyles.heroPlaceholder}>
+                    <Ionicons name="arrow-forward-circle-outline" size={28} color="#d1d5db" />
+                  </View>
+                )}
+                <View style={nativeStyles.heroOverlay}>
+                  <Text style={nativeStyles.heroTag}>Spotlight</Text>
+                  <Text style={nativeStyles.heroTitle}>{
+                    heroGame?.name ?? 'Discover new games'
+                  }</Text>
+                  <Text style={nativeStyles.heroSubtitle}>
+                    {heroGame ? 'Tap to jump into details' : 'Fresh picks are on the way'}
+                  </Text>
                 </View>
-              )}
-              <View style={nativeStyles.heroOverlay}>
-                <Text style={nativeStyles.heroTag}>Spotlight</Text>
-                <Text style={nativeStyles.heroTitle}>{heroGame?.name ?? 'Discover new games'}</Text>
-                <Text style={nativeStyles.heroSubtitle}>
-                  {heroGame ? 'Tap to jump into details' : 'Fresh picks are on the way'}
-                </Text>
-              </View>
-            </Pressable>
-          </Animated.View>
-          <View style={nativeStyles.heroDots}>
-            {heroItems.map((_, idx) => (
-              <View
-                key={`hero-dot-${idx}`}
-                style={[nativeStyles.heroDot, idx === heroIndex && nativeStyles.heroDotActive]}
-              />
-            ))}
+              </Pressable>
+            </Animated.View>
+            <View style={nativeStyles.heroDots}>
+              {heroItems.map((_, idx) => (
+                <View
+                  key={`hero-dot-${idx}`}
+                  style={[nativeStyles.heroDot, idx === heroIndex && nativeStyles.heroDotActive]}
+                />
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {hasActiveSearch ? (
           <View style={nativeStyles.searchResults}>
+            {searchResultsProps.query ? (
+              <Text style={nativeStyles.resultsHeading}>
+                Results for “{searchResultsProps.query}”
+              </Text>
+            ) : null}
             <SearchResults {...searchResultsProps} />
           </View>
         ) : (
@@ -452,68 +465,77 @@ function WebHome({
   heroAnimatedStyle,
 }: WebHomeProps) {
   const heroGame = heroItems[heroIndex] ?? null;
-  const heroCover = resolveCoverUri(heroGame?.cover?.url ?? null);
+  const heroCover = resolveHeroUri(heroGame);
   const secondaryGame = heroItems.length > 1 ? heroItems[(heroIndex + 1) % heroItems.length] : null;
-  const secondaryCover = resolveCoverUri(secondaryGame?.cover?.url ?? null);
+  const secondaryCover = resolveHeroUri(secondaryGame);
 
   return (
     <View style={webStyles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={webStyles.scroll}>
         <View style={[webStyles.shell, { maxWidth: sizes.MAX_WIDTH, paddingHorizontal: sizes.SHELL_PADDING }]}>
-          <View style={[webStyles.heroRow, { gap: 20, paddingHorizontal: sizes.isSM ? 12 : 16 }]}>
-            <Animated.View style={[webStyles.heroAnimatedWrap, heroAnimatedStyle]}>
-              <Pressable
-                style={[webStyles.heroCard, { height: sizes.heroH }]}
-                onPress={heroGame ? () => onSelectGame(heroGame) : undefined}
-                disabled={!heroGame}
-              >
-                {heroCover ? (
-                  <Image source={{ uri: heroCover }} style={webStyles.heroImage} />
-                ) : (
-                  <View style={webStyles.heroGloss}>
-                    <Ionicons name="play" color="#d1d5db" size={32} />
+          {!hasActiveSearch && (
+            <View style={[webStyles.heroRow, { gap: 20, paddingHorizontal: sizes.isSM ? 12 : 16 }]}>
+              <Animated.View style={[webStyles.heroAnimatedWrap, heroAnimatedStyle]}>
+                <Pressable
+                  style={[webStyles.heroCard, { height: sizes.heroH }]}
+                  onPress={heroGame ? () => onSelectGame(heroGame) : undefined}
+                  disabled={!heroGame}
+                >
+                  {heroCover ? (
+                    <Image source={{ uri: heroCover }} style={webStyles.heroImage} />
+                  ) : (
+                    <View style={webStyles.heroGloss}>
+                      <Ionicons name="play" color="#d1d5db" size={32} />
+                    </View>
+                  )}
+                  <View style={webStyles.heroOverlay}>
+                    <Text style={webStyles.heroTag}>Trending Now</Text>
+                    <Text style={webStyles.heroTitle}>
+                      {heroGame?.name ?? 'Discover something new'}
+                    </Text>
+                    <Text style={webStyles.heroSubtitle}>
+                      {heroGame
+                        ? 'Click to learn more about this pick.'
+                        : 'Stay tuned for curated picks.'}
+                    </Text>
                   </View>
-                )}
-                <View style={webStyles.heroOverlay}>
-                  <Text style={webStyles.heroTag}>Trending Now</Text>
-                  <Text style={webStyles.heroTitle}>
-                    {heroGame?.name ?? 'Discover something new'}
-                  </Text>
-                  <Text style={webStyles.heroSubtitle}>
-                    {heroGame ? 'Click to learn more about this pick.' : 'Stay tuned for curated picks.'}
-                  </Text>
-                </View>
-                <View style={webStyles.heroDots}>
-                  {heroItems.map((_, idx) => (
-                    <View
-                      key={`web-dot-${idx}`}
-                      style={[webStyles.heroDot, idx === heroIndex && webStyles.heroDotActive]}
-                    />
-                  ))}
-                </View>
-              </Pressable>
-            </Animated.View>
-            {!sizes.isSM && (
-              <View style={[webStyles.sideCard, { height: sizes.heroH, width: sizes.sideW }]}>
-                {secondaryCover ? (
-                  <Image source={{ uri: secondaryCover }} style={webStyles.sideImage} />
-                ) : (
-                  <View style={webStyles.sideGloss}>
-                    <Ionicons name="sparkles" color="#d1d5db" size={24} />
+                  <View style={webStyles.heroDots}>
+                    {heroItems.map((_, idx) => (
+                      <View
+                        key={`web-dot-${idx}`}
+                        style={[webStyles.heroDot, idx === heroIndex && webStyles.heroDotActive]}
+                      />
+                    ))}
                   </View>
-                )}
-                <View style={webStyles.sideOverlay}>
-                  <Text style={webStyles.sideLabel}>Up Next</Text>
-                  <Text style={webStyles.sideTitle}>
-                    {secondaryGame?.name ?? 'More games coming up'}
-                  </Text>
+                </Pressable>
+              </Animated.View>
+              {!sizes.isSM && (
+                <View style={[webStyles.sideCard, { height: sizes.heroH, width: sizes.sideW }]}>
+                  {secondaryCover ? (
+                    <Image source={{ uri: secondaryCover }} style={webStyles.sideImage} />
+                  ) : (
+                    <View style={webStyles.sideGloss}>
+                      <Ionicons name="sparkles" color="#d1d5db" size={24} />
+                    </View>
+                  )}
+                  <View style={webStyles.sideOverlay}>
+                    <Text style={webStyles.sideLabel}>Up Next</Text>
+                    <Text style={webStyles.sideTitle}>
+                      {secondaryGame?.name ?? 'More games coming up'}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            )}
-          </View>
+              )}
+            </View>
+          )}
 
           {hasActiveSearch ? (
             <View style={webStyles.searchResults}>
+              {searchResultsProps.query ? (
+                <Text style={webStyles.resultsHeading}>
+                  Results for “{searchResultsProps.query}”
+                </Text>
+              ) : null}
               <SearchResults {...searchResultsProps} />
             </View>
           ) : (
@@ -597,35 +619,27 @@ function NativeGameCard({
   game?: GameSummary | null;
   onPress?: () => void;
 }) {
-  const coverUri = resolveCoverUri(game?.cover?.url ?? null);
-  const ratingDisplay = formatRating(game?.rating);
-  const platformIcons = getPlatformIcons(game);
-  const cardBase = [nativeStyles.card, { width }];
+  const placeholderTitle = game?.name ?? 'Coming soon';
 
-  if (onPress) {
+  if (game) {
     return (
-      <Pressable
-        style={({ pressed }) => [...cardBase, pressed && nativeStyles.cardPressed]}
+      <GameCard
+        game={game}
         onPress={onPress}
-        accessibilityRole="button"
-      >
-        <NativeCardContent
-          coverUri={coverUri}
-          platformIcons={platformIcons}
-          ratingDisplay={ratingDisplay}
-          game={game}
-        />
-      </Pressable>
+        containerStyle={[nativeStyles.posterCard, { width }]}
+      />
     );
   }
+
+  const cardBase = [nativeStyles.card, { width }];
 
   return (
     <View style={cardBase}>
       <NativeCardContent
-        coverUri={coverUri}
-        platformIcons={platformIcons}
-        ratingDisplay={ratingDisplay}
-        game={game}
+        coverUri={undefined}
+        platformIcons={[]}
+        ratingDisplay={null}
+        game={{ id: -1, name: placeholderTitle }}
       />
     </View>
   );
@@ -688,57 +702,40 @@ function WebGameCard({
   game?: GameSummary | null;
   onPress?: () => void;
 }) {
-  const coverUri = resolveCoverUri(game?.cover?.url ?? null);
-  const ratingDisplay = formatRating(game?.rating);
-  const platformIcons = getPlatformIcons(game);
-  const baseStyle = [webStyles.card, { width }];
+  const placeholderTitle = game?.name ?? 'Coming soon';
 
-  const content = (
-    <>
-      <View style={webStyles.thumbWrap}>
-        {coverUri ? (
-          <Image source={{ uri: coverUri }} style={webStyles.thumbImage} />
-        ) : (
-          <View style={webStyles.thumbFallback}>
-            <Text style={webStyles.thumbText}>Image</Text>
-          </View>
-        )}
-      </View>
-      <Text style={webStyles.gameName} numberOfLines={1}>
-        {game?.name ?? 'Coming soon'}
-      </Text>
-      <View style={webStyles.metaRow}>
-        <Ionicons name="star" size={12} color="#facc15" />
-        <Text style={webStyles.metaText}>{ratingDisplay ? `${ratingDisplay}/10` : 'N/A'}</Text>
-      </View>
-      {platformIcons.length ? (
-        <View style={webStyles.platformRow}>
-          {platformIcons.map((icon) => (
-            <Ionicons
-              key={`${game?.id ?? 'placeholder'}-${icon}`}
-              name={icon}
-              size={16}
-              color="#e0e7ff"
-            />
-          ))}
-        </View>
-      ) : null}
-    </>
-  );
-
-  if (onPress) {
+  if (game) {
     return (
-      <Pressable
-        style={({ pressed }) => [...baseStyle, pressed && webStyles.cardPressed]}
+      <GameCard
+        game={game}
         onPress={onPress}
-        accessibilityRole="button"
-      >
-        {content}
-      </Pressable>
+        containerStyle={[webStyles.posterCard, { width }]}
+      />
     );
   }
 
-  return <View style={baseStyle}>{content}</View>;
+  const baseStyle = [webStyles.card, { width }];
+
+  return (
+    <View style={baseStyle}>
+      <View style={webStyles.thumbWrap}>
+        <View style={webStyles.thumbFallback}>
+          <Text style={webStyles.thumbText}>Image</Text>
+        </View>
+      </View>
+      <Text style={webStyles.gameName} numberOfLines={1}>
+        {placeholderTitle}
+      </Text>
+      <View style={webStyles.metaRow}>
+        <Ionicons name="star" size={12} color="#facc15" />
+        <Text style={webStyles.metaText}>N/A</Text>
+      </View>
+      <View style={webStyles.platformRow}>
+        <Ionicons name="game-controller" size={16} color="#e0e7ff" />
+        <Ionicons name="logo-windows" size={16} color="#e0e7ff" />
+      </View>
+    </View>
+  );
 }
 
 function SectionTitle({ title, tight }: { title: string; tight?: boolean }) {
@@ -868,6 +865,17 @@ function resolveCoverUri(raw?: string | null) {
   return normalized.startsWith('http') ? normalized : `https:${normalized}`;
 }
 
+function resolveHeroUri(game?: GameSummary | null) {
+  if (!game) return undefined;
+  if (game.mediaUrl) {
+    const media = normalizeCoverSize(game.mediaUrl);
+    if (media.startsWith('http')) return media;
+    if (media.startsWith('//')) return `https:${media}`;
+    return media;
+  }
+  return resolveCoverUri(game.cover?.url ?? null);
+}
+
 function normalizeCoverSize(raw: string) {
   if (!raw.includes('t_')) return raw;
   return raw.replace(/t_thumb|t_cover_small|t_cover_big|t_screenshot_med|t_screenshot_big/g, (match) => {
@@ -981,8 +989,8 @@ const nativeStyles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     paddingBottom: 6,
   },
+  posterCard: { width: '100%' },
   card: { backgroundColor: '#1e1e1e', borderRadius: 10, padding: 12, gap: 8 },
-  cardPressed: { opacity: 0.9 },
   thumbnail: {
     width: '100%',
     aspectRatio: 2 / 3,
@@ -1001,6 +1009,13 @@ const nativeStyles = StyleSheet.create({
   ratingPlaceholder: { color: '#6b7280', fontSize: 12, marginVertical: 4 },
   platformRow: { flexDirection: 'row', gap: 10, marginBottom: 2 },
   searchResults: { paddingHorizontal: 16 },
+  resultsHeading: {
+    color: '#e5e7eb',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -1052,6 +1067,12 @@ const webStyles = StyleSheet.create({
   sideLabel: { color: '#cbd5f5', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 },
   sideTitle: { color: '#fff', fontSize: 16, fontWeight: '700', marginTop: 4 },
   searchResults: { marginBottom: 24 },
+  resultsHeading: {
+    color: '#f8fafc',
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 12,
+  },
   sectionTitleWrap: { alignItems: 'center', marginTop: 6, marginBottom: 14 },
   sectionDivider: {
     height: StyleSheet.hairlineWidth,
@@ -1061,6 +1082,7 @@ const webStyles = StyleSheet.create({
     marginBottom: 8,
   },
   sectionTitle: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 0.2, marginBottom: 8 },
+  posterCard: { width: '100%' },
   card: {
     backgroundColor: '#3f3f46',
     borderRadius: 12,
@@ -1068,7 +1090,6 @@ const webStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
   },
-  cardPressed: { opacity: 0.9 },
   thumbWrap: {
     width: '100%',
     aspectRatio: 2 / 3,

@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import {
   Image,
+  Platform,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -24,8 +26,6 @@ type GameCardProps = {
   };
   containerStyle?: StyleProp<ViewStyle>;
   onPress?: () => void;
-  onToggleFavorite?: () => void;
-  isFavorite?: boolean;
 };
 
 const ICON_MAP: Array<{ match: RegExp; icon: keyof typeof Ionicons.glyphMap }> = [
@@ -68,147 +68,221 @@ export function GameCard({
   game,
   containerStyle,
   onPress,
-  onToggleFavorite,
-  isFavorite = false,
 }: GameCardProps) {
+  const isWeb = Platform.OS === 'web';
+  const [isHovered, setIsHovered] = useState(false);
+  const [isActive, setIsActive] = useState(false);
   const coverUri = resolveCoverUri(game.cover?.url ?? null);
   const ratingDisplay = resolveRating(game.rating);
   const platformIcons = extractPlatformIcons(game.platforms);
-  const HeartComponent = onToggleFavorite ? Pressable : View;
   const baseCardStyle = [styles.card, containerStyle];
 
-  const cardContents = (
-    <>
-      <View style={styles.thumbnailWrapper}>
+  const renderCard = (overlayVisible: boolean) => (
+    <View style={styles.surface}>
+      <View style={styles.coverShell}>
         {coverUri ? (
-          <Image source={{ uri: coverUri }} style={styles.thumbnail} />
+          <Image source={{ uri: coverUri }} style={styles.coverImage} />
         ) : (
-          <View style={styles.thumbnailFallback}>
-            <Text style={styles.thumbnailFallbackText}>No art</Text>
+          <View style={styles.coverFallback}>
+            <Text style={styles.coverFallbackText}>No cover art</Text>
           </View>
         )}
-      </View>
-
-      <View style={styles.body}>
-        <View style={styles.headerRow}>
-          <Text style={styles.title} numberOfLines={2}>
-            {game.name}
-          </Text>
-          <HeartComponent
-            onPress={onToggleFavorite}
-            style={[styles.favoriteBtn, isFavorite && styles.favoriteBtnActive]}
-            accessibilityRole={onToggleFavorite ? 'button' : undefined}
-            accessibilityLabel="Toggle favourite"
-            hitSlop={8}
-          >
-            <Ionicons
-              name={isFavorite ? 'heart' : 'heart-outline'}
-              size={20}
-              color={isFavorite ? '#f8fafc' : '#f472b6'}
-            />
-          </HeartComponent>
+        <View style={styles.coverEdge} />
+        <View
+          pointerEvents="none"
+          style={[
+            styles.infoOverlay,
+            overlayVisible && styles.infoOverlayVisible,
+          ]}
+        >
+          <View style={styles.infoPanel}>
+            <Text style={styles.overlayTitle} numberOfLines={2}>
+              {game.name}
+            </Text>
+            <View style={styles.overlayMetaRow}>
+              {ratingDisplay ? (
+                <View style={styles.overlayBadge}>
+                  <Ionicons name="star" size={12} color="#fbbf24" />
+                  <Text style={styles.overlayBadgeText}>{ratingDisplay}/10</Text>
+                </View>
+              ) : (
+                <Text style={styles.overlayMetaMuted}>Rating unavailable</Text>
+              )}
+              {platformIcons.length > 0 ? (
+                <View style={styles.overlayBadgeRow}>
+                  {platformIcons.slice(0, 3).map((icon) => (
+                    <View key={icon} style={styles.platformChip}>
+                      <Ionicons name={icon} size={12} color="#e2e8f0" />
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.overlayMetaMuted}>Platforms TBD</Text>
+              )}
+            </View>
+          </View>
         </View>
-
-        {ratingDisplay ? (
-          <View style={styles.ratingRow}>
-            <Ionicons name="star" size={12} color="#fbbf24" style={styles.ratingIcon} />
-            <Text style={styles.ratingText}>{ratingDisplay}/10</Text>
-          </View>
-        ) : null}
-
-        {platformIcons.length > 0 && (
-          <View style={styles.platformRow}>
-            {platformIcons.map((icon) => (
-              <Ionicons key={icon} name={icon} size={16} color="#94a3b8" />
-            ))}
-          </View>
-        )}
       </View>
-    </>
+    </View>
   );
 
   if (onPress) {
+    const handleHoverIn = () => {
+      if (Platform.OS === 'web') {
+        setIsHovered(true);
+      }
+    };
+
+    const handleHoverOut = () => {
+      if (Platform.OS === 'web') {
+        setIsHovered(false);
+      }
+    };
+
+    const overlayVisible = isWeb && (isHovered || isActive);
+
     return (
       <Pressable
         onPress={onPress}
-        style={({ pressed }) => [...baseCardStyle, pressed && styles.cardPressed]}
+        onHoverIn={handleHoverIn}
+        onHoverOut={handleHoverOut}
+        onPressIn={() => {
+          if (isWeb) setIsActive(true);
+        }}
+        onPressOut={() => {
+          if (isWeb) setIsActive(false);
+        }}
+        style={({ pressed }) => [
+          ...baseCardStyle,
+          pressed && styles.cardPressed,
+          isWeb && (isHovered || isActive) && styles.cardRaised,
+        ]}
       >
-        {cardContents}
+        {renderCard(overlayVisible)}
       </Pressable>
     );
   }
 
-  return <View style={baseCardStyle}>{cardContents}</View>;
+  return <View style={baseCardStyle}>{renderCard(false)}</View>;
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#1f2937',
-    borderRadius: 12,
+    backgroundColor: '#070b14',
+    borderRadius: 20,
     overflow: 'hidden',
-    padding: 10,
-    gap: 8,
+    shadowColor: '#020617',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.35,
+    shadowRadius: 26,
+    elevation: 10,
   },
-  cardPressed: { opacity: 0.85 },
-  thumbnailWrapper: {
-    borderRadius: 14,
+  cardPressed: { opacity: 0.92 },
+  cardRaised: {
+    transform: [{ scale: 1.035 }],
+    shadowOpacity: 0.55,
+    shadowRadius: 34,
+    elevation: 18,
+  },
+  surface: {
+    borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#111827',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
+  },
+  coverShell: {
     aspectRatio: 2 / 3,
+    position: 'relative',
   },
-  thumbnail: {
+  coverImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
   },
-  thumbnailFallback: {
+  coverFallback: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#1f2937',
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
+    paddingHorizontal: 12,
   },
-  thumbnailFallbackText: {
+  coverFallbackText: {
     color: '#94a3b8',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
+    textAlign: 'center',
   },
-  body: { gap: 8 },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+  coverEdge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    borderWidth: 1,
+    borderColor: 'rgba(248, 250, 252, 0.12)',
+    borderRadius: 20,
+  },
+  infoOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(5, 8, 20, 0.08)',
+    opacity: 0,
+    justifyContent: 'flex-end',
+    padding: 12,
+  },
+  infoOverlayVisible: {
+    opacity: 1,
+    backgroundColor: 'rgba(5, 8, 20, 0.55)',
+  },
+  infoPanel: {
+    backgroundColor: 'rgba(2, 6, 23, 0.9)',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.35)',
     gap: 8,
   },
-  title: {
-    flex: 1,
+  overlayTitle: {
     color: '#f8fafc',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
   },
-  favoriteBtn: {
-    padding: 6,
-    borderRadius: 999,
-    backgroundColor: 'rgba(244, 114, 182, 0.12)',
+  overlayMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
-  favoriteBtnActive: {
-    backgroundColor: '#f472b6',
+  overlayMetaMuted: {
+    color: '#94a3b8',
+    fontSize: 13,
   },
-  ratingRow: {
+  overlayBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    backgroundColor: 'rgba(251, 191, 36, 0.12)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 999,
   },
-  ratingIcon: {
-    marginTop: 1,
-  },
-  ratingText: {
-    color: '#cbd5f5',
+  overlayBadgeText: {
+    color: '#fde68a',
     fontSize: 12,
     fontWeight: '600',
   },
-  platformRow: {
+  overlayBadgeRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  platformChip: {
+    backgroundColor: 'rgba(148, 163, 184, 0.2)',
+    padding: 6,
+    borderRadius: 999,
   },
 });

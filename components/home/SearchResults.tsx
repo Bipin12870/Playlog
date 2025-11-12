@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
 import type { ReactElement } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   ListRenderItem,
+  Platform,
   StyleProp,
   StyleSheet,
   Text,
@@ -12,7 +14,6 @@ import {
 
 import { GameCard } from '../GameCard';
 import { GameSummary } from '../../types/game';
-import { useGameFavorites } from '../../lib/hooks/useGameFavorites';
 
 type EmptyState = {
   title: string;
@@ -31,6 +32,8 @@ type SearchResultsProps = {
   emptyState?: EmptyState;
   headerComponent?: ReactElement | null;
   footerComponent?: ReactElement | null;
+  cardVariant?: 'default' | 'compact';
+  query?: string;
 };
 
 export function SearchResults({
@@ -48,18 +51,39 @@ export function SearchResults({
   },
   headerComponent = null,
   footerComponent = null,
+  cardVariant = Platform.OS === 'web' ? 'default' : 'compact',
 }: SearchResultsProps) {
-  const { toggleFavourite, isFavourite } = useGameFavorites();
+  const isCompact = cardVariant === 'compact';
+  const isWeb = Platform.OS === 'web';
+  const baseColumns = isWeb ? Math.max(columnCount, 6) : columnCount;
+  const resolvedColumnCount = isCompact && baseColumns < 3 ? 3 : baseColumns;
 
-  const renderItem: ListRenderItem<GameSummary> = ({ item }) => (
-    <GameCard
-      game={item}
-      containerStyle={[styles.card, cardStyle]}
-      onPress={() => onSelect(item)}
-      onToggleFavorite={() => toggleFavourite(item)}
-      isFavorite={isFavourite(item.id)}
-    />
-  );
+  const data = useMemo<(GameSummary | null)[]>(() => {
+    if (!games.length) return [];
+    const remainder = games.length % resolvedColumnCount;
+    if (remainder === 0) return games;
+    const placeholders = Array.from({ length: resolvedColumnCount - remainder }, () => null);
+    return [...games, ...placeholders];
+  }, [games, resolvedColumnCount]);
+
+  const renderItem: ListRenderItem<GameSummary | null> = ({ item }) => {
+    if (!item) {
+      return (
+        <View
+          pointerEvents="none"
+          style={[styles.card, isCompact && styles.compactCard, styles.placeholderCard, cardStyle]}
+        />
+      );
+    }
+
+    return (
+      <GameCard
+        game={item}
+        containerStyle={[styles.card, isCompact && styles.compactCard, cardStyle]}
+        onPress={() => onSelect(item)}
+      />
+    );
+  };
 
   if (loading) {
     return (
@@ -73,11 +97,19 @@ export function SearchResults({
     <View style={styles.wrapper}>
       <FlatList
         style={styles.list}
-        data={games}
-        contentContainerStyle={[styles.listContent, contentContainerStyle]}
-        numColumns={columnCount}
-        keyExtractor={(item) => item.id.toString()}
-        columnWrapperStyle={columnCount > 1 ? [styles.gridRow, gridRowStyle] : undefined}
+        data={data}
+        contentContainerStyle={[
+          styles.listContent,
+          isCompact && styles.compactListContent,
+          contentContainerStyle,
+        ]}
+        numColumns={resolvedColumnCount}
+        keyExtractor={(item, index) => (item ? item.id.toString() : `placeholder-${index}`)}
+        columnWrapperStyle={
+          resolvedColumnCount > 1
+            ? [styles.gridRow, isCompact && styles.compactGridRow, gridRowStyle]
+            : undefined
+        }
         keyboardShouldPersistTaps="handled"
         renderItem={renderItem}
         ListHeaderComponent={headerComponent}
@@ -99,9 +131,13 @@ const styles = StyleSheet.create({
   list: { flex: 1 },
   listContent: { paddingBottom: 48 },
   gridRow: { gap: 20, paddingBottom: 20 },
+  compactGridRow: { gap: 12, paddingBottom: 16 },
   card: { flex: 1, marginBottom: 20, minWidth: 0 },
+  compactCard: { marginBottom: 16 },
+  placeholderCard: { opacity: 0 },
   loadingRow: { paddingVertical: 32, alignItems: 'center', justifyContent: 'center' },
   emptyState: { alignItems: 'center', paddingVertical: 48, gap: 8 },
+  compactListContent: { paddingBottom: 32 },
   emptyTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },
   emptyCopy: { fontSize: 14, color: '#6b7280', textAlign: 'center', paddingHorizontal: 40 },
   errorText: { marginTop: 12, color: '#ef4444', textAlign: 'center' },

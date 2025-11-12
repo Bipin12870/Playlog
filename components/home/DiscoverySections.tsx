@@ -2,7 +2,6 @@ import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, View } from 
 
 import { GameCard } from '../GameCard';
 import { GameSummary } from '../../types/game';
-import { useGameFavorites } from '../../lib/hooks/useGameFavorites';
 
 export type DiscoverySection = {
   key: string;
@@ -31,7 +30,6 @@ export function DiscoverySections({
   emptyCopy = 'We couldn’t load games for you. Try searching or refresh the page.',
 }: DiscoverySectionsProps) {
   const hasContent = sections.some((section) => section.games.length > 0);
-  const { toggleFavourite, isFavourite } = useGameFavorites();
 
   if (loading) {
     return (
@@ -61,13 +59,7 @@ export function DiscoverySections({
                 contentContainerStyle={styles.sectionListContent}
                 columnWrapperStyle={columnCount > 1 ? styles.gridRow : undefined}
                 renderItem={({ item }) => (
-                  <GameCard
-                    game={item}
-                    containerStyle={styles.card}
-                    onPress={() => onSelect(item)}
-                    onToggleFavorite={() => toggleFavourite(item)}
-                    isFavorite={isFavourite(item.id)}
-                  />
+                  <GameCard game={item} containerStyle={styles.card} onPress={() => onSelect(item)} />
                 )}
               />
             </View>

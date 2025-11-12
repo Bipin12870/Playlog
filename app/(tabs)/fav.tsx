@@ -6,6 +6,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -35,7 +36,8 @@ export default function FavScreen() {
   const { width } = useWindowDimensions();
   const baseColumnCount = getColumnCount(width);
   const mobileColumnCount = width >= 640 ? 2 : 1;
-  const columnCount = isMobile ? mobileColumnCount : baseColumnCount;
+  const rawColumnCount = isMobile ? mobileColumnCount : baseColumnCount;
+  const columnCount = isWeb ? 6 : Math.max(rawColumnCount, 3);
   const { term, setTerm, submit, submittedTerm, submissionId, setScope } = useGameSearch();
   const [activeQuery, setActiveQuery] = useState('');
 
@@ -112,19 +114,6 @@ export default function FavScreen() {
           {isAuthenticated && !hasUnlimitedFavorites && remainingSlots === 0 ? (
             <Text style={styles.limitNotice}>You have reached your current limit.</Text>
           ) : null}
-        </View>
-        <View style={styles.searchBar}>
-          <TextInput
-            value={term}
-            onChangeText={setTerm}
-            placeholder="Search favourites"
-            placeholderTextColor="#9ca3af"
-            returnKeyType="search"
-            onSubmitEditing={handleSubmit}
-            autoCorrect={false}
-            autoCapitalize="none"
-            style={styles.searchInput}
-          />
         </View>
         <SearchResults
           games={filteredFavourites}

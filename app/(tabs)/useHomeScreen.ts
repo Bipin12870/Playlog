@@ -36,9 +36,15 @@ export function useHomeScreen() {
   const sideW = isWeb ? clamp(Math.round(heroH * 0.45), 120, 200) : 0;
 
   const ITEM_GAP = isWeb ? 18 : 12;
-  const ITEM_WIDTH = isWeb
-    ? clamp(Math.round(contentW * (isXL ? 0.22 : isLG ? 0.26 : isMD ? 0.32 : 0.55)), 200, 320)
-    : clamp(Math.round(width * 0.68), 200, 320);
+
+  let ITEM_WIDTH: number;
+  if (isWeb) {
+    const columnTarget = isXL ? 6 : isLG ? 5 : isMD ? 4 : contentW >= 520 ? 3 : 2;
+    const availableWidth = contentW - ITEM_GAP * (columnTarget - 1);
+    ITEM_WIDTH = clamp(Math.floor(availableWidth / columnTarget), 150, 240);
+  } else {
+    ITEM_WIDTH = clamp(Math.round(width * 0.32), 120, 200);
+  }
 
   const placeholderCount = isWeb ? 12 : 10;
   const placeholders = useMemo(() => Array.from({ length: placeholderCount }), [placeholderCount]);
