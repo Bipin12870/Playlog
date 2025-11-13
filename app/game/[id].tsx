@@ -11,6 +11,7 @@ import {
   fetchTrendingGames,
 } from '../../lib/igdb';
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
+import { useGameDetailsCache } from '../../lib/hooks/useGameDetailsCache';
 import {
   MAX_REVIEWS_PER_USER,
   setGameFavorite,
@@ -30,6 +31,7 @@ type IgdbCompany = {
 };
 
 type IgdbImage = { url?: string | null } | null;
+type IgdbVideo = { video_id?: string | null; name?: string | null } | null;
 
 type IgdbGame = {
   id: number;
@@ -46,12 +48,14 @@ type IgdbGame = {
   genres?: { id: number; name?: string | null }[] | null;
   artworks?: IgdbImage[] | null;
   screenshots?: IgdbImage[] | null;
+  videos?: IgdbVideo[] | null;
 };
 
 export default function GameDetailsScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
   const { user } = useAuthUser();
+  const { cacheReady, getCachedDetails, cacheGameDetails } = useGameDetailsCache();
 
   const isIdArray = Array.isArray(id);
   const idMissing = !id || isIdArray;
@@ -96,8 +100,24 @@ export default function GameDetailsScreen() {
       return;
     }
 
-    let isCancelled = false;
+    if (!cacheReady) {
+      setLoading(true);
+      return;
+    }
+
     const gameId = numericId;
+    let isCancelled = false;
+
+    const cached = getCachedDetails(gameId);
+    if (cached) {
+      setError(null);
+      setGame(cached.details);
+      setSimilarGames(cached.similar);
+      setLoading(false);
+      return () => {
+        isCancelled = true;
+      };
+    }
 
     async function load() {
       setLoading(true);
@@ -118,13 +138,12 @@ export default function GameDetailsScreen() {
         }
 
         const mappedDetails = mapToDetails(rawGame);
-        if (!isCancelled) {
-          setGame(mappedDetails);
-        }
 
         const genreIds = (rawGame.genres ?? [])
           .map((genre) => genre?.id)
           .filter((value): value is number => typeof value === 'number');
+
+        let resolvedSimilar: GameSummary[] = [];
 
         try {
           const similarResponse = genreIds.length
@@ -133,30 +152,32 @@ export default function GameDetailsScreen() {
           const similarList: GameSummary[] = Array.isArray(similarResponse)
             ? similarResponse.map(mapToSummary).filter(Boolean)
             : [];
-
-          if (!isCancelled && similarList.length) {
-            setSimilarGames(similarList.slice(0, 12));
-            return;
+          if (similarList.length) {
+            resolvedSimilar = similarList.slice(0, 12);
           }
         } catch (similarError) {
           console.warn('Failed to load similar games', similarError);
         }
 
-        // Fallback to trending titles if we could not determine genre-based matches.
-        try {
-          const fallbackResponse = await fetchTrendingGames();
-          const fallbackList: GameSummary[] = Array.isArray(fallbackResponse)
-            ? fallbackResponse
-                .filter((candidate) => candidate?.id !== rawGame.id)
-                .map(mapToSummary)
-                .filter(Boolean)
-            : [];
-
-          if (!isCancelled) {
-            setSimilarGames(fallbackList.slice(0, 12));
+        if (!resolvedSimilar.length) {
+          try {
+            const fallbackResponse = await fetchTrendingGames();
+            const fallbackList: GameSummary[] = Array.isArray(fallbackResponse)
+              ? fallbackResponse
+                  .filter((candidate) => candidate?.id !== rawGame.id)
+                  .map(mapToSummary)
+                  .filter(Boolean)
+              : [];
+            resolvedSimilar = fallbackList.slice(0, 12);
+          } catch (fallbackError) {
+            console.warn('Failed to load fallback games', fallbackError);
           }
-        } catch (fallbackError) {
-          console.warn('Failed to load fallback games', fallbackError);
+        }
+
+        if (!isCancelled) {
+          setGame(mappedDetails);
+          setSimilarGames(resolvedSimilar);
+          cacheGameDetails(gameId, { details: mappedDetails, similar: resolvedSimilar });
         }
       } catch (err) {
         console.error(err);
@@ -175,7 +196,13 @@ export default function GameDetailsScreen() {
     return () => {
       isCancelled = true;
     };
-  }, [idMissing, numericId]);
+  }, [
+    cacheGameDetails,
+    cacheReady,
+    getCachedDetails,
+    idMissing,
+    numericId,
+  ]);
 
   useEffect(() => {
     const gameId = numericId;
@@ -575,9 +602,28 @@ function mapToDetails(raw: IgdbGame): GameDetailsData {
     releaseYear,
     bannerUrl: artworkUrl ?? screenshotUrl ?? null,
     mediaUrl: screenshotUrl ?? artworkUrl ?? null,
+    trailerUrl: buildTrailerUrl(raw),
     description: raw.storyline ?? raw.summary ?? null,
     genres: raw.genres ?? null,
   };
+}
+
+function buildTrailerUrl(raw: IgdbGame): string | null {
+  if (!Array.isArray(raw.videos)) {
+    return null;
+  }
+  const entry = raw.videos.find(
+    (video) => typeof video?.video_id === 'string' && video.video_id.trim().length > 0,
+  );
+  if (!entry || typeof entry.video_id !== 'string') {
+    return null;
+  }
+  const videoId = entry.video_id.trim();
+  if (!videoId) return null;
+  if (videoId.startsWith('http://') || videoId.startsWith('https://')) {
+    return videoId;
+  }
+  return `https://www.youtube.com/watch?v=${videoId}`;
 }
 
 function mapToSummary(raw: IgdbGame | GameSummary): GameSummary {
