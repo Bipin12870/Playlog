@@ -7,6 +7,7 @@ export type GameSummary = {
   mediaUrl?: string | null;
   platforms?: { slug?: string | null; abbreviation?: string | null }[];
   first_release_date?: number;
+  genres?: { id: number; name?: string | null }[] | null;
 };
 
 export type GameReviewReply = {
