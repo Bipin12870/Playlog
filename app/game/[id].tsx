@@ -31,6 +31,7 @@ type IgdbCompany = {
 };
 
 type IgdbImage = { url?: string | null } | null;
+type IgdbVideo = { video_id?: string | null; name?: string | null } | null;
 
 type IgdbGame = {
   id: number;
@@ -47,6 +48,7 @@ type IgdbGame = {
   genres?: { id: number; name?: string | null }[] | null;
   artworks?: IgdbImage[] | null;
   screenshots?: IgdbImage[] | null;
+  videos?: IgdbVideo[] | null;
 };
 
 export default function GameDetailsScreen() {
@@ -600,9 +602,28 @@ function mapToDetails(raw: IgdbGame): GameDetailsData {
     releaseYear,
     bannerUrl: artworkUrl ?? screenshotUrl ?? null,
     mediaUrl: screenshotUrl ?? artworkUrl ?? null,
+    trailerUrl: buildTrailerUrl(raw),
     description: raw.storyline ?? raw.summary ?? null,
     genres: raw.genres ?? null,
   };
+}
+
+function buildTrailerUrl(raw: IgdbGame): string | null {
+  if (!Array.isArray(raw.videos)) {
+    return null;
+  }
+  const entry = raw.videos.find(
+    (video) => typeof video?.video_id === 'string' && video.video_id.trim().length > 0,
+  );
+  if (!entry || typeof entry.video_id !== 'string') {
+    return null;
+  }
+  const videoId = entry.video_id.trim();
+  if (!videoId) return null;
+  if (videoId.startsWith('http://') || videoId.startsWith('https://')) {
+    return videoId;
+  }
+  return `https://www.youtube.com/watch?v=${videoId}`;
 }
 
 function mapToSummary(raw: IgdbGame | GameSummary): GameSummary {

@@ -24,6 +24,7 @@ export type GameDetailsData = GameSummary & {
   releaseYear?: number | null;
   bannerUrl?: string | null;
   mediaUrl?: string | null;
+  trailerUrl?: string | null;
   description?: string | null;
   genres?: { id: number; name?: string | null }[] | null;
 };

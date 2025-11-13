@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   Alert,
   ActivityIndicator,
@@ -106,13 +107,14 @@ export function GameDetails({
   const { width } = useWindowDimensions();
   const isWide = width >= 1024;
 
-  const coverUri = resolveCoverUri(game.cover?.url ?? null);
-  const bannerUri = resolveCoverUri(game.bannerUrl ?? null);
-  const showcaseUri = resolveCoverUri(game.mediaUrl ?? null) ?? coverUri;
-  const heroBackdrop = bannerUri ?? showcaseUri ?? coverUri;
-  const secondaryStillUri =
-    bannerUri && (!showcaseUri || bannerUri !== showcaseUri) ? bannerUri : null;
-  const detailBackdrop = showcaseUri ?? secondaryStillUri ?? heroBackdrop ?? coverUri;
+  const rawCoverUrl = game.cover?.url ?? null;
+  const rawMediaUrl = game.mediaUrl ?? null;
+  const rawBannerUrl = game.bannerUrl ?? null;
+
+  const coverUri = resolveCoverUri(rawCoverUrl);
+  const showcaseUri =
+    resolveBackdropUri(rawMediaUrl) ?? resolveBackdropUri(rawBannerUrl) ?? coverUri;
+  const heroLandscapeUri = showcaseUri ?? coverUri;
   const releaseLine = buildReleaseLine(game);
   const description = game.description ?? game.summary ?? 'No description available.';
   const heroBlurb = useMemo(() => {
@@ -139,6 +141,7 @@ export function GameDetails({
   const [expandedReplies, setExpandedReplies] = useState<Record<string, boolean>>({});
   const [replyVisibleCounts, setReplyVisibleCounts] = useState<Record<string, number>>({});
   const [visibleCommunityCount, setVisibleCommunityCount] = useState(INITIAL_COMMUNITY_PREVIEW_COUNT);
+  const [isOverviewExpanded, setIsOverviewExpanded] = useState(false);
 
   useEffect(() => {
     setRatingInput(typeof userReview?.rating === 'number' ? userReview.rating : null);
@@ -324,9 +327,8 @@ export function GameDetails({
         genreLine ? { label: 'Genres', value: genreLine } : null,
         platformLine ? { label: 'Platforms', value: platformLine } : null,
         game.developer ? { label: 'Studio', value: game.developer } : null,
-        releaseLine ? { label: 'Released', value: releaseLine } : null,
       ].filter((fact): fact is { label: string; value: string } => Boolean(fact)),
-    [genreLine, platformLine, game.developer, releaseLine],
+    [genreLine, platformLine, game.developer],
   );
   const quickMetrics = useMemo(
     () => {
@@ -350,16 +352,9 @@ export function GameDetails({
         suffix: communityAverageValue ? '/10' : undefined,
         meta: communityAverageValue ? reviewCountLabel : 'No reviews yet',
       });
-      if (game.releaseYear) {
-        metrics.push({
-          key: 'year',
-          label: 'Release year',
-          value: game.releaseYear.toString(),
-        });
-      }
       return metrics;
     },
-    [game.rating, communityAverageValue, reviewCountLabel, game.releaseYear],
+    [game.rating, communityAverageValue, reviewCountLabel],
   );
   const personalReviewCount =
     typeof userReviewCount === 'number' && !Number.isNaN(userReviewCount)
@@ -672,197 +667,174 @@ export function GameDetails({
   }, [onToggleFavorite]);
 
   const reviewCtaDisabled = !canSubmitReview || reviewSubmitting || ratingInput === null;
-  const hasTrailer = Boolean(game.mediaUrl);
+  const trailerUrl = game.trailerUrl ?? null;
+  const hasTrailer = Boolean(trailerUrl);
+
+  const shouldClampOverview = description.length > 320;
+  const overviewText = description.trim();
+  const overviewNumberOfLines = !isOverviewExpanded && shouldClampOverview ? 4 : undefined;
+  const handleToggleOverview = useCallback(() => {
+    setIsOverviewExpanded((prev) => !prev);
+  }, []);
 
   const handleWatchTrailer = useCallback(() => {
-    if (!hasTrailer || !game.mediaUrl) {
+    if (!hasTrailer || !trailerUrl) {
       return;
     }
-    Linking.openURL(game.mediaUrl).catch((err) => console.warn('Failed to open trailer', err));
-  }, [hasTrailer, game.mediaUrl]);
+    Linking.openURL(trailerUrl).catch((err) => console.warn('Failed to open trailer', err));
+  }, [hasTrailer, trailerUrl]);
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.screenContent}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View style={styles.heroShell}>
-        {heroBackdrop ? (
-          <Image
-            source={{ uri: heroBackdrop }}
-            style={styles.heroBackdrop}
-            resizeMode="cover"
-            blurRadius={24}
-          />
-        ) : null}
-        <View style={styles.heroGradient} />
-        <View style={styles.heroBottomFade} />
-        <View style={[styles.heroRow, isWide && styles.heroRowWide]}>
-          <View style={styles.heroTextColumn}>
-            <Text style={styles.heroEyebrow}>
-              {releaseLine ?? 'Upcoming release'}
-              {game.developer ? ` • ${game.developer}` : ''}
-            </Text>
-            <Text style={styles.title}>{game.name}</Text>
-            {heroBlurb ? <Text style={styles.heroSummary}>{heroBlurb}</Text> : null}
-
-            {heroFacts.length ? (
-              <View style={styles.heroFactsRow}>
-                {heroFacts.map((fact) => (
-                  <View key={fact.label} style={styles.heroFactCard}>
-                    <Text style={styles.heroFactLabel}>{fact.label}</Text>
-                    <Text style={styles.heroFactValue}>{fact.value}</Text>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-
-            <View style={styles.heroActionsRow}>
-              <Pressable
-                onPress={handleWatchTrailer}
-                disabled={!hasTrailer}
-                style={({ pressed }) => [
-                  styles.heroPrimaryButton,
-                  pressed && styles.heroPrimaryButtonPressed,
-                  !hasTrailer && styles.heroActionDisabled,
-                ]}
-                accessibilityRole="button"
-              >
-                <Ionicons name="play" size={16} color="#0f172a" />
-                <Text style={styles.heroPrimaryButtonLabel}>
-                  {hasTrailer ? 'Watch trailer' : 'Trailer unavailable'}
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={handleFavoritePress}
-                style={({ pressed }) => [
-                  styles.heroSecondaryButton,
-                  isFavorite && styles.heroSecondaryButtonActive,
-                  (favoriteDisabled || pressed) && styles.heroSecondaryButtonPressed,
-                ]}
-                accessibilityRole="button"
-                disabled={favoriteDisabled}
-              >
-                {favoriteDisabled ? (
-                  <ActivityIndicator size="small" color="#f8fafc" />
-                ) : (
-                  <>
-                    <Ionicons
-                      name={isFavorite ? 'heart' : 'heart-outline'}
-                      size={16}
-                      color="#f8fafc"
-                    />
-                    <Text style={styles.heroSecondaryButtonLabel}>
-                      {isFavorite ? 'Favourited' : 'Add to list'}
-                    </Text>
-                  </>
-                )}
-              </Pressable>
+    <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <View style={styles.heroContentStack}>
+        <View style={styles.heroMediaCard}>
+          {heroLandscapeUri ? (
+            <View style={styles.heroMediaImageShell}>
+              <Image
+                source={{ uri: heroLandscapeUri }}
+                style={styles.heroMediaImage}
+                resizeMode="contain"
+              />
+              <LinearGradient
+                colors={['rgba(4, 7, 18, 0.9)', 'rgba(4, 7, 18, 0)', 'rgba(4, 7, 18, 0.9)']}
+                locations={[0, 0.5, 1]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={styles.heroMediaFadeHorizontal}
+                pointerEvents="none"
+              />
+              <LinearGradient
+                colors={['rgba(4, 7, 18, 0.85)', 'rgba(4, 7, 18, 0)', 'rgba(4, 7, 18, 0.85)']}
+                locations={[0, 0.55, 1]}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={styles.heroMediaFadeVertical}
+                pointerEvents="none"
+              />
             </View>
-            {favoriteError ? <Text style={styles.favoriteError}>{favoriteError}</Text> : null}
-          </View>
-
-          <View style={[styles.heroPosterCard, isWide && styles.heroPosterCardWide]}>
-            {coverUri ? (
-              <Image source={{ uri: coverUri }} style={styles.heroPosterImage} />
-            ) : (
-              <View style={styles.heroPosterFallback}>
-                <Text style={styles.heroPosterFallbackText}>No artwork</Text>
-              </View>
-            )}
-          </View>
-        </View>
-      </View>
-      <View style={styles.bodyWrapper}>
-        {quickMetrics.length ? (
-          <View style={styles.metricSurface}>
-            <View style={styles.metricRow}>
-              {quickMetrics.map((metric) => (
-                <View key={metric.key} style={styles.metricCard}>
-                  <Text style={styles.metricLabel}>{metric.label}</Text>
-                  <View style={styles.metricValueRow}>
-                    <Text style={styles.metricValue}>{metric.value}</Text>
-                    {metric.suffix ? <Text style={styles.metricSuffix}>{metric.suffix}</Text> : null}
-                  </View>
-                  {metric.meta ? <Text style={styles.metricMeta}>{metric.meta}</Text> : null}
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        {detailBackdrop ? (
-          <View style={styles.featuredStillCard}>
-            <Image source={{ uri: detailBackdrop }} style={styles.featuredStillImage} />
-            <View style={styles.featuredStillOverlay}>
-              <Text style={styles.featuredStillLabel}>Featured still</Text>
-              <Text style={styles.featuredStillTitle}>{game.name}</Text>
-            </View>
-          </View>
-        ) : null}
-
-        <View style={styles.detailSurface}>
-          <View style={[styles.overviewRow, !isWide && styles.overviewColumn]}>
-            <View style={styles.descriptionCard}>
-              <Text style={styles.cardHeading}>Overview</Text>
-              <Text style={styles.descriptionText}>{description}</Text>
-            </View>
-
-            <View style={styles.ratingCard}>
-              <Text style={styles.cardHeading}>Community rating</Text>
-              <View style={styles.communityRatingBlock}>
-                {canShowAverage ? (
-                  <>
-                    <Text style={styles.communityRatingValue}>{communityAverage.toFixed(1)}/10</Text>
-                    <Text style={styles.communityRatingMeta}>{reviewCountLabel}</Text>
-                  </>
-                ) : (
-                  <Text style={styles.communityRatingPlaceholder}>No reviews yet</Text>
-                )}
-                {reviewLimit ? (
-                  <Text style={styles.communityRatingMeta}>
-                    {reviewLimit} reviews per user available right now.
-                  </Text>
-                ) : null}
-              </View>
-              {platforms.length > 0 && (
-                <View style={styles.platformRow}>
-                  {platforms.map((platform) => (
-                    <View key={platform.id} style={styles.platformPill}>
-                      <Text style={styles.platformText}>{platform.label}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-          </View>
-
-          {!isAuthenticated && (
-            <View style={styles.authPrompt}>
-              <Text style={styles.authHeading}>Join Playlog</Text>
-              <Text style={styles.authCopy}>
-                Create an account to favourite games, rate them, and leave community reviews.
-              </Text>
-              <View style={styles.authActions}>
-                <Pressable
-                  onPress={onSignUp}
-                  style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.primaryBtnLabel}>Sign up</Text>
-                </Pressable>
-                <Pressable
-                  onPress={onSignIn}
-                  style={({ pressed }) => [styles.secondaryBtn, pressed && styles.secondaryBtnPressed]}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.secondaryBtnLabel}>Sign in</Text>
-                </Pressable>
-              </View>
+          ) : (
+            <View style={[styles.heroMediaImageShell, styles.heroMediaFallback]}>
+              <Text style={styles.heroMediaFallbackText}>Gameplay preview coming soon</Text>
             </View>
           )}
         </View>
+
+        {coverUri ? (
+          <View style={[styles.heroPosterFloat, isWide && styles.heroPosterFloatWide]}>
+            <View style={styles.heroPosterWrap}>
+              <Image source={{ uri: coverUri }} style={styles.heroPosterImage} />
+            </View>
+          </View>
+        ) : (
+          <View style={[styles.heroPosterFloat, styles.heroPosterFallback]}>
+            <View style={styles.heroPosterWrap}>
+              <Text style={styles.heroPosterFallbackText}>Artwork coming soon</Text>
+            </View>
+          </View>
+        )}
+
+        <View style={[styles.heroOverviewCard, isWide && styles.heroOverviewCardWide]}>
+          <Text style={styles.heroEyebrow}>
+            {releaseLine ?? 'Upcoming release'}
+            {game.developer ? ` • ${game.developer}` : ''}
+          </Text>
+          <Text style={styles.heroHeadline}>{game.name}</Text>
+          <Text style={styles.heroOverviewText} numberOfLines={overviewNumberOfLines}>
+            {overviewText}
+          </Text>
+          {shouldClampOverview ? (
+            <Pressable onPress={handleToggleOverview} style={styles.heroOverviewToggle}>
+              <Text style={styles.heroOverviewToggleText}>
+                {isOverviewExpanded ? 'Show less' : 'Read more'}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        <View
+          style={[
+            styles.heroDetailsPanel,
+            isWide ? styles.heroDetailsPanelWide : styles.heroDetailsPanelStacked,
+          ]}
+        >
+          <View style={[styles.heroDetailsRow, isWide && styles.heroDetailsRowWide]}>
+            <View style={[styles.heroDetailsColumn, styles.heroDetailsColumnPrimary]}>
+              {heroFacts.length ? (
+                <View style={styles.heroFactsGrid}>
+                  {heroFacts.map((fact) => (
+                    <View key={fact.label} style={styles.heroFactCard}>
+                      <Text style={styles.heroFactLabel}>{fact.label}</Text>
+                      <Text style={styles.heroFactValue}>{fact.value}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
+              <View style={styles.heroActionsRow}>
+                <Pressable
+                  onPress={handleWatchTrailer}
+                  disabled={!hasTrailer}
+                  style={({ pressed }) => [
+                    styles.heroPrimaryButton,
+                    pressed && styles.heroPrimaryButtonPressed,
+                    !hasTrailer && styles.heroActionDisabled,
+                  ]}
+                  accessibilityRole="button"
+                >
+                  <Ionicons name="play" size={16} color="#0f172a" />
+                  <Text style={styles.heroPrimaryButtonLabel}>
+                    {hasTrailer ? 'Watch trailer' : 'Trailer unavailable'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleFavoritePress}
+                  style={({ pressed }) => [
+                    styles.heroSecondaryButton,
+                    isFavorite && styles.heroSecondaryButtonActive,
+                    (favoriteDisabled || pressed) && styles.heroSecondaryButtonPressed,
+                  ]}
+                  accessibilityRole="button"
+                  disabled={favoriteDisabled}
+                >
+                  {favoriteDisabled ? (
+                    <ActivityIndicator size="small" color="#f8fafc" />
+                  ) : (
+                    <>
+                      <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={16} color="#f8fafc" />
+                      <Text style={styles.heroSecondaryButtonLabel}>
+                        {isFavorite ? 'Favourited' : 'Add to list'}
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
+              {favoriteError ? <Text style={styles.favoriteError}>{favoriteError}</Text> : null}
+            </View>
+
+            {quickMetrics.length ? (
+              <View style={[styles.heroDetailsColumn, styles.heroDetailsColumnSecondary]}>
+                <View style={styles.heroMetrics}>
+                  {quickMetrics.map((metric) => (
+                    <View key={metric.key} style={styles.heroMetricCard}>
+                      <Text style={styles.heroMetricLabel}>{metric.label}</Text>
+                      <View style={styles.heroMetricValueRow}>
+                        <Text style={styles.heroMetricValue}>{metric.value}</Text>
+                        {metric.suffix ? (
+                          <Text style={styles.heroMetricSuffix}>{metric.suffix}</Text>
+                        ) : null}
+                      </View>
+                      {metric.meta ? <Text style={styles.heroMetricMeta}>{metric.meta}</Text> : null}
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.detailSurface}>
+        {/* Community rating + platforms card removed to avoid duplication */}
 
         <View style={styles.section}>
           <View style={styles.reviewSectionHeader}>
@@ -1301,9 +1273,43 @@ export function GameDetails({
 }
 
 function resolveCoverUri(raw?: string | null) {
+  const normalized = normalizeImageUri(raw);
+  if (!normalized) return undefined;
+  if (!normalized.includes('images.igdb.com')) {
+    return normalized;
+  }
+  return applyIgdbSize(normalized, 't_cover_big');
+}
+
+function resolveBackdropUri(raw?: string | null) {
+  const normalized = normalizeImageUri(raw);
+  if (!normalized) return undefined;
+  if (!normalized.includes('images.igdb.com')) {
+    return normalized;
+  }
+  const isCoverAsset = /\/co\d+/i.test(normalized);
+  const targetSize = isCoverAsset ? 't_cover_big' : 't_1080p';
+  return applyIgdbSize(normalized, targetSize);
+}
+
+function normalizeImageUri(raw?: string | null) {
   if (!raw) return undefined;
-  const normalized = raw.replace('t_thumb', 't_cover_big');
-  return normalized.startsWith('http') ? normalized : `https:${normalized}`;
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('//')) {
+    return `https:${trimmed}`;
+  }
+  return `https://${trimmed}`;
+}
+
+function applyIgdbSize(uri: string, sizeToken: string) {
+  if (!/\/t_[^/]+\//.test(uri)) {
+    return uri;
+  }
+  return uri.replace(/\/t_[^/]+\//, `/${sizeToken}/`);
 }
 
 function buildReleaseLine(game: GameDetailsData) {
@@ -1348,99 +1354,169 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     gap: 32,
   },
-  featuredStillCard: {
+  heroContentStack: {
+    gap: 20,
+  },
+  heroMediaCard: {
+    width: '100%',
+    aspectRatio: 21 / 9,
+    borderRadius: 36,
+    position: 'relative',
+    marginBottom: 32,
+  },
+  heroMediaImageShell: {
+    flex: 1,
     borderRadius: 28,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.25)',
-    alignSelf: 'center',
+  },
+  heroMediaImage: {
     width: '100%',
-    maxWidth: 1200,
+    height: '100%',
+  },
+  heroMediaFadeHorizontal: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroMediaFadeVertical: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroMediaFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+  },
+  heroMediaFallbackText: {
+    color: '#94a3b8',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  heroDetailsPanel: {
+    width: '100%',
+    borderRadius: 32,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.3)',
+    backgroundColor: 'rgba(2, 6, 23, 0.92)',
+    padding: 24,
+    gap: 20,
     shadowColor: '#01030a',
     shadowOpacity: 0.35,
-    shadowRadius: 28,
-    shadowOffset: { width: 0, height: 18 },
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
     elevation: 8,
   },
-  featuredStillImage: {
+  heroDetailsPanelWide: {
+    padding: 32,
+    marginTop: 24,
+  },
+  heroDetailsPanelStacked: {
+    marginTop: 220,
+  },
+  heroDetailsRow: {
+    flexDirection: 'column',
+    gap: 20,
+  },
+  heroDetailsRowWide: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 32,
+  },
+  heroDetailsColumn: {
+    flex: 1,
+    gap: 16,
+  },
+  heroDetailsColumnPrimary: {
+    minWidth: 0,
+  },
+  heroDetailsColumnSecondary: {
+    minWidth: 240,
+  },
+  heroPosterFloat: {
+    width: 220,
+    alignSelf: 'center',
+    marginTop: -120,
+    zIndex: 5,
+  },
+  heroPosterFloatWide: {
+    alignSelf: 'flex-start',
+    marginLeft: 264,
+    marginTop: -180,
+  },
+  heroPosterWrap: {
     width: '100%',
-    height: 260,
-  },
-  featuredStillOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: 20,
-    backgroundColor: 'rgba(2, 6, 23, 0.65)',
-    gap: 4,
-  },
-  featuredStillLabel: {
-    color: '#94a3b8',
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  featuredStillTitle: {
-    color: '#f8fafc',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  detailSurface: {
-    borderRadius: 32,
-    padding: 24,
+    borderRadius: 28,
+    padding: 12,
     backgroundColor: 'rgba(4, 7, 18, 0.95)',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.25)',
-    gap: 24,
+    borderWidth: 2,
+    borderColor: 'rgba(248, 250, 252, 0.18)',
+    shadowColor: '#000',
+    shadowOpacity: 0.45,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 6,
   },
-  metricSurface: {
+  heroPosterImage: {
+    width: '100%',
+    aspectRatio: 2 / 3,
+    borderRadius: 20,
+  },
+  heroPosterFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroPosterFallbackText: {
+    color: '#94a3b8',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  heroOverviewCard: {
+    width: '100%',
     borderRadius: 28,
     padding: 24,
-    backgroundColor: 'rgba(4, 7, 18, 0.95)',
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.25)',
+    borderColor: 'rgba(148, 163, 184, 0.35)',
+    backgroundColor: 'rgba(2, 6, 23, 0.9)',
+    gap: 12,
+    marginTop: -120,
+    shadowColor: '#01030a',
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
   },
-  heroShell: {
-    width: '100%',
-    minHeight: 420,
-    paddingHorizontal: 24,
-    paddingTop: 96,
-    paddingBottom: 72,
-    justifyContent: 'flex-end',
-    backgroundColor: '#050a1a',
-    overflow: 'hidden',
-    position: 'relative',
+  heroOverviewCardWide: {
+    alignSelf: 'flex-end',
+    marginTop: -337,
+    marginLeft: 50,
+    marginRight: 178,
+    maxWidth: 640,
+    paddingHorizontal: 40,
+    paddingVertical: 32,
   },
-  heroBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.55,
+  heroHeadline: {
+    fontSize: 40,
+    fontWeight: '800',
+    color: '#f8fafc',
   },
-  heroGradient: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(2, 6, 23, 0.65)',
+  heroOverviewText: {
+    color: '#cbd5f5',
+    fontSize: 15,
+    lineHeight: 22,
   },
-  heroBottomFade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 180,
-    backgroundColor: 'rgba(5, 10, 26, 0.95)',
+  heroOverviewToggle: {
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: 'rgba(148, 163, 184, 0.15)',
   },
-  heroRow: {
-    gap: 24,
-    position: 'relative',
-    width: '100%',
-    alignSelf: 'center',
-    maxWidth: 1200,
+  heroOverviewToggleText: {
+    color: '#e2e8f0',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
-  heroRowWide: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-  },
-  heroTextColumn: {
+  heroDetailsBody: {
     flex: 1,
     gap: 12,
   },
@@ -1451,27 +1527,24 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   title: {
-    fontSize: 34,
+    fontSize: 36,
     fontWeight: '800',
     color: '#f8fafc',
   },
-  heroSummary: {
-    color: '#cbd5f5',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  heroFactsRow: {
+  heroFactsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
   },
   heroFactCard: {
-    borderRadius: 14,
+    flexGrow: 1,
+    minWidth: 145,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    borderColor: 'rgba(148, 163, 184, 0.25)',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
   },
   heroFactLabel: {
     color: '#94a3b8',
@@ -1482,7 +1555,7 @@ const styles = StyleSheet.create({
   },
   heroFactValue: {
     color: '#f8fafc',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
     marginTop: 2,
   },
@@ -1537,150 +1610,53 @@ const styles = StyleSheet.create({
     color: '#fca5a5',
     fontSize: 13,
   },
-  heroPosterCard: {
-    width: 150,
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.4)',
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    alignSelf: 'flex-start',
-    shadowColor: '#01030a',
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 8,
-    marginTop: 24,
-  },
-  heroPosterCardWide: {
-    width: 200,
-    marginTop: 0,
-    alignSelf: 'flex-end',
-  },
-  heroPosterImage: {
-    width: '100%',
-    aspectRatio: 2 / 3,
-  },
-  heroPosterFallback: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  heroPosterFallbackText: {
-    color: '#94a3b8',
-    fontWeight: '600',
-  },
-  metricRow: {
+  heroMetrics: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
   },
-  metricCard: {
-    flexGrow: 1,
-    flexBasis: 120,
-    borderRadius: 18,
-    backgroundColor: 'rgba(8, 13, 28, 0.9)',
+  heroMetricCard: {
+    borderRadius: 20,
+    backgroundColor: 'rgba(8, 13, 28, 0.85)',
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
-    padding: 16,
+    borderColor: 'rgba(148, 163, 184, 0.25)',
+    padding: 14,
     gap: 4,
+    flexGrow: 1,
+    minWidth: 110,
   },
-  metricLabel: {
+  heroMetricLabel: {
     color: '#94a3b8',
-    fontSize: 12,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
-  metricValueRow: {
+  heroMetricValueRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: 4,
   },
-  metricValue: {
+  heroMetricValue: {
     color: '#f8fafc',
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
   },
-  metricSuffix: {
+  heroMetricSuffix: {
     color: '#94a3b8',
     fontSize: 14,
     fontWeight: '600',
   },
-  metricMeta: {
+  heroMetricMeta: {
     color: '#94a3b8',
     fontSize: 12,
   },
-  overviewRow: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  overviewColumn: {
-    flexDirection: 'column',
-  },
-  descriptionCard: {
-    flex: 2,
-    backgroundColor: '#111827',
-    padding: 20,
-    borderRadius: 20,
-    gap: 12,
+  detailSurface: {
+    gap: 24,
+    borderRadius: 28,
+    padding: 24,
+    backgroundColor: 'rgba(4, 7, 18, 0.9)',
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.15)',
-  },
-  ratingCard: {
-    flex: 1,
-    backgroundColor: '#111827',
-    padding: 20,
-    borderRadius: 20,
-    gap: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.15)',
-  },
-  cardHeading: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#cbd5f5',
-    letterSpacing: 1,
-  },
-  descriptionText: {
-    color: '#e2e8f0',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  communityRatingBlock: {
-    gap: 4,
-    borderRadius: 14,
-    padding: 12,
-    backgroundColor: 'rgba(79, 70, 229, 0.1)',
-  },
-  communityRatingValue: {
-    color: '#a5b4fc',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  communityRatingMeta: {
-    color: '#cbd5f5',
-    fontSize: 12,
-  },
-  communityRatingPlaceholder: {
-    color: '#94a3b8',
-    fontSize: 13,
-  },
-  platformRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  platformPill: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    backgroundColor: 'rgba(99, 102, 241, 0.15)',
-  },
-  platformText: {
-    color: '#c7d2fe',
-    fontSize: 12,
-    fontWeight: '600',
+    borderColor: 'rgba(148, 163, 184, 0.2)',
   },
   authPrompt: {
     backgroundColor: '#111827',

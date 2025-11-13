@@ -83,7 +83,9 @@ export async function fetchGameDetailsById(id: number) {
       genres.id,
       genres.name,
       artworks.url,
-      screenshots.url;
+      screenshots.url,
+      videos.video_id,
+      videos.name;
     where id = ${id};
     limit 1;
   `;
