@@ -111,6 +111,14 @@ export default function ProfileHomeScreen() {
           Log in to customise your Playlog presence. Update your display name, avatar, and bio once you’re signed in.
         </Text>
         {error ? <Text style={styles.errorText}>{error.message}</Text> : null}
+        <View style={styles.emptyActionRow}>
+          <Pressable style={[styles.emptyBtn, styles.emptyPrimary]} onPress={() => router.push('/login')}>
+            <Text style={styles.emptyPrimaryText}>Log in</Text>
+          </Pressable>
+          <Pressable style={[styles.emptyBtn, styles.emptySecondary]} onPress={() => router.push('/signup')}>
+            <Text style={styles.emptySecondaryText}>Sign up</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
@@ -369,6 +377,22 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
   emptyCopy: { color: '#4b5563', textAlign: 'center' },
   errorText: { color: '#ef4444', marginTop: 8 },
+  emptyActionRow: { flexDirection: 'row', gap: 12, width: '100%', marginTop: 16 },
+  emptyBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyPrimary: { backgroundColor: '#6366f1' },
+  emptyPrimaryText: { color: '#f8fafc', fontWeight: '700' },
+  emptySecondary: {
+    borderWidth: 1,
+    borderColor: '#cbd5f5',
+    backgroundColor: 'transparent',
+  },
+  emptySecondaryText: { color: '#0f172a', fontWeight: '700' },
   mobileSafe: { flex: 1, backgroundColor: '#0f172a' },
   mobileScroll: { padding: 20, gap: 24, backgroundColor: '#0f172a' },
   mobileHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
