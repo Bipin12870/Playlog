@@ -836,39 +836,13 @@ export function GameDetails({
       <View style={styles.detailSurface}>
         {/* Community rating + platforms card removed to avoid duplication */}
 
-        {!isAuthenticated && (
-          <View style={styles.authPrompt}>
-            <Text style={styles.authHeading}>Join Playlog</Text>
-            <Text style={styles.authCopy}>
-              Create an account to favourite games, rate them, and leave community reviews.
+        <View style={styles.section}>
+          <View style={styles.reviewSectionHeader}>
+            <Text style={styles.sectionTitle}>Leave a review</Text>
+            <Text style={styles.sectionSubtitleText}>
+              Share your thoughts about {game.name} and help the community discover great games.
             </Text>
-            <View style={styles.authActions}>
-              <Pressable
-                onPress={onSignUp}
-                style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
-                accessibilityRole="button"
-              >
-                <Text style={styles.primaryBtnLabel}>Sign up</Text>
-              </Pressable>
-              <Pressable
-                onPress={onSignIn}
-                style={({ pressed }) => [styles.secondaryBtn, pressed && styles.secondaryBtnPressed]}
-                accessibilityRole="button"
-              >
-                <Text style={styles.secondaryBtnLabel}>Sign in</Text>
-              </Pressable>
-            </View>
           </View>
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <View style={styles.reviewSectionHeader}>
-          <Text style={styles.sectionTitle}>Leave a review</Text>
-          <Text style={styles.sectionSubtitleText}>
-            Share your thoughts about {game.name} and help the community discover great games.
-          </Text>
-        </View>
 
         <View style={styles.reviewForm}>
           <Text style={styles.reviewFormTitle}>
@@ -1293,6 +1267,7 @@ export function GameDetails({
           />
         </View>
       )}
+      </View>
     </ScrollView>
   );
 }
@@ -1366,11 +1341,18 @@ function formatReviewDate(iso?: string) {
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingVertical: 32,
+  screen: {
+    flex: 1,
+    backgroundColor: '#020617',
+  },
+  screenContent: {
+    paddingBottom: 48,
+  },
+  bodyWrapper: {
     paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 32,
     gap: 32,
-    backgroundColor: '#0f172a',
   },
   heroContentStack: {
     gap: 20,

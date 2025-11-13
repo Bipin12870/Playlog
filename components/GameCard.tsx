@@ -70,6 +70,7 @@ export function GameCard({
   onPress,
 }: GameCardProps) {
   const isWeb = Platform.OS === 'web';
+  const showTitleBar = !isWeb;
   const [isHovered, setIsHovered] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const coverUri = resolveCoverUri(game.cover?.url ?? null);
@@ -88,6 +89,13 @@ export function GameCard({
           </View>
         )}
         <View style={styles.coverEdge} />
+        {showTitleBar && (
+          <View pointerEvents="none" style={styles.titleBar}>
+            <Text numberOfLines={1} ellipsizeMode="tail" style={styles.titleText}>
+              {game.name}
+            </Text>
+          </View>
+        )}
         <View
           pointerEvents="none"
           style={[
@@ -244,6 +252,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(148, 163, 184, 0.35)',
     gap: 8,
+  },
+  titleBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(2, 6, 23, 0.85)',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  titleText: {
+    color: '#f8fafc',
+    fontSize: 14,
+    fontWeight: '600',
   },
   overlayTitle: {
     color: '#f8fafc',
