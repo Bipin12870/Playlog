@@ -31,6 +31,7 @@ import {
 } from '../../lib/igdb';
 import { useHomeScreen } from './useHomeScreen';
 import { useGameSearch } from '../../lib/hooks/useGameSearch';
+import { useDiscoveryCache } from '../../lib/hooks/useDiscoveryCache';
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
 import type { GameSummary } from '../../types/game';
 
@@ -44,7 +45,17 @@ export default function HomeScreen() {
   const { sizes, placeholders } = useHomeScreen();
   const isWeb = Platform.OS === 'web';
 
-  const { term, setTerm, submit, submittedTerm, submissionId, resetSearch } = useGameSearch();
+  const {
+    term,
+    setTerm,
+    submit,
+    submittedTerm,
+    submissionId,
+    resetSearch,
+    getCachedResults,
+    cacheResults,
+    cacheReady,
+  } = useGameSearch();
   const [activeQuery, setActiveQuery] = useState('');
   const [games, setGames] = useState<GameSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -55,6 +66,11 @@ export default function HomeScreen() {
   const [recommendedGames, setRecommendedGames] = useState<GameSummary[]>([]);
   const [exploreLoading, setExploreLoading] = useState(false);
   const [exploreError, setExploreError] = useState<string | null>(null);
+  const {
+    cacheReady: discoveryCacheReady,
+    getCachedDiscovery,
+    cacheDiscovery,
+  } = useDiscoveryCache();
 
   const baseColumnCount = getColumnCount(sizes.contentW);
   const columnCount = Platform.OS === 'web' ? 6 : Math.max(baseColumnCount, 3);
@@ -117,22 +133,49 @@ export default function HomeScreen() {
     [router]
   );
 
-  const fetchGames = useCallback(async (query: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await searchGames(query);
-      setGames(Array.isArray(data) ? data : []);
-      setActiveQuery(query);
-    } catch (err) {
-      console.error(err);
-      setError('Unable to load games right now. Try again in a bit.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const fetchGames = useCallback(
+    async (query: string) => {
+      setError(null);
+      const cached = getCachedResults(query);
+      if (cached) {
+        setGames(cached);
+        setActiveQuery(query);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      try {
+        const data = await searchGames(query);
+        const nextGames = Array.isArray(data) ? data : [];
+        setGames(nextGames);
+        setActiveQuery(query);
+        cacheResults(query, nextGames);
+      } catch (err) {
+        console.error(err);
+        setError('Unable to load games right now. Try again in a bit.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [cacheResults, getCachedResults],
+  );
 
   const loadExplore = useCallback(async () => {
+    if (!discoveryCacheReady) {
+      setExploreLoading(true);
+      return;
+    }
+
+    const cached = getCachedDiscovery();
+    if (cached) {
+      setFeaturedGames(cached.featured);
+      setLikedGames(cached.liked);
+      setRecommendedGames(cached.recommended);
+      setExploreError(null);
+      setExploreLoading(false);
+      return;
+    }
+
     setExploreLoading(true);
     try {
       const [featured, trending, surprise] = await Promise.allSettled([
@@ -151,9 +194,10 @@ export default function HomeScreen() {
       setFeaturedGames(nextFeatured);
       setLikedGames(nextTrending);
       setRecommendedGames(nextSurprise);
+      cacheDiscovery({ featured: nextFeatured, liked: nextTrending, recommended: nextSurprise });
 
       const hadFailure = [featured, trending, surprise].some(
-        (result) => result.status === 'rejected'
+        (result) => result.status === 'rejected',
       );
       setExploreError(hadFailure ? 'Some discovery rows failed to load. Try refreshing.' : null);
     } catch (err) {
@@ -162,7 +206,7 @@ export default function HomeScreen() {
     } finally {
       setExploreLoading(false);
     }
-  }, []);
+  }, [cacheDiscovery, discoveryCacheReady, getCachedDiscovery]);
 
   useEffect(() => {
     const trimmed = submittedTerm.trim();
@@ -173,14 +217,18 @@ export default function HomeScreen() {
       setError(null);
       return;
     }
+    if (!cacheReady) {
+      setLoading(true);
+      return;
+    }
     fetchGames(trimmed);
-  }, [submittedTerm, submissionId, fetchGames]);
+  }, [submittedTerm, submissionId, fetchGames, cacheReady]);
 
   useEffect(() => {
     if (!submittedTerm.trim()) {
       loadExplore();
     }
-  }, [submittedTerm, loadExplore]);
+  }, [submittedTerm, loadExplore, discoveryCacheReady]);
 
   const sections = useMemo<DiscoverySection[]>(
     () => [
@@ -332,6 +380,8 @@ function NativeHome({
   const showGate = !initializing && !user && !hideGate;
   const heroGame = heroItems[heroIndex] ?? null;
   const heroCover = resolveHeroUri(heroGame);
+  const heroIsPoster = shouldUsePosterLayout(heroGame);
+  const heroPosterWidth = Math.max(140, Math.min(sizes.heroH * 0.68, 220));
 
   return (
     <SafeAreaView style={nativeStyles.container}>
@@ -368,23 +418,45 @@ function NativeHome({
           <View style={nativeStyles.hero}>
             <Animated.View style={[nativeStyles.heroAnimatedWrap, heroAnimatedStyle]}>
               <Pressable
-                style={[nativeStyles.heroBanner, { height: sizes.heroH }]}
+                style={[
+                  nativeStyles.heroBanner,
+                  heroIsPoster ? { minHeight: sizes.heroH } : { height: sizes.heroH },
+                  heroIsPoster && nativeStyles.heroBannerPoster,
+                ]}
                 onPress={heroGame ? () => onSelectGame(heroGame) : undefined}
                 disabled={!heroGame}
               >
-                {heroCover ? (
+                {heroGame && heroIsPoster ? (
+                  <View style={nativeStyles.heroPosterLayer}>
+                    <GameCard
+                      game={heroGame}
+                      containerStyle={[nativeStyles.heroPosterCard, { width: heroPosterWidth }]}
+                    />
+                  </View>
+                ) : heroCover ? (
                   <Image source={{ uri: heroCover }} style={nativeStyles.heroImage} />
                 ) : (
                   <View style={nativeStyles.heroPlaceholder}>
                     <Ionicons name="arrow-forward-circle-outline" size={28} color="#d1d5db" />
                   </View>
                 )}
-                <View style={nativeStyles.heroOverlay}>
-                  <Text style={nativeStyles.heroTag}>Spotlight</Text>
-                  <Text style={nativeStyles.heroTitle}>{
+                <View
+                  style={[nativeStyles.heroOverlay, heroIsPoster && nativeStyles.heroOverlayPoster]}
+                >
+                  <Text style={[nativeStyles.heroTag, heroIsPoster && nativeStyles.heroTagPoster]}>
+                    Spotlight
+                  </Text>
+                  <Text
+                    style={[nativeStyles.heroTitle, heroIsPoster && nativeStyles.heroTitlePoster]}
+                  >{
                     heroGame?.name ?? 'Discover new games'
                   }</Text>
-                  <Text style={nativeStyles.heroSubtitle}>
+                  <Text
+                    style={[
+                      nativeStyles.heroSubtitle,
+                      heroIsPoster && nativeStyles.heroSubtitlePoster,
+                    ]}
+                  >
                     {heroGame ? 'Tap to jump into details' : 'Fresh picks are on the way'}
                   </Text>
                 </View>
@@ -482,6 +554,8 @@ function WebHome({
   const heroCover = resolveHeroUri(heroGame);
   const secondaryGame = heroItems.length > 1 ? heroItems[(heroIndex + 1) % heroItems.length] : null;
   const secondaryCover = resolveHeroUri(secondaryGame);
+  const heroIsPoster = shouldUsePosterLayout(heroGame);
+  const heroPosterWidth = Math.max(200, Math.min(sizes.heroH * 0.6, 340));
 
   return (
     <View style={webStyles.container}>
@@ -491,29 +565,51 @@ function WebHome({
             <View style={[webStyles.heroRow, { gap: 20, paddingHorizontal: sizes.isSM ? 12 : 16 }]}>
               <Animated.View style={[webStyles.heroAnimatedWrap, heroAnimatedStyle]}>
                 <Pressable
-                  style={[webStyles.heroCard, { height: sizes.heroH }]}
+                  style={[
+                    webStyles.heroCard,
+                    heroIsPoster ? { minHeight: sizes.heroH } : { height: sizes.heroH },
+                    heroIsPoster && webStyles.heroCardMode,
+                  ]}
                   onPress={heroGame ? () => onSelectGame(heroGame) : undefined}
                   disabled={!heroGame}
                 >
-                  {heroCover ? (
+                  {heroGame && heroIsPoster ? (
+                    <View style={webStyles.heroPosterLayer}>
+                      <GameCard
+                        game={heroGame}
+                        containerStyle={[webStyles.heroPosterCard, { width: heroPosterWidth }]}
+                      />
+                    </View>
+                  ) : heroCover ? (
                     <Image source={{ uri: heroCover }} style={webStyles.heroImage} />
                   ) : (
                     <View style={webStyles.heroGloss}>
                       <Ionicons name="play" color="#d1d5db" size={32} />
                     </View>
                   )}
-                  <View style={webStyles.heroOverlay}>
-                    <Text style={webStyles.heroTag}>Trending Now</Text>
-                    <Text style={webStyles.heroTitle}>
+                  <View
+                    style={[webStyles.heroOverlay, heroIsPoster && webStyles.heroOverlayPoster]}
+                  >
+                    <Text style={[webStyles.heroTag, heroIsPoster && webStyles.heroTagPoster]}>
+                      Trending Now
+                    </Text>
+                    <Text
+                      style={[webStyles.heroTitle, heroIsPoster && webStyles.heroTitlePoster]}
+                    >
                       {heroGame?.name ?? 'Discover something new'}
                     </Text>
-                    <Text style={webStyles.heroSubtitle}>
+                    <Text
+                      style={[
+                        webStyles.heroSubtitle,
+                        heroIsPoster && webStyles.heroSubtitlePoster,
+                      ]}
+                    >
                       {heroGame
                         ? 'Click to learn more about this pick.'
                         : 'Stay tuned for curated picks.'}
                     </Text>
                   </View>
-                  <View style={webStyles.heroDots}>
+                  <View style={[webStyles.heroDots, heroIsPoster && webStyles.heroDotsPoster]}>
                     {heroItems.map((_, idx) => (
                       <View
                         key={`web-dot-${idx}`}
@@ -890,6 +986,18 @@ function resolveHeroUri(game?: GameSummary | null) {
   return resolveCoverUri(game.cover?.url ?? null);
 }
 
+function shouldUsePosterLayout(game?: GameSummary | null) {
+  if (!game) return false;
+  const source = (game.mediaUrl ?? game.cover?.url ?? '')?.toLowerCase();
+  if (!source) return false;
+  const fileToken = source.split('/').pop()?.split('.')[0] ?? '';
+  if (fileToken.startsWith('co') || source.includes('/cover') || source.includes('t_cover')) {
+    return true;
+  }
+  if (!game.mediaUrl) return true;
+  return false;
+}
+
 function normalizeCoverSize(raw: string) {
   if (!raw.includes('t_')) return raw;
   return raw.replace(/t_thumb|t_cover_small|t_cover_big|t_screenshot_med|t_screenshot_big/g, (match) => {
@@ -978,6 +1086,11 @@ const nativeStyles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'flex-end',
   },
+  heroBannerPoster: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 18,
+  },
   heroImage: { ...StyleSheet.absoluteFillObject, width: undefined, height: undefined },
   heroPlaceholder: {
     ...StyleSheet.absoluteFillObject,
@@ -985,10 +1098,28 @@ const nativeStyles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#3f3f46',
   },
+  heroPosterLayer: {
+    width: '100%',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  heroPosterCard: {
+    width: '70%',
+    maxWidth: 220,
+  },
   heroOverlay: { padding: 20, backgroundColor: 'rgba(0,0,0,0.45)' },
+  heroOverlayPoster: {
+    backgroundColor: 'transparent',
+    marginTop: 16,
+    alignItems: 'center',
+    paddingHorizontal: 0,
+  },
   heroTag: { color: '#cbd5f5', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 },
+  heroTagPoster: { alignSelf: 'center' },
   heroTitle: { color: '#fff', fontSize: 22, fontWeight: '800', marginTop: 6 },
+  heroTitlePoster: { textAlign: 'center' },
   heroSubtitle: { color: '#e5e7eb', fontSize: 13, marginTop: 4 },
+  heroSubtitlePoster: { textAlign: 'center' },
   heroDots: { flexDirection: 'row', gap: 6 },
   heroDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.3)' },
   heroDotActive: { backgroundColor: '#fff' },
@@ -1066,13 +1197,37 @@ const webStyles = StyleSheet.create({
   heroRow: { flexDirection: 'row', alignItems: 'stretch', paddingVertical: 24 },
   heroAnimatedWrap: { flex: 1 },
   heroCard: { borderRadius: 18, backgroundColor: '#111827', overflow: 'hidden', flex: 1 },
+  heroCardMode: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
   heroImage: { ...StyleSheet.absoluteFillObject, width: undefined, height: undefined },
   heroGloss: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.06)' },
+  heroPosterLayer: {
+    width: '100%',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  heroPosterCard: {
+    width: '70%',
+    maxWidth: 320,
+  },
   heroOverlay: { marginTop: 'auto', padding: 24, backgroundColor: 'rgba(0,0,0,0.4)' },
+  heroOverlayPoster: {
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    marginTop: 20,
+    paddingHorizontal: 0,
+  },
   heroTag: { color: '#cbd5f5', textTransform: 'uppercase', fontSize: 12, letterSpacing: 1 },
+  heroTagPoster: { alignSelf: 'center' },
   heroTitle: { color: '#fff', fontSize: 26, fontWeight: '900', marginTop: 8 },
+  heroTitlePoster: { textAlign: 'center' },
   heroSubtitle: { color: '#e5e7eb', fontSize: 14, marginTop: 6 },
+  heroSubtitlePoster: { textAlign: 'center' },
   heroDots: { flexDirection: 'row', gap: 6, padding: 12 },
+  heroDotsPoster: { alignSelf: 'center' },
   heroDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.3)' },
   heroDotActive: { backgroundColor: '#fff' },
   sideCard: { borderRadius: 18, backgroundColor: '#1f2937', overflow: 'hidden' },
