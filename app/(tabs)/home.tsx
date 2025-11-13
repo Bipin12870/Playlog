@@ -44,7 +44,7 @@ export default function HomeScreen() {
   const { sizes, placeholders } = useHomeScreen();
   const isWeb = Platform.OS === 'web';
 
-  const { term, setTerm, submit, submittedTerm, submissionId } = useGameSearch();
+  const { term, setTerm, submit, submittedTerm, submissionId, resetSearch } = useGameSearch();
   const [activeQuery, setActiveQuery] = useState('');
   const [games, setGames] = useState<GameSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -254,6 +254,10 @@ export default function HomeScreen() {
     );
   }
 
+  const handleLogoPress = useCallback(() => {
+    resetSearch();
+  }, [resetSearch]);
+
   return (
     <NativeHome
       sizes={sizes}
@@ -268,6 +272,7 @@ export default function HomeScreen() {
       heroItems={heroItems}
       heroIndex={heroIndex}
       heroAnimatedStyle={heroAnimatedStyle}
+      onLogoPress={handleLogoPress}
     />
   );
 }
@@ -304,6 +309,7 @@ type HomeSectionProps = {
 type NativeHomeProps = HomeSectionProps & {
   searchInputProps: TextInputProps;
   router: ReturnType<typeof useRouter>;
+  onLogoPress: () => void;
 };
 
 function NativeHome({
@@ -319,6 +325,7 @@ function NativeHome({
   heroItems,
   heroIndex,
   heroAnimatedStyle,
+  onLogoPress,
 }: NativeHomeProps) {
   const { user, initializing } = useAuthUser();
   const [hideGate, setHideGate] = useState(false);
@@ -334,9 +341,16 @@ function NativeHome({
         contentContainerStyle={nativeStyles.scrollContent}
       >
         <View style={nativeStyles.header}>
-          <View style={nativeStyles.logoBox}>
+          <Pressable
+            onPress={onLogoPress}
+            hitSlop={8}
+            style={({ pressed }) => [
+              nativeStyles.logoBox,
+              pressed && nativeStyles.logoBoxPressed,
+            ]}
+          >
             <Image source={LOGO} style={nativeStyles.logoMark} resizeMode="contain" />
-          </View>
+          </Pressable>
           <View style={nativeStyles.searchBox}>
             <Ionicons name="search" size={16} color="#9ca3af" style={nativeStyles.searchIcon} />
             <TextInput
@@ -941,6 +955,7 @@ const nativeStyles = StyleSheet.create({
   scrollContent: { paddingBottom: 80 },
   header: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 8 },
   logoBox: { backgroundColor: '#2e2e2e', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 },
+  logoBoxPressed: { opacity: 0.8 },
   logoMark: { width: 60, height: 24 },
   searchBox: {
     flex: 1,

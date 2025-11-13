@@ -11,7 +11,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import { signOut } from 'firebase/auth';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
 import { auth } from '../../lib/firebase';
@@ -183,6 +183,83 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
   );
 }
 
+type NativeTabsProps = {
+  accent: string;
+  navMuted: string;
+  navBackground: string;
+  navBorder: string;
+  pageBackground: string;
+  profileBadge?: string;
+};
+
+function NativeTabs({
+  accent,
+  navMuted,
+  navBackground,
+  navBorder,
+  pageBackground,
+  profileBadge,
+}: NativeTabsProps) {
+  const { resetSearch, setScope } = useGameSearch();
+
+  const handleHomeTabPress = useCallback(() => {
+    setScope('games');
+    resetSearch();
+  }, [resetSearch, setScope]);
+
+  return (
+    <Tabs
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarActiveTintColor: accent,
+        tabBarInactiveTintColor: navMuted,
+        tabBarStyle: {
+          backgroundColor: navBackground,
+          borderTopColor: navBorder,
+        },
+        sceneContainerStyle: { backgroundColor: pageBackground },
+        tabBarIcon: ({ color, size }) => {
+          let icon: keyof typeof Ionicons.glyphMap = 'home';
+          switch (route.name) {
+            case 'home':
+              icon = 'home';
+              break;
+            case 'fav':
+              icon = 'heart';
+              break;
+            case 'friends':
+              icon = 'people';
+              break;
+            case 'profile':
+              icon = 'person';
+              break;
+          }
+          return <Ionicons name={icon} size={size} color={color} />;
+        },
+      })}
+    >
+      <Tabs.Screen
+        name="home"
+        options={{ title: 'Home' }}
+        listeners={() => ({
+          tabPress: () => {
+            handleHomeTabPress();
+          },
+        })}
+      />
+      <Tabs.Screen name="fav" options={{ title: 'Favourites' }} />
+      <Tabs.Screen name="friends" options={{ title: 'Friends' }} />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarBadge: profileBadge,
+        }}
+      />
+    </Tabs>
+  );
+}
+
 export default function TabsLayout() {
   const scheme = useColorScheme();
   const accent = scheme === 'dark' ? '#7dcfff' : '#2b6cb0';
@@ -234,47 +311,14 @@ export default function TabsLayout() {
   return (
     <GameFavoritesProvider>
       <GameSearchProvider>
-        <Tabs
-          screenOptions={({ route }) => ({
-            headerShown: false,
-            tabBarActiveTintColor: accent,
-            tabBarInactiveTintColor: navMuted,
-            tabBarStyle: {
-              backgroundColor: navBackground,
-              borderTopColor: navBorder,
-            },
-            sceneContainerStyle: { backgroundColor: pageBackground },
-            tabBarIcon: ({ color, size }) => {
-              let icon: keyof typeof Ionicons.glyphMap = 'home';
-              switch (route.name) {
-                case 'home':
-                  icon = 'home';
-                  break;
-                case 'fav':
-                  icon = 'heart';
-                  break;
-                case 'friends':
-                  icon = 'people';
-                  break;
-                case 'profile':
-                  icon = 'person';
-                  break;
-              }
-              return <Ionicons name={icon} size={size} color={color} />;
-            },
-          })}
-        >
-          <Tabs.Screen name="home" options={{ title: 'Home' }} />
-          <Tabs.Screen name="fav" options={{ title: 'Favourites' }} />
-          <Tabs.Screen name="friends" options={{ title: 'Friends' }} />
-          <Tabs.Screen
-            name="profile"
-            options={{
-              title: 'Profile',
-              tabBarBadge: profileBadge,
-            }}
-          />
-        </Tabs>
+        <NativeTabs
+          accent={accent}
+          navMuted={navMuted}
+          navBackground={navBackground}
+          navBorder={navBorder}
+          pageBackground={pageBackground}
+          profileBadge={profileBadge}
+        />
       </GameSearchProvider>
     </GameFavoritesProvider>
   );
