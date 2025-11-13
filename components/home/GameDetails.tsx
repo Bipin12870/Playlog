@@ -107,8 +107,12 @@ export function GameDetails({
   const isWide = width >= 1024;
 
   const coverUri = resolveCoverUri(game.cover?.url ?? null);
+  const bannerUri = resolveCoverUri(game.bannerUrl ?? null);
   const showcaseUri = resolveCoverUri(game.mediaUrl ?? null) ?? coverUri;
-  const heroBackdrop = resolveCoverUri(game.bannerUrl ?? null) ?? showcaseUri ?? coverUri;
+  const heroBackdrop = bannerUri ?? showcaseUri ?? coverUri;
+  const secondaryStillUri =
+    bannerUri && (!showcaseUri || bannerUri !== showcaseUri) ? bannerUri : null;
+  const detailBackdrop = showcaseUri ?? secondaryStillUri ?? heroBackdrop ?? coverUri;
   const releaseLine = buildReleaseLine(game);
   const description = game.description ?? game.summary ?? 'No description available.';
   const heroBlurb = useMemo(() => {
@@ -678,10 +682,22 @@ export function GameDetails({
   }, [hasTrailer, game.mediaUrl]);
 
   return (
-    <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.screenContent}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.heroShell}>
-        {heroBackdrop ? <Image source={{ uri: heroBackdrop }} style={styles.heroBackdrop} /> : null}
+        {heroBackdrop ? (
+          <Image
+            source={{ uri: heroBackdrop }}
+            style={styles.heroBackdrop}
+            resizeMode="cover"
+            blurRadius={24}
+          />
+        ) : null}
         <View style={styles.heroGradient} />
+        <View style={styles.heroBottomFade} />
         <View style={[styles.heroRow, isWide && styles.heroRowWide]}>
           <View style={styles.heroTextColumn}>
             <Text style={styles.heroEyebrow}>
@@ -747,7 +763,7 @@ export function GameDetails({
             {favoriteError ? <Text style={styles.favoriteError}>{favoriteError}</Text> : null}
           </View>
 
-          <View style={styles.heroPosterCard}>
+          <View style={[styles.heroPosterCard, isWide && styles.heroPosterCardWide]}>
             {coverUri ? (
               <Image source={{ uri: coverUri }} style={styles.heroPosterImage} />
             ) : (
@@ -758,113 +774,103 @@ export function GameDetails({
           </View>
         </View>
       </View>
-
-      <View style={styles.detailSurface}>
+      <View style={styles.bodyWrapper}>
         {quickMetrics.length ? (
-          <View style={styles.metricRow}>
-            {quickMetrics.map((metric) => (
-              <View key={metric.key} style={styles.metricCard}>
-                <Text style={styles.metricLabel}>{metric.label}</Text>
-                <View style={styles.metricValueRow}>
-                  <Text style={styles.metricValue}>{metric.value}</Text>
-                  {metric.suffix ? <Text style={styles.metricSuffix}>{metric.suffix}</Text> : null}
-                </View>
-                {metric.meta ? <Text style={styles.metricMeta}>{metric.meta}</Text> : null}
-              </View>
-            ))}
-          </View>
-        ) : null}
-
-        {showcaseUri ? (
-          <View style={styles.mediaGallery}>
-            <View style={styles.mediaCard}>
-              <Image source={{ uri: showcaseUri }} style={styles.mediaImage} />
-            </View>
-          </View>
-        ) : null}
-
-        <View style={[styles.overviewRow, !isWide && styles.overviewColumn]}>
-          <View style={styles.descriptionCard}>
-            <Text style={styles.cardHeading}>Overview</Text>
-            <Text style={styles.descriptionText}>{description}</Text>
-          </View>
-
-          <View style={styles.ratingCard}>
-            <Text style={styles.cardHeading}>Community rating</Text>
-            <View style={styles.communityRatingBlock}>
-              {canShowAverage ? (
-                <>
-                  <Text style={styles.communityRatingValue}>{communityAverage.toFixed(1)}/10</Text>
-                  <Text style={styles.communityRatingMeta}>{reviewCountLabel}</Text>
-                </>
-              ) : (
-                <Text style={styles.communityRatingPlaceholder}>No reviews yet</Text>
-              )}
-              {reviewLimit ? (
-                <Text style={styles.communityRatingMeta}>
-                  {reviewLimit} reviews per user available right now.
-                </Text>
-              ) : null}
-            </View>
-            {platforms.length > 0 && (
-              <View style={styles.platformRow}>
-                {platforms.map((platform) => (
-                  <View key={platform.id} style={styles.platformPill}>
-                    <Text style={styles.platformText}>{platform.label}</Text>
+          <View style={styles.metricSurface}>
+            <View style={styles.metricRow}>
+              {quickMetrics.map((metric) => (
+                <View key={metric.key} style={styles.metricCard}>
+                  <Text style={styles.metricLabel}>{metric.label}</Text>
+                  <View style={styles.metricValueRow}>
+                    <Text style={styles.metricValue}>{metric.value}</Text>
+                    {metric.suffix ? <Text style={styles.metricSuffix}>{metric.suffix}</Text> : null}
                   </View>
-                ))}
-              </View>
-            )}
+                  {metric.meta ? <Text style={styles.metricMeta}>{metric.meta}</Text> : null}
+                </View>
+              ))}
+            </View>
           </View>
-        </View>
+        ) : null}
 
-        <View style={styles.adCard}>
-          {game.bannerUrl ? (
-            <Image
-              source={{ uri: resolveCoverUri(game.bannerUrl) ?? game.bannerUrl }}
-              style={styles.adImage}
-            />
-          ) : (
-            <View style={styles.adPlaceholder}>
-              <Text style={styles.adTitle}>Ad Banner</Text>
-              <Text style={styles.adSubtitle}>Promote your upcoming release here.</Text>
+        {detailBackdrop ? (
+          <View style={styles.featuredStillCard}>
+            <Image source={{ uri: detailBackdrop }} style={styles.featuredStillImage} />
+            <View style={styles.featuredStillOverlay}>
+              <Text style={styles.featuredStillLabel}>Featured still</Text>
+              <Text style={styles.featuredStillTitle}>{game.name}</Text>
+            </View>
+          </View>
+        ) : null}
+
+        <View style={styles.detailSurface}>
+          <View style={[styles.overviewRow, !isWide && styles.overviewColumn]}>
+            <View style={styles.descriptionCard}>
+              <Text style={styles.cardHeading}>Overview</Text>
+              <Text style={styles.descriptionText}>{description}</Text>
+            </View>
+
+            <View style={styles.ratingCard}>
+              <Text style={styles.cardHeading}>Community rating</Text>
+              <View style={styles.communityRatingBlock}>
+                {canShowAverage ? (
+                  <>
+                    <Text style={styles.communityRatingValue}>{communityAverage.toFixed(1)}/10</Text>
+                    <Text style={styles.communityRatingMeta}>{reviewCountLabel}</Text>
+                  </>
+                ) : (
+                  <Text style={styles.communityRatingPlaceholder}>No reviews yet</Text>
+                )}
+                {reviewLimit ? (
+                  <Text style={styles.communityRatingMeta}>
+                    {reviewLimit} reviews per user available right now.
+                  </Text>
+                ) : null}
+              </View>
+              {platforms.length > 0 && (
+                <View style={styles.platformRow}>
+                  {platforms.map((platform) => (
+                    <View key={platform.id} style={styles.platformPill}>
+                      <Text style={styles.platformText}>{platform.label}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+
+          {!isAuthenticated && (
+            <View style={styles.authPrompt}>
+              <Text style={styles.authHeading}>Join Playlog</Text>
+              <Text style={styles.authCopy}>
+                Create an account to favourite games, rate them, and leave community reviews.
+              </Text>
+              <View style={styles.authActions}>
+                <Pressable
+                  onPress={onSignUp}
+                  style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.primaryBtnLabel}>Sign up</Text>
+                </Pressable>
+                <Pressable
+                  onPress={onSignIn}
+                  style={({ pressed }) => [styles.secondaryBtn, pressed && styles.secondaryBtnPressed]}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.secondaryBtnLabel}>Sign in</Text>
+                </Pressable>
+              </View>
             </View>
           )}
         </View>
 
-        {!isAuthenticated && (
-          <View style={styles.authPrompt}>
-            <Text style={styles.authHeading}>Join Playlog</Text>
-            <Text style={styles.authCopy}>
-              Create an account to favourite games, rate them, and leave community reviews.
+        <View style={styles.section}>
+          <View style={styles.reviewSectionHeader}>
+            <Text style={styles.sectionTitle}>Leave a review</Text>
+            <Text style={styles.sectionSubtitleText}>
+              Share your thoughts about {game.name} and help the community discover great games.
             </Text>
-            <View style={styles.authActions}>
-              <Pressable
-                onPress={onSignUp}
-                style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
-                accessibilityRole="button"
-              >
-                <Text style={styles.primaryBtnLabel}>Sign up</Text>
-              </Pressable>
-              <Pressable
-                onPress={onSignIn}
-                style={({ pressed }) => [styles.secondaryBtn, pressed && styles.secondaryBtnPressed]}
-                accessibilityRole="button"
-              >
-                <Text style={styles.secondaryBtnLabel}>Sign in</Text>
-              </Pressable>
-            </View>
           </View>
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <View style={styles.reviewSectionHeader}>
-          <Text style={styles.sectionTitle}>Leave a review</Text>
-          <Text style={styles.sectionSubtitleText}>
-            Share your thoughts about {game.name} and help the community discover great games.
-          </Text>
-        </View>
 
         <View style={styles.reviewForm}>
           <Text style={styles.reviewFormTitle}>
@@ -1289,6 +1295,7 @@ export function GameDetails({
           />
         </View>
       )}
+      </View>
     </ScrollView>
   );
 }
@@ -1328,40 +1335,110 @@ function formatReviewDate(iso?: string) {
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingVertical: 32,
-    paddingHorizontal: 24,
-    gap: 32,
-    backgroundColor: '#0f172a',
+  screen: {
+    flex: 1,
+    backgroundColor: '#020617',
   },
-  heroShell: {
-    borderRadius: 32,
+  screenContent: {
+    paddingBottom: 48,
+  },
+  bodyWrapper: {
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 32,
+    gap: 32,
+  },
+  featuredStillCard: {
+    borderRadius: 28,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.35)',
-    position: 'relative',
+    borderColor: 'rgba(99, 102, 241, 0.25)',
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 1200,
     shadowColor: '#01030a',
     shadowOpacity: 0.35,
     shadowRadius: 28,
     shadowOffset: { width: 0, height: 18 },
-    elevation: 6,
+    elevation: 8,
+  },
+  featuredStillImage: {
+    width: '100%',
+    height: 260,
+  },
+  featuredStillOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: 20,
+    backgroundColor: 'rgba(2, 6, 23, 0.65)',
+    gap: 4,
+  },
+  featuredStillLabel: {
+    color: '#94a3b8',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  featuredStillTitle: {
+    color: '#f8fafc',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  detailSurface: {
+    borderRadius: 32,
+    padding: 24,
+    backgroundColor: 'rgba(4, 7, 18, 0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.25)',
+    gap: 24,
+  },
+  metricSurface: {
+    borderRadius: 28,
+    padding: 24,
+    backgroundColor: 'rgba(4, 7, 18, 0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.25)',
+  },
+  heroShell: {
+    width: '100%',
+    minHeight: 420,
+    paddingHorizontal: 24,
+    paddingTop: 96,
+    paddingBottom: 72,
+    justifyContent: 'flex-end',
+    backgroundColor: '#050a1a',
+    overflow: 'hidden',
+    position: 'relative',
   },
   heroBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    opacity: 0.35,
+    opacity: 0.55,
   },
   heroGradient: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(7, 11, 25, 0.85)',
+    backgroundColor: 'rgba(2, 6, 23, 0.65)',
+  },
+  heroBottomFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 180,
+    backgroundColor: 'rgba(5, 10, 26, 0.95)',
   },
   heroRow: {
     gap: 24,
-    padding: 24,
     position: 'relative',
+    width: '100%',
+    alignSelf: 'center',
+    maxWidth: 1200,
   },
   heroRowWide: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
   },
   heroTextColumn: {
     flex: 1,
@@ -1461,12 +1538,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   heroPosterCard: {
-    width: 140,
+    width: 150,
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.3)',
-    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+    borderColor: 'rgba(148, 163, 184, 0.4)',
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    alignSelf: 'flex-start',
+    shadowColor: '#01030a',
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
+    marginTop: 24,
+  },
+  heroPosterCardWide: {
+    width: 200,
+    marginTop: 0,
+    alignSelf: 'flex-end',
   },
   heroPosterImage: {
     width: '100%',
@@ -1521,28 +1610,6 @@ const styles = StyleSheet.create({
   metricMeta: {
     color: '#94a3b8',
     fontSize: 12,
-  },
-  detailSurface: {
-    gap: 24,
-    borderRadius: 28,
-    padding: 24,
-    backgroundColor: 'rgba(4, 7, 18, 0.9)',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
-  },
-  mediaGallery: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
-  },
-  mediaCard: {
-    width: '100%',
-    backgroundColor: '#0b1120',
-  },
-  mediaImage: {
-    width: '100%',
-    height: 220,
   },
   overviewRow: {
     flexDirection: 'row',
@@ -1614,34 +1681,6 @@ const styles = StyleSheet.create({
     color: '#c7d2fe',
     fontSize: 12,
     fontWeight: '600',
-  },
-  adCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.15)',
-    backgroundColor: '#111827',
-    minHeight: 160,
-  },
-  adImage: {
-    width: '100%',
-    height: 160,
-  },
-  adPlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    padding: 24,
-  },
-  adTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#f8fafc',
-  },
-  adSubtitle: {
-    color: '#94a3b8',
-    textAlign: 'center',
   },
   authPrompt: {
     backgroundColor: '#111827',
