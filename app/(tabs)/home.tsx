@@ -36,6 +36,7 @@ import { useHomeScreen } from './useHomeScreen';
 import { useGameSearch } from '../../lib/hooks/useGameSearch';
 import { useDiscoveryCache } from '../../lib/hooks/useDiscoveryCache';
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
+import { useDiscoveryCache } from '../../lib/hooks/useDiscoveryCache';
 import type { GameSummary } from '../../types/game';
 import {
   broadcastCategorySummary,
@@ -153,6 +154,7 @@ export default function HomeScreen() {
   const [recommendedGames, setRecommendedGames] = useState<GameSummary[]>([]);
   const [exploreLoading, setExploreLoading] = useState(false);
   const [exploreError, setExploreError] = useState<string | null>(null);
+  const { cacheReady: discoveryCacheReady, getCachedDiscovery, cacheDiscovery } = useDiscoveryCache();
   const [filters, setFilters] = useState<FilterState>(INITIAL_FILTERS);
   const [sort, setSort] = useState<SortValue>('relevance');
   const [categoryActive, setCategoryActive] = useState(false);
@@ -314,6 +316,8 @@ export default function HomeScreen() {
       setLoading(true);
       return;
     }
+    fetchGames(trimmed);
+  }, [submittedTerm, submissionId, fetchGames, cacheReady]);
     setCategoryActive(false);
     setFilters(INITIAL_FILTERS);
     fetchGames(trimmed);
@@ -558,6 +562,24 @@ export default function HomeScreen() {
         sortControls={sortControls}
         onOpenCategoryDrawer={handleOpenCategoryDrawer}
       />
+    );
+  }
+
+  return (
+    <NativeHome
+      sizes={sizes}
+      placeholders={placeholders}
+      sections={sections}
+      hasActiveSearch={hasActiveSearch}
+      searchResultsProps={searchResultsProps}
+      discoveryState={discoveryState}
+      searchInputProps={searchInputProps}
+      onSelectGame={handleViewDetails}
+      router={router}
+      heroItems={heroItems}
+      heroIndex={heroIndex}
+      heroAnimatedStyle={heroAnimatedStyle}
+    />
       {categoryDrawer}
     </>
   );
@@ -636,16 +658,9 @@ function NativeHome({
         contentContainerStyle={nativeStyles.scrollContent}
       >
         <View style={nativeStyles.header}>
-          <Pressable
-            onPress={onLogoPress}
-            hitSlop={8}
-            style={({ pressed }) => [
-              nativeStyles.logoBox,
-              pressed && nativeStyles.logoBoxPressed,
-            ]}
-          >
+          <View style={nativeStyles.logoBox}>
             <Image source={LOGO} style={nativeStyles.logoMark} resizeMode="contain" />
-          </Pressable>
+          </View>
           <View style={nativeStyles.searchBox}>
             <Ionicons name="search" size={16} color="#9ca3af" style={nativeStyles.searchIcon} />
             <TextInput
@@ -1795,7 +1810,6 @@ const nativeStyles = StyleSheet.create({
   scrollContent: { paddingBottom: 80 },
   header: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 8 },
   logoBox: { backgroundColor: '#2e2e2e', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 },
-  logoBoxPressed: { opacity: 0.8 },
   logoMark: { width: 60, height: 24 },
   searchBox: {
     flex: 1,
@@ -2065,6 +2079,7 @@ const statusStyles = StyleSheet.create({
   container: { alignItems: 'center', justifyContent: 'center', paddingVertical: 24 },
   label: { marginTop: 8, color: '#cbd5f5' },
   error: { color: '#fca5a5' },
+});
 });
 
 const filterStyles = StyleSheet.create({

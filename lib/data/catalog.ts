@@ -8,8 +8,11 @@ function normalizeSummary(game: GameDetailsData): GameSummary {
     summary: game.summary,
     rating: game.rating,
     cover: game.cover,
+    bannerUrl: game.bannerUrl,
+    mediaUrl: game.mediaUrl,
     platforms: game.platforms,
     first_release_date: game.first_release_date,
+    genres: game.genres ?? null,
   };
 }
 

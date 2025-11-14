@@ -11,6 +11,27 @@ import {
 import { db } from '../firebase';
 import type { GameSummary } from '../../types/game';
 
+type StoredGenre = { id?: number; name?: string | null };
+type SanitizedGenre = { id: number; name?: string | null };
+
+function sanitizeStoredGenres(payload: unknown): SanitizedGenre[] | undefined {
+  if (!Array.isArray(payload)) {
+    return undefined;
+  }
+  const genres: SanitizedGenre[] = [];
+  payload.forEach((raw) => {
+    if (!raw || typeof raw !== 'object' || typeof (raw as StoredGenre).id !== 'number') {
+      return;
+    }
+    const id = (raw as StoredGenre).id as number;
+    const rawName = (raw as StoredGenre).name;
+    const name =
+      typeof rawName === 'string' ? rawName : rawName === null ? null : undefined;
+    genres.push({ id, name });
+  });
+  return genres.length ? genres : undefined;
+}
+
 type UserFavorite = GameSummary & { savedAt?: string | null };
 
 function mapFavoriteDocument(data: any): GameSummary | null {
@@ -30,6 +51,9 @@ function mapFavoriteDocument(data: any): GameSummary | null {
     platforms: Array.isArray(data.platforms) ? data.platforms : undefined,
     first_release_date:
       typeof data.first_release_date === 'number' ? data.first_release_date : undefined,
+    mediaUrl: typeof data.mediaUrl === 'string' ? data.mediaUrl : undefined,
+    bannerUrl: typeof data.bannerUrl === 'string' ? data.bannerUrl : undefined,
+    genres: sanitizeStoredGenres(data.genres),
   };
 
   return { ...favorite, savedAt } as UserFavorite;

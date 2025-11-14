@@ -26,6 +26,27 @@ import { useAuthUser } from './useAuthUser';
 
 const MAX_FREE_FAVOURITES = 10;
 
+type StoredGenre = { id?: number; name?: string | null };
+type SanitizedGenre = { id: number; name?: string | null };
+
+function sanitizeStoredGenres(payload: unknown): SanitizedGenre[] | undefined {
+  if (!Array.isArray(payload)) {
+    return undefined;
+  }
+  const genres: SanitizedGenre[] = [];
+  payload.forEach((raw) => {
+    if (!raw || typeof raw !== 'object' || typeof (raw as StoredGenre).id !== 'number') {
+      return;
+    }
+    const id = (raw as StoredGenre).id as number;
+    const rawName = (raw as StoredGenre).name;
+    const name =
+      typeof rawName === 'string' ? rawName : rawName === null ? null : undefined;
+    genres.push({ id, name });
+  });
+  return genres.length ? genres : undefined;
+}
+
 type GameFavoritesContextValue = {
   favourites: GameSummary[];
   toggleFavourite: (game: GameSummary) => void;
@@ -66,6 +87,9 @@ export function GameFavoritesProvider({ children }: { children: ReactNode }) {
           platforms: Array.isArray(data.platforms) ? data.platforms : undefined,
           first_release_date:
             typeof data.first_release_date === 'number' ? data.first_release_date : undefined,
+          mediaUrl: typeof data.mediaUrl === 'string' ? data.mediaUrl : undefined,
+          bannerUrl: typeof data.bannerUrl === 'string' ? data.bannerUrl : undefined,
+          genres: sanitizeStoredGenres(data.genres),
         };
 
         return { savedAt, game };
@@ -245,6 +269,30 @@ export function GameFavoritesProvider({ children }: { children: ReactNode }) {
       }
       if (typeof game.first_release_date === 'number') {
         payload.first_release_date = game.first_release_date;
+      }
+      if (typeof game.mediaUrl === 'string') {
+        payload.mediaUrl = game.mediaUrl;
+      }
+      if (typeof game.bannerUrl === 'string') {
+        payload.bannerUrl = game.bannerUrl;
+      }
+      if (Array.isArray(game.genres) && game.genres.length) {
+        const serialized: SanitizedGenre[] = [];
+        game.genres.forEach((genre) => {
+          if (!genre || typeof genre.id !== 'number') {
+            return;
+          }
+          const normalizedName =
+            typeof genre.name === 'string'
+              ? genre.name
+              : genre.name === null
+                ? null
+                : undefined;
+          serialized.push({ id: genre.id, name: normalizedName });
+        });
+        if (serialized.length) {
+          payload.genres = serialized;
+        }
       }
 
       setDoc(favouriteRef, payload).catch((error) => {

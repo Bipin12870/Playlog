@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
   Alert,
   ActivityIndicator,
   FlatList,
   Image,
-  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -59,6 +57,7 @@ type GameDetailsProps = {
   onDeleteReply?: (reviewId: string, replyId: string) => Promise<void> | void;
   replyUpdatingIds?: string[];
   replyDeletingIds?: string[];
+  onBack?: () => void;
 };
 
 const REVIEW_PLACEHOLDER = 'Share what stood out to you about this game (at least 20 characters).';
@@ -103,26 +102,16 @@ export function GameDetails({
   onDeleteReply,
   replyUpdatingIds = [],
   replyDeletingIds = [],
+  onBack,
 }: GameDetailsProps) {
   const { width } = useWindowDimensions();
   const isWide = width >= 1024;
+  const isCompact = width < 768;
 
-  const rawCoverUrl = game.cover?.url ?? null;
-  const rawMediaUrl = game.mediaUrl ?? null;
-  const rawBannerUrl = game.bannerUrl ?? null;
-
-  const coverUri = resolveCoverUri(rawCoverUrl);
-  const showcaseUri =
-    resolveBackdropUri(rawMediaUrl) ?? resolveBackdropUri(rawBannerUrl) ?? coverUri;
-  const heroLandscapeUri = showcaseUri ?? coverUri;
+  const coverUri = resolveCoverUri(game.cover?.url ?? null);
+  const showcaseUri = resolveCoverUri(game.mediaUrl ?? null) ?? coverUri;
   const releaseLine = buildReleaseLine(game);
   const description = game.description ?? game.summary ?? 'No description available.';
-  const heroBlurb = useMemo(() => {
-    const source = game.description ?? game.summary ?? '';
-    const trimmed = source.trim();
-    if (!trimmed) return null;
-    return trimmed.length > 160 ? `${trimmed.slice(0, 157)}…` : trimmed;
-  }, [game.description, game.summary]);
 
   const [ratingInput, setRatingInput] = useState<number | null>(
     typeof userReview?.rating === 'number' ? userReview.rating : null,
@@ -141,7 +130,6 @@ export function GameDetails({
   const [expandedReplies, setExpandedReplies] = useState<Record<string, boolean>>({});
   const [replyVisibleCounts, setReplyVisibleCounts] = useState<Record<string, number>>({});
   const [visibleCommunityCount, setVisibleCommunityCount] = useState(INITIAL_COMMUNITY_PREVIEW_COUNT);
-  const [isOverviewExpanded, setIsOverviewExpanded] = useState(false);
 
   useEffect(() => {
     setRatingInput(typeof userReview?.rating === 'number' ? userReview.rating : null);
@@ -304,58 +292,6 @@ export function GameDetails({
 
   const reviewCountLabel = communityReviewCount === 1 ? '1 review' : `${communityReviewCount} reviews`;
   const canShowAverage = typeof communityAverage === 'number' && !Number.isNaN(communityAverage);
-  const communityAverageValue =
-    canShowAverage && typeof communityAverage === 'number'
-      ? communityAverage.toFixed(1)
-      : null;
-  const platformLine = useMemo(
-    () => platforms.map((platform) => platform.label).filter(Boolean).slice(0, 4).join(' • '),
-    [platforms],
-  );
-  const genreLine = useMemo(
-    () =>
-      (game.genres ?? [])
-        .map((genre) => genre?.name)
-        .filter((name): name is string => Boolean(name))
-        .slice(0, 3)
-        .join(' • '),
-    [game.genres],
-  );
-  const heroFacts = useMemo(
-    () =>
-      [
-        genreLine ? { label: 'Genres', value: genreLine } : null,
-        platformLine ? { label: 'Platforms', value: platformLine } : null,
-        game.developer ? { label: 'Studio', value: game.developer } : null,
-      ].filter((fact): fact is { label: string; value: string } => Boolean(fact)),
-    [genreLine, platformLine, game.developer],
-  );
-  const quickMetrics = useMemo(
-    () => {
-      const metrics: Array<{ key: string; label: string; value: string; suffix?: string; meta?: string }> =
-        [];
-      const igdbScore =
-        typeof game.rating === 'number' && !Number.isNaN(game.rating)
-          ? Math.round(game.rating).toString()
-          : '—';
-      metrics.push({
-        key: 'igdb',
-        label: 'IGDB score',
-        value: igdbScore,
-        suffix: igdbScore === '—' ? undefined : '/100',
-        meta: 'Critic aggregate',
-      });
-      metrics.push({
-        key: 'community',
-        label: 'Community rating',
-        value: communityAverageValue ?? '—',
-        suffix: communityAverageValue ? '/10' : undefined,
-        meta: communityAverageValue ? reviewCountLabel : 'No reviews yet',
-      });
-      return metrics;
-    },
-    [game.rating, communityAverageValue, reviewCountLabel],
-  );
   const personalReviewCount =
     typeof userReviewCount === 'number' && !Number.isNaN(userReviewCount)
       ? Math.max(0, userReviewCount)
@@ -666,183 +602,182 @@ export function GameDetails({
     onToggleFavorite();
   }, [onToggleFavorite]);
 
+  const mobilePlatformIcons = useMemo(
+    () => resolvePlatformIcons(game.platforms),
+    [game.platforms]
+  );
+
   const reviewCtaDisabled = !canSubmitReview || reviewSubmitting || ratingInput === null;
-  const trailerUrl = game.trailerUrl ?? null;
-  const hasTrailer = Boolean(trailerUrl);
 
-  const shouldClampOverview = description.length > 320;
-  const overviewText = description.trim();
-  const overviewNumberOfLines = !isOverviewExpanded && shouldClampOverview ? 4 : undefined;
-  const handleToggleOverview = useCallback(() => {
-    setIsOverviewExpanded((prev) => !prev);
-  }, []);
-
-  const handleWatchTrailer = useCallback(() => {
-    if (!hasTrailer || !trailerUrl) {
-      return;
-    }
-    Linking.openURL(trailerUrl).catch((err) => console.warn('Failed to open trailer', err));
-  }, [hasTrailer, trailerUrl]);
+  if (isCompact) {
+    return (
+      <MobileGameDetails
+        game={game}
+        coverUri={coverUri}
+        showcaseUri={showcaseUri}
+        releaseLine={releaseLine}
+        description={description}
+        platformIcons={mobilePlatformIcons}
+        ratingValue={canShowAverage ? communityAverage : game.rating ?? null}
+        reviews={reviews}
+        similarGames={similarGames}
+        onSelectSimilar={onSelectSimilar}
+        onBack={onBack}
+      />
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-      <View style={styles.heroContentStack}>
-        <View style={styles.heroMediaCard}>
-          {heroLandscapeUri ? (
-            <View style={styles.heroMediaImageShell}>
-              <Image
-                source={{ uri: heroLandscapeUri }}
-                style={styles.heroMediaImage}
-                resizeMode="contain"
-              />
-              <LinearGradient
-                colors={['rgba(4, 7, 18, 0.9)', 'rgba(4, 7, 18, 0)', 'rgba(4, 7, 18, 0.9)']}
-                locations={[0, 0.5, 1]}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={styles.heroMediaFadeHorizontal}
-                pointerEvents="none"
-              />
-              <LinearGradient
-                colors={['rgba(4, 7, 18, 0.85)', 'rgba(4, 7, 18, 0)', 'rgba(4, 7, 18, 0.85)']}
-                locations={[0, 0.55, 1]}
-                start={{ x: 0.5, y: 0 }}
-                end={{ x: 0.5, y: 1 }}
-                style={styles.heroMediaFadeVertical}
-                pointerEvents="none"
-              />
+      <View style={[styles.heroRow, isWide && styles.heroRowWide]}>
+        <View style={styles.mediaColumn}>
+          <View style={styles.coverCard}>
+            {coverUri ? (
+              <Image source={{ uri: coverUri }} style={styles.coverImage} />
+            ) : (
+              <View style={styles.coverFallback}>
+                <Text style={styles.coverFallbackText}>No artwork</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.showcaseCard}>
+            {showcaseUri ? (
+              <Image source={{ uri: showcaseUri }} style={styles.showcaseImage} />
+            ) : (
+              <View style={styles.showcaseFallback}>
+                <Ionicons name="image-outline" size={24} color="#d1d5db" />
+                <Text style={styles.showcaseFallbackText}>Gameplay media</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.detailsColumn}>
+          <View style={styles.headerRow}>
+            <View style={styles.titleGroup}>
+              <Text style={styles.title}>{game.name}</Text>
+              {releaseLine ? <Text style={styles.subtitle}>{releaseLine}</Text> : null}
             </View>
-          ) : (
-            <View style={[styles.heroMediaImageShell, styles.heroMediaFallback]}>
-              <Text style={styles.heroMediaFallbackText}>Gameplay preview coming soon</Text>
+            <Pressable
+              onPress={handleFavoritePress}
+              style={({ pressed }) => [
+                styles.favoriteButton,
+                isFavorite && styles.favoriteButtonActive,
+                (favoriteDisabled || pressed) && styles.favoriteButtonPressed,
+              ]}
+              accessibilityRole="button"
+              disabled={favoriteDisabled}
+            >
+              {favoriteDisabled ? (
+                <ActivityIndicator size="small" color="#f8fafc" />
+              ) : (
+                <>
+                  <Ionicons
+                    name={isFavorite ? 'heart' : 'heart-outline'}
+                    size={18}
+                    color="#f8fafc"
+                  />
+                  <Text style={styles.favoriteButtonLabel}>
+                    {isFavorite ? 'Favourited' : 'Add to favourites'}
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+          {favoriteError ? <Text style={styles.favoriteError}>{favoriteError}</Text> : null}
+
+          <View style={[styles.overviewRow, !isWide && styles.overviewColumn]}>
+            <View style={styles.descriptionCard}>
+              <Text style={styles.cardHeading}>Overview</Text>
+              <Text style={styles.descriptionText}>{description}</Text>
+            </View>
+
+            <View style={styles.ratingCard}>
+              <Text style={styles.cardHeading}>Community rating</Text>
+              <View style={styles.communityRatingBlock}>
+                {canShowAverage ? (
+                  <>
+                    <Text style={styles.communityRatingValue}>
+                      {communityAverage.toFixed(1)}/10
+                    </Text>
+                    <Text style={styles.communityRatingMeta}>{reviewCountLabel}</Text>
+                  </>
+                ) : (
+                  <Text style={styles.communityRatingPlaceholder}>No reviews yet</Text>
+                )}
+                {reviewLimit ? (
+                  <Text style={styles.communityRatingMeta}>
+                    {reviewLimit} reviews per user available right now.
+                  </Text>
+                ) : null}
+              </View>
+              {platforms.length > 0 && (
+                <View style={styles.platformRow}>
+                  {platforms.map((platform) => (
+                    <View key={platform.id} style={styles.platformPill}>
+                      <Text style={styles.platformText}>{platform.label}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.adCard}>
+            {game.bannerUrl ? (
+              <Image
+                source={{ uri: resolveCoverUri(game.bannerUrl) ?? game.bannerUrl }}
+                style={styles.adImage}
+              />
+            ) : (
+              <View style={styles.adPlaceholder}>
+                <Text style={styles.adTitle}>Ad Banner</Text>
+                <Text style={styles.adSubtitle}>Promote your upcoming release here.</Text>
+              </View>
+            )}
+          </View>
+
+          {!isAuthenticated && (
+            <View style={styles.authPrompt}>
+              <Text style={styles.authHeading}>Join Playlog</Text>
+              <Text style={styles.authCopy}>
+                Create an account to favourite games, rate them, and leave community reviews.
+              </Text>
+              <View style={styles.authActions}>
+                <Pressable
+                  onPress={onSignUp}
+                  style={({ pressed }) => [
+                    styles.primaryBtn,
+                    pressed && styles.primaryBtnPressed,
+                  ]}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.primaryBtnLabel}>Sign up</Text>
+                </Pressable>
+                <Pressable
+                  onPress={onSignIn}
+                  style={({ pressed }) => [
+                    styles.secondaryBtn,
+                    pressed && styles.secondaryBtnPressed,
+                  ]}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.secondaryBtnLabel}>Sign in</Text>
+                </Pressable>
+              </View>
             </View>
           )}
         </View>
-
-        {coverUri ? (
-          <View style={[styles.heroPosterFloat, isWide && styles.heroPosterFloatWide]}>
-            <View style={styles.heroPosterWrap}>
-              <Image source={{ uri: coverUri }} style={styles.heroPosterImage} />
-            </View>
-          </View>
-        ) : (
-          <View style={[styles.heroPosterFloat, styles.heroPosterFallback]}>
-            <View style={styles.heroPosterWrap}>
-              <Text style={styles.heroPosterFallbackText}>Artwork coming soon</Text>
-            </View>
-          </View>
-        )}
-
-        <View style={[styles.heroOverviewCard, isWide && styles.heroOverviewCardWide]}>
-          <Text style={styles.heroEyebrow}>
-            {releaseLine ?? 'Upcoming release'}
-            {game.developer ? ` • ${game.developer}` : ''}
-          </Text>
-          <Text style={styles.heroHeadline}>{game.name}</Text>
-          <Text style={styles.heroOverviewText} numberOfLines={overviewNumberOfLines}>
-            {overviewText}
-          </Text>
-          {shouldClampOverview ? (
-            <Pressable onPress={handleToggleOverview} style={styles.heroOverviewToggle}>
-              <Text style={styles.heroOverviewToggleText}>
-                {isOverviewExpanded ? 'Show less' : 'Read more'}
-              </Text>
-            </Pressable>
-          ) : null}
-        </View>
-
-        <View
-          style={[
-            styles.heroDetailsPanel,
-            isWide ? styles.heroDetailsPanelWide : styles.heroDetailsPanelStacked,
-          ]}
-        >
-          <View style={[styles.heroDetailsRow, isWide && styles.heroDetailsRowWide]}>
-            <View style={[styles.heroDetailsColumn, styles.heroDetailsColumnPrimary]}>
-              {heroFacts.length ? (
-                <View style={styles.heroFactsGrid}>
-                  {heroFacts.map((fact) => (
-                    <View key={fact.label} style={styles.heroFactCard}>
-                      <Text style={styles.heroFactLabel}>{fact.label}</Text>
-                      <Text style={styles.heroFactValue}>{fact.value}</Text>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-
-              <View style={styles.heroActionsRow}>
-                <Pressable
-                  onPress={handleWatchTrailer}
-                  disabled={!hasTrailer}
-                  style={({ pressed }) => [
-                    styles.heroPrimaryButton,
-                    pressed && styles.heroPrimaryButtonPressed,
-                    !hasTrailer && styles.heroActionDisabled,
-                  ]}
-                  accessibilityRole="button"
-                >
-                  <Ionicons name="play" size={16} color="#0f172a" />
-                  <Text style={styles.heroPrimaryButtonLabel}>
-                    {hasTrailer ? 'Watch trailer' : 'Trailer unavailable'}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleFavoritePress}
-                  style={({ pressed }) => [
-                    styles.heroSecondaryButton,
-                    isFavorite && styles.heroSecondaryButtonActive,
-                    (favoriteDisabled || pressed) && styles.heroSecondaryButtonPressed,
-                  ]}
-                  accessibilityRole="button"
-                  disabled={favoriteDisabled}
-                >
-                  {favoriteDisabled ? (
-                    <ActivityIndicator size="small" color="#f8fafc" />
-                  ) : (
-                    <>
-                      <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={16} color="#f8fafc" />
-                      <Text style={styles.heroSecondaryButtonLabel}>
-                        {isFavorite ? 'Favourited' : 'Add to list'}
-                      </Text>
-                    </>
-                  )}
-                </Pressable>
-              </View>
-              {favoriteError ? <Text style={styles.favoriteError}>{favoriteError}</Text> : null}
-            </View>
-
-            {quickMetrics.length ? (
-              <View style={[styles.heroDetailsColumn, styles.heroDetailsColumnSecondary]}>
-                <View style={styles.heroMetrics}>
-                  {quickMetrics.map((metric) => (
-                    <View key={metric.key} style={styles.heroMetricCard}>
-                      <Text style={styles.heroMetricLabel}>{metric.label}</Text>
-                      <View style={styles.heroMetricValueRow}>
-                        <Text style={styles.heroMetricValue}>{metric.value}</Text>
-                        {metric.suffix ? (
-                          <Text style={styles.heroMetricSuffix}>{metric.suffix}</Text>
-                        ) : null}
-                      </View>
-                      {metric.meta ? <Text style={styles.heroMetricMeta}>{metric.meta}</Text> : null}
-                    </View>
-                  ))}
-                </View>
-              </View>
-            ) : null}
-          </View>
-        </View>
       </View>
 
-      <View style={styles.detailSurface}>
-        {/* Community rating + platforms card removed to avoid duplication */}
-
-        <View style={styles.section}>
-          <View style={styles.reviewSectionHeader}>
-            <Text style={styles.sectionTitle}>Leave a review</Text>
-            <Text style={styles.sectionSubtitleText}>
-              Share your thoughts about {game.name} and help the community discover great games.
-            </Text>
-          </View>
+      <View style={styles.section}>
+        <View style={styles.reviewSectionHeader}>
+          <Text style={styles.sectionTitle}>Leave a review</Text>
+          <Text style={styles.sectionSubtitleText}>
+            Share your thoughts about {game.name} and help the community discover great games.
+          </Text>
+        </View>
 
         <View style={styles.reviewForm}>
           <Text style={styles.reviewFormTitle}>
@@ -1267,49 +1202,14 @@ export function GameDetails({
           />
         </View>
       )}
-      </View>
     </ScrollView>
   );
 }
 
 function resolveCoverUri(raw?: string | null) {
-  const normalized = normalizeImageUri(raw);
-  if (!normalized) return undefined;
-  if (!normalized.includes('images.igdb.com')) {
-    return normalized;
-  }
-  return applyIgdbSize(normalized, 't_cover_big');
-}
-
-function resolveBackdropUri(raw?: string | null) {
-  const normalized = normalizeImageUri(raw);
-  if (!normalized) return undefined;
-  if (!normalized.includes('images.igdb.com')) {
-    return normalized;
-  }
-  const isCoverAsset = /\/co\d+/i.test(normalized);
-  const targetSize = isCoverAsset ? 't_cover_big' : 't_1080p';
-  return applyIgdbSize(normalized, targetSize);
-}
-
-function normalizeImageUri(raw?: string | null) {
   if (!raw) return undefined;
-  const trimmed = raw.trim();
-  if (!trimmed) return undefined;
-  if (/^https?:\/\//i.test(trimmed)) {
-    return trimmed;
-  }
-  if (trimmed.startsWith('//')) {
-    return `https:${trimmed}`;
-  }
-  return `https://${trimmed}`;
-}
-
-function applyIgdbSize(uri: string, sizeToken: string) {
-  if (!/\/t_[^/]+\//.test(uri)) {
-    return uri;
-  }
-  return uri.replace(/\/t_[^/]+\//, `/${sizeToken}/`);
+  const normalized = raw.replace('t_thumb', 't_cover_big');
+  return normalized.startsWith('http') ? normalized : `https:${normalized}`;
 }
 
 function buildReleaseLine(game: GameDetailsData) {
@@ -1341,322 +1241,217 @@ function formatReviewDate(iso?: string) {
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#020617',
-  },
-  screenContent: {
-    paddingBottom: 48,
-  },
-  bodyWrapper: {
+  scrollContent: {
+    paddingVertical: 32,
     paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 32,
     gap: 32,
+    backgroundColor: '#0f172a',
   },
-  heroContentStack: {
-    gap: 20,
+  heroRow: {
+    gap: 24,
   },
-  heroMediaCard: {
-    width: '100%',
-    aspectRatio: 21 / 9,
-    borderRadius: 36,
-    position: 'relative',
-    marginBottom: 32,
-  },
-  heroMediaImageShell: {
-    flex: 1,
-    borderRadius: 28,
-    overflow: 'hidden',
-  },
-  heroMediaImage: {
-    width: '100%',
-    height: '100%',
-  },
-  heroMediaFadeHorizontal: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  heroMediaFadeVertical: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  heroMediaFallback: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-  },
-  heroMediaFallbackText: {
-    color: '#94a3b8',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  heroDetailsPanel: {
-    width: '100%',
-    borderRadius: 32,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.3)',
-    backgroundColor: 'rgba(2, 6, 23, 0.92)',
-    padding: 24,
-    gap: 20,
-    shadowColor: '#01030a',
-    shadowOpacity: 0.35,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 8,
-  },
-  heroDetailsPanelWide: {
-    padding: 32,
-    marginTop: 24,
-  },
-  heroDetailsPanelStacked: {
-    marginTop: 220,
-  },
-  heroDetailsRow: {
-    flexDirection: 'column',
-    gap: 20,
-  },
-  heroDetailsRowWide: {
+  heroRowWide: {
     flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: 32,
   },
-  heroDetailsColumn: {
-    flex: 1,
+  mediaColumn: {
+    flex: 0.8,
     gap: 16,
   },
-  heroDetailsColumnPrimary: {
-    minWidth: 0,
-  },
-  heroDetailsColumnSecondary: {
-    minWidth: 240,
-  },
-  heroPosterFloat: {
-    width: 220,
-    alignSelf: 'center',
-    marginTop: -120,
-    zIndex: 5,
-  },
-  heroPosterFloatWide: {
-    alignSelf: 'flex-start',
-    marginLeft: 264,
-    marginTop: -180,
-  },
-  heroPosterWrap: {
-    width: '100%',
-    borderRadius: 28,
-    padding: 12,
-    backgroundColor: 'rgba(4, 7, 18, 0.95)',
-    borderWidth: 2,
-    borderColor: 'rgba(248, 250, 252, 0.18)',
-    shadowColor: '#000',
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 6,
-  },
-  heroPosterImage: {
-    width: '100%',
-    aspectRatio: 2 / 3,
+  coverCard: {
     borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: '#1f2937',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.2)',
   },
-  heroPosterFallback: {
+  coverImage: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+  },
+  coverFallback: {
+    height: 280,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#111827',
+  },
+  coverFallbackText: {
+    color: '#94a3b8',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  showcaseCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: '#1f2937',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.2)',
+    minHeight: 180,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  heroPosterFallbackText: {
-    color: '#94a3b8',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  heroOverviewCard: {
+  showcaseImage: {
     width: '100%',
-    borderRadius: 28,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.35)',
-    backgroundColor: 'rgba(2, 6, 23, 0.9)',
+    height: '50%',
+    minHeight: 220,
+  },
+  showcaseFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
     gap: 12,
-    marginTop: -120,
-    shadowColor: '#01030a',
-    shadowOpacity: 0.35,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 8,
   },
-  heroOverviewCardWide: {
-    alignSelf: 'flex-end',
-    marginTop: -337,
-    marginLeft: 50,
-    marginRight: 178,
-    maxWidth: 640,
-    paddingHorizontal: 40,
-    paddingVertical: 32,
-  },
-  heroHeadline: {
-    fontSize: 40,
-    fontWeight: '800',
-    color: '#f8fafc',
-  },
-  heroOverviewText: {
-    color: '#cbd5f5',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  heroOverviewToggle: {
-    alignSelf: 'flex-start',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    backgroundColor: 'rgba(148, 163, 184, 0.15)',
-  },
-  heroOverviewToggleText: {
+  showcaseFallbackText: {
     color: '#e2e8f0',
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
+    fontSize: 14,
   },
-  heroDetailsBody: {
+  detailsColumn: {
+    flex: 1.2,
+    gap: 24,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 16,
+  },
+  titleGroup: {
     flex: 1,
-    gap: 12,
-  },
-  heroEyebrow: {
-    color: '#94a3b8',
-    fontSize: 13,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    gap: 4,
   },
   title: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: '#f8fafc',
-  },
-  heroFactsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  heroFactCard: {
-    flexGrow: 1,
-    minWidth: 145,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.25)',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    backgroundColor: 'rgba(15, 23, 42, 0.7)',
-  },
-  heroFactLabel: {
-    color: '#94a3b8',
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  heroFactValue: {
-    color: '#f8fafc',
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  heroActionsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    alignItems: 'center',
-  },
-  heroPrimaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 999,
-    backgroundColor: '#4ade80',
-  },
-  heroPrimaryButtonPressed: {
-    opacity: 0.85,
-  },
-  heroPrimaryButtonLabel: {
-    color: '#0f172a',
+    fontSize: 32,
     fontWeight: '700',
+    color: '#f8fafc',
   },
-  heroSecondaryButton: {
+  subtitle: {
+    fontSize: 16,
+    color: '#cbd5f5',
+  },
+  favoriteButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     paddingVertical: 10,
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     borderRadius: 999,
+    backgroundColor: 'rgba(99, 102, 241, 0.2)',
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.5)',
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderColor: 'rgba(99, 102, 241, 0.4)',
   },
-  heroSecondaryButtonPressed: {
-    opacity: 0.75,
+  favoriteButtonPressed: {
+    opacity: 0.7,
   },
-  heroSecondaryButtonActive: {
-    borderColor: '#f8fafc',
-    backgroundColor: 'rgba(248, 250, 252, 0.08)',
+  favoriteButtonActive: {
+    backgroundColor: '#6366f1',
+    borderColor: '#6366f1',
   },
-  heroSecondaryButtonLabel: {
+  favoriteButtonLabel: {
     color: '#f8fafc',
+    fontSize: 14,
     fontWeight: '600',
-  },
-  heroActionDisabled: {
-    opacity: 0.5,
   },
   favoriteError: {
     color: '#fca5a5',
     fontSize: 13,
   },
-  heroMetrics: {
+  overviewRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    gap: 16,
   },
-  heroMetricCard: {
+  overviewColumn: {
+    flexDirection: 'column',
+  },
+  descriptionCard: {
+    flex: 2,
+    backgroundColor: '#111827',
+    padding: 20,
     borderRadius: 20,
-    backgroundColor: 'rgba(8, 13, 28, 0.85)',
+    gap: 12,
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.25)',
-    padding: 14,
-    gap: 4,
-    flexGrow: 1,
-    minWidth: 110,
+    borderColor: 'rgba(148, 163, 184, 0.15)',
   },
-  heroMetricLabel: {
-    color: '#94a3b8',
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+  ratingCard: {
+    flex: 1,
+    backgroundColor: '#111827',
+    padding: 20,
+    borderRadius: 20,
+    gap: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.15)',
   },
-  heroMetricValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  heroMetricValue: {
-    color: '#f8fafc',
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  heroMetricSuffix: {
-    color: '#94a3b8',
+  cardHeading: {
     fontSize: 14,
     fontWeight: '600',
+    color: '#cbd5f5',
+    letterSpacing: 1,
   },
-  heroMetricMeta: {
-    color: '#94a3b8',
+  descriptionText: {
+    color: '#e2e8f0',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  communityRatingBlock: {
+    gap: 4,
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: 'rgba(79, 70, 229, 0.1)',
+  },
+  communityRatingValue: {
+    color: '#a5b4fc',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  communityRatingMeta: {
+    color: '#cbd5f5',
     fontSize: 12,
   },
-  detailSurface: {
-    gap: 24,
-    borderRadius: 28,
-    padding: 24,
-    backgroundColor: 'rgba(4, 7, 18, 0.9)',
+  communityRatingPlaceholder: {
+    color: '#94a3b8',
+    fontSize: 13,
+  },
+  platformRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  platformPill: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+  },
+  platformText: {
+    color: '#c7d2fe',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  adCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
+    borderColor: 'rgba(148, 163, 184, 0.15)',
+    backgroundColor: '#111827',
+    minHeight: 160,
+  },
+  adImage: {
+    width: '100%',
+    height: 160,
+  },
+  adPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 24,
+  },
+  adTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#f8fafc',
+  },
+  adSubtitle: {
+    color: '#94a3b8',
+    textAlign: 'center',
   },
   authPrompt: {
     backgroundColor: '#111827',
@@ -2164,3 +1959,358 @@ const styles = StyleSheet.create({
     width: 220,
   },
 });
+
+type MobileGameDetailsProps = {
+  game: GameDetailsData;
+  coverUri?: string | null;
+  showcaseUri?: string | null;
+  releaseLine?: string | null;
+  description: string;
+  platformIcons: (keyof typeof Ionicons.glyphMap)[];
+  ratingValue: number | null;
+  reviews: GameReview[];
+  similarGames: GameSummary[];
+  onSelectSimilar?: (game: GameSummary) => void;
+  onBack?: () => void;
+};
+
+function MobileGameDetails({
+  game,
+  coverUri,
+  showcaseUri,
+  releaseLine,
+  description,
+  platformIcons,
+  ratingValue,
+  reviews,
+  similarGames,
+  onSelectSimilar,
+  onBack,
+}: MobileGameDetailsProps) {
+  const previewReviews = useMemo(() => reviews.slice(0, 3), [reviews]);
+  const developerLine = game.developer ?? 'Independent studio';
+  const releaseBadge = releaseLine ?? (game.releaseYear ? `${game.releaseYear}` : 'Coming soon');
+  const genreNames = useMemo(
+    () =>
+      (game.genres ?? [])
+        .map((genre) => genre?.name)
+        .filter((name): name is string => Boolean(name))
+        .slice(0, 3),
+    [game.genres]
+  );
+  const computedRating = ratingValue
+    ? (ratingValue / 10).toFixed(1)
+    : game.rating
+    ? (game.rating / 10).toFixed(1)
+    : null;
+
+  return (
+    <ScrollView style={mobileStyles.container} contentContainerStyle={mobileStyles.content}>
+      <View style={mobileStyles.backRow}>
+        <Pressable
+          onPress={onBack}
+          style={({ pressed }) => [
+            mobileStyles.backButton,
+            pressed && mobileStyles.backButtonPressed,
+          ]}
+          disabled={!onBack}
+          accessibilityRole="button"
+        >
+          <Ionicons name="chevron-back" size={20} color="#f8fafc" />
+          <Text style={mobileStyles.backLabel}>Back</Text>
+        </Pressable>
+      </View>
+
+      <View style={mobileStyles.heroSpotlight}>
+        {showcaseUri ? (
+          <Image source={{ uri: showcaseUri }} style={mobileStyles.heroBackdrop} blurRadius={20} />
+        ) : null}
+        <View style={mobileStyles.heroOverlayTint} />
+        <View style={mobileStyles.heroContent}>
+          <View style={mobileStyles.heroCoverFrame}>
+            {coverUri ? (
+              <Image source={{ uri: coverUri }} style={mobileStyles.heroCoverImage} />
+            ) : (
+              <View style={mobileStyles.summaryPlaceholder}>
+                <Text style={mobileStyles.summaryPlaceholderText}>Thumbnail</Text>
+              </View>
+            )}
+          </View>
+          <View style={mobileStyles.heroInfo}>
+            <Text style={mobileStyles.heroTitle}>{game.name}</Text>
+            <Text style={mobileStyles.heroMeta}>{releaseBadge}</Text>
+            <Text style={mobileStyles.heroMeta}>{developerLine}</Text>
+            {platformIcons.length ? (
+              <View style={mobileStyles.heroPlatforms}>
+                {platformIcons.map((icon) => (
+                  <Ionicons key={`${game.id}-${icon}`} name={icon} size={18} color="#f8fafc" />
+                ))}
+              </View>
+            ) : null}
+            <View style={mobileStyles.heroStatsRow}>
+              <View style={mobileStyles.statPill}>
+                <Text style={mobileStyles.statLabel}>Rating</Text>
+                <Text style={mobileStyles.statValue}>{computedRating ?? '—'}</Text>
+              </View>
+              <View style={mobileStyles.statPill}>
+                <Text style={mobileStyles.statLabel}>Genre</Text>
+                <Text style={mobileStyles.statValue}>
+                  {genreNames.length ? genreNames.join(', ') : 'TBA'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View style={mobileStyles.heroActions}>
+          <Pressable
+            style={({ pressed }) => [
+              mobileStyles.heroPrimaryBtn,
+              pressed && mobileStyles.heroPrimaryBtnPressed,
+            ]}
+            accessibilityRole="button"
+          >
+            <Ionicons name="play" size={16} color="#050505" />
+            <Text style={mobileStyles.heroPrimaryLabel}>Watch Trailer</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              mobileStyles.heroSecondaryBtn,
+              pressed && mobileStyles.heroSecondaryBtnPressed,
+            ]}
+            accessibilityRole="button"
+          >
+            <Ionicons name="bookmark-outline" size={16} color="#f1f5f9" />
+            <Text style={mobileStyles.heroSecondaryLabel}>Add to List</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      <View style={mobileStyles.infoGrid}>
+        <View style={mobileStyles.infoCard}>
+          <Text style={mobileStyles.descriptionPillLabel}>Overview</Text>
+          <Text style={mobileStyles.descriptionText}>{description}</Text>
+        </View>
+        <View style={[mobileStyles.infoCard, mobileStyles.infoCardAccent]}>
+          <Text style={mobileStyles.ratingLabel}>Community Rating</Text>
+          <Text style={mobileStyles.ratingValue}>
+            {computedRating ? `${computedRating}/10` : 'No data'}
+          </Text>
+          <Text style={mobileStyles.ratingMeta}>
+            {computedRating ? 'Great Game (GG)' : 'Be the first to review'}
+          </Text>
+        </View>
+      </View>
+
+      <View style={mobileStyles.showcaseCard}>
+        {showcaseUri ? (
+          <Image source={{ uri: showcaseUri }} style={mobileStyles.showcaseImage} />
+        ) : (
+          <View style={mobileStyles.showcasePlaceholder}>
+            <Ionicons name="image-outline" size={28} color="#d1d5db" />
+          </View>
+        )}
+      </View>
+
+      <View style={mobileStyles.reviewsSection}>
+        <Text style={mobileStyles.sectionHeading}>Reviews</Text>
+        {previewReviews.length === 0 ? (
+          <Text style={mobileStyles.sectionEmpty}>No reviews yet.</Text>
+        ) : (
+          previewReviews.map((review) => (
+            <View key={review.id} style={mobileStyles.reviewCard}>
+              <View style={mobileStyles.reviewAvatar} />
+              <View style={mobileStyles.reviewBody}>
+                <Text style={mobileStyles.reviewAuthor}>Review by {review.author}</Text>
+                <Text style={mobileStyles.reviewText} numberOfLines={3}>
+                  {review.body}
+                </Text>
+              </View>
+            </View>
+          ))
+        )}
+      </View>
+
+      {similarGames.length ? (
+        <View style={mobileStyles.similarSection}>
+          <Text style={mobileStyles.sectionHeading}>New Releases</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={mobileStyles.similarRail}
+            snapToAlignment="start"
+            decelerationRate="fast"
+          >
+            {similarGames.slice(0, 10).map((similar) => (
+              <GameCard
+                key={similar.id}
+                game={similar}
+                onPress={onSelectSimilar ? () => onSelectSimilar(similar) : undefined}
+                containerStyle={mobileStyles.similarCard}
+                variant="compact"
+                theme="dark"
+              />
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+    </ScrollView>
+  );
+}
+
+const mobileStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#050505' },
+  content: { paddingBottom: 48, paddingHorizontal: 16, paddingTop: 12, gap: 20 },
+  heroSpotlight: {
+    borderRadius: 24,
+    padding: 16,
+    overflow: 'hidden',
+    backgroundColor: '#101017',
+    borderWidth: 1,
+    borderColor: '#1d1d26',
+  },
+  heroBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.45,
+  },
+  heroOverlayTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(5,5,8,0.8)',
+  },
+  heroContent: { gap: 16, alignItems: 'stretch' },
+  heroCoverFrame: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    borderRadius: 18,
+    backgroundColor: '#1c1c24',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#2a2a34',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  heroCoverImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  heroInfo: { gap: 6 },
+  heroTitle: { color: '#f8fafc', fontSize: 22, fontWeight: '800' },
+  heroMeta: { color: '#cbd5f5', fontSize: 13 },
+  heroPlatforms: { flexDirection: 'row', gap: 10, marginVertical: 4 },
+  heroStatsRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
+  statPill: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  statLabel: { color: '#cbd5f5', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase' },
+  statValue: { color: '#fff', fontSize: 16, fontWeight: '700', marginTop: 2 },
+  heroActions: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  heroPrimaryBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: '#facc15',
+  },
+  heroPrimaryBtnPressed: { opacity: 0.85 },
+  heroPrimaryLabel: { color: '#050505', fontWeight: '700' },
+  heroSecondaryBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#2f2f38',
+  },
+  heroSecondaryBtnPressed: { opacity: 0.7 },
+  heroSecondaryLabel: { color: '#f1f5f9', fontWeight: '600' },
+  backRow: { flexDirection: 'row', marginTop: 4 },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#292933',
+  },
+  backButtonPressed: { opacity: 0.7 },
+  backLabel: { color: '#f8fafc', fontSize: 13, fontWeight: '600' },
+  summaryPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  summaryPlaceholderText: { color: '#cbd5f5', fontSize: 14 },
+  descriptionPillLabel: { color: '#f1f5f9', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 },
+  descriptionText: { color: '#d1d5db', fontSize: 13, lineHeight: 18 },
+  ratingLabel: { color: '#f1f5f9', fontStyle: 'italic' },
+  ratingValue: { color: '#f8fafc', fontSize: 24, fontWeight: '800' },
+  ratingMeta: { color: '#e4e4e7', fontSize: 12 },
+  infoGrid: { gap: 12 },
+  infoCard: {
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: '#0f0f15',
+    borderWidth: 1,
+    borderColor: '#1f1f26',
+  },
+  infoCardAccent: { backgroundColor: '#17172a' },
+  showcaseCard: {
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: '#181822',
+    borderWidth: 1,
+    borderColor: '#23232f',
+  },
+  showcaseImage: { width: '100%', height: 5, aspectRatio: 16 / 9, resizeMode: 'cover' },
+  showcasePlaceholder: { alignItems: 'center', justifyContent: 'center', padding: 40 },
+  reviewsSection: { gap: 12 },
+  sectionHeading: { color: '#fff', fontSize: 20, fontWeight: '800' },
+  sectionEmpty: { color: '#9ca3af' },
+  reviewCard: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#2b2b33',
+  },
+  reviewAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#fbbf24',
+  },
+  reviewBody: { flex: 1, gap: 4 },
+  reviewAuthor: { color: '#f1f5f9', fontWeight: '700' },
+  reviewText: { color: '#cbd5f5', fontSize: 13, lineHeight: 18 },
+  similarSection: { gap: 12, marginTop: 12 },
+  similarRail: { gap: 12, paddingVertical: 4 },
+  similarCard: { width: 220 },
+});
+
+const PLATFORM_ICON_MAP = [
+  { match: /(pc|win|windows)/i, icon: 'logo-windows' as const },
+  { match: /(xbox)/i, icon: 'logo-xbox' as const },
+  { match: /(playstation|ps[1-5]|psp|vita)/i, icon: 'logo-playstation' as const },
+  { match: /(nintendo|switch)/i, icon: 'game-controller-outline' as const },
+  { match: /(mac|apple|ios)/i, icon: 'logo-apple' as const },
+  { match: /(android)/i, icon: 'logo-android' as const },
+  { match: /(linux|steam)/i, icon: 'desktop-outline' as const },
+];
+
+function resolvePlatformIcons(platforms?: GameSummary['platforms']) {
+  if (!platforms?.length) return [];
+  const icons = new Set<keyof typeof Ionicons.glyphMap>();
+  platforms.forEach((platform) => {
+    const slug = platform?.slug ?? platform?.abbreviation ?? '';
+    if (!slug) return;
+    const entry = PLATFORM_ICON_MAP.find(({ match }) => match.test(slug));
+    if (entry) icons.add(entry.icon);
+  });
+  return Array.from(icons);
+}
