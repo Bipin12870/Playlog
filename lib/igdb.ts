@@ -84,6 +84,38 @@ export async function fetchRandomGames() {
   return mapGameSummaries(await igdbQuery("games", query));
 }
 
+type CategoryFilter =
+  | { kind: "platform"; value: string }
+  | { kind: "genre"; value: number }
+  | { kind: "release"; value: string };
+
+export async function fetchCategoryGames(filter: CategoryFilter) {
+  const clauses = [
+    "version_parent = null",
+    "(category = null | category = 0)",
+  ];
+
+  if (filter.kind === "platform") {
+    const normalized = filter.value.replace(/\"/g, "");
+    clauses.push(
+      `(platforms.slug = "${normalized}" | platforms.abbreviation = "${normalized}")`
+    );
+  } else if (filter.kind === "genre") {
+    clauses.push(`genres = (${filter.value})`);
+  } else if (filter.kind === "release") {
+    const clause = buildReleaseClause(filter.value);
+    if (clause) clauses.push(clause);
+  }
+
+  const query = `
+    fields name, cover.url, summary, rating, first_release_date, platforms.slug, platforms.abbreviation, screenshots.url, artworks.url, genres.id, genres.name;
+    where ${clauses.join(" & ")};
+    sort total_rating desc;
+    limit 30;
+  `;
+  return mapGameSummaries(await igdbQuery("games", query));
+}
+
 export async function fetchGameDetailsById(id: number) {
   const query = `
     fields
@@ -129,6 +161,23 @@ export async function fetchSimilarGamesByGenres(genreIds: number[], excludeId: n
   return mapGameSummaries(await igdbQuery("games", query));
 }
 
+function buildReleaseClause(value: string) {
+  if (value === "recent") {
+    const now = new Date();
+    const cutoff = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+    return `first_release_date >= ${Math.floor(cutoff.getTime() / 1000)}`;
+  }
+  if (value.startsWith("decade-")) {
+    const decade = Number(value.split("-")[1]);
+    if (!Number.isNaN(decade)) {
+      const start = Math.floor(Date.UTC(decade, 0, 1) / 1000);
+      const end = Math.floor(Date.UTC(decade + 10, 0, 1) / 1000);
+      return `first_release_date >= ${start} & first_release_date < ${end}`;
+    }
+  }
+  return "";
+}
+
 function mapGameSummaries(payload: any): GameSummary[] {
   if (!Array.isArray(payload)) return [];
   return payload
@@ -148,6 +197,14 @@ function mapGameSummaries(payload: any): GameSummary[] {
         genres: Array.isArray(game.genres) ? game.genres : undefined,
       } satisfies GameSummary;
     });
+      rating: typeof game.rating === 'number' ? game.rating : undefined,
+      cover: game.cover ?? undefined,
+      platforms: game.platforms ?? undefined,
+      first_release_date: game.first_release_date ?? undefined,
+      genres: game.genres ?? undefined,
+      mediaUrl,
+    } satisfies GameSummary;
+  });
 }
 
 function pickMediaSources(game: any): { mediaUrl: string | null; bannerUrl: string | null } {
