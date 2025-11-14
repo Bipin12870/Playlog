@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Animated,
-  Easing,
   Image,
   Modal,
   Platform,
@@ -19,12 +18,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { GameCard } from '../../components/GameCard';
 import { SearchResults } from '../../components/home';
 import type { DiscoverySection } from '../../components/home/DiscoverySections';
 import {
   fetchFeaturedGames,
+  fetchPersonalizedGames,
   fetchRandomGames,
   fetchTrendingGames,
   searchGames,
@@ -32,6 +33,7 @@ import {
 import { useHomeScreen } from './useHomeScreen';
 import { useGameSearch } from '../../lib/hooks/useGameSearch';
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
+import { useGameFavorites } from '../../lib/hooks/useGameFavorites';
 import type { GameSummary } from '../../types/game';
 
 const LOGO = require('../../assets/logo.png');
@@ -45,6 +47,7 @@ export default function HomeScreen() {
   const isWeb = Platform.OS === 'web';
 
   const { term, setTerm, submit, submittedTerm, submissionId, resetSearch } = useGameSearch();
+  const { favourites } = useGameFavorites();
   const [activeQuery, setActiveQuery] = useState('');
   const [games, setGames] = useState<GameSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,7 +68,7 @@ export default function HomeScreen() {
   }, [recommendedGames, featuredGames]);
 
   const [heroIndex, setHeroIndex] = useState(0);
-  const heroAnim = useRef(new Animated.Value(1)).current;
+  const heroAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     setHeroIndex(0);
@@ -81,31 +84,36 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!heroItems.length) return;
-    heroAnim.setValue(0.6);
-    Animated.timing(heroAnim, {
-      toValue: 1,
-      duration: 500,
-      easing: Easing.out(Easing.cubic),
+    heroAnim.setValue(40);
+    Animated.spring(heroAnim, {
+      toValue: 0,
+      stiffness: 160,
+      damping: 20,
+      mass: 0.9,
       useNativeDriver: true,
     }).start();
   }, [heroIndex, heroItems, heroAnim]);
 
-  const heroScale = useMemo(
-    () =>
-      heroAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0.98, 1],
-      }),
+  const heroAnimatedStyle = useMemo<HeroAnimatedStyle>(
+    () => ({
+      transform: [{ translateX: heroAnim }],
+    }),
     [heroAnim]
   );
 
-  const heroAnimatedStyle = useMemo<HeroAnimatedStyle>(
-    () => ({
-      opacity: heroAnim,
-      transform: [{ scale: heroScale }],
-    }),
-    [heroAnim, heroScale]
+  const interestGenres = useMemo(() => deriveTopGenres(favourites), [favourites]);
+  const interestGenreIds = useMemo(() => interestGenres.map((genre) => genre.id), [interestGenres]);
+  const interestGenreNames = useMemo(
+    () =>
+      interestGenres
+        .map((genre) => (genre.name ?? '').trim())
+        .filter((name): name is string => Boolean(name)),
+    [interestGenres]
   );
+  const personalizedTitle = interestGenreIds.length ? 'Personalized Picks' : 'AI Recommended Games';
+  const personalizedSubtitle = interestGenreNames.length
+    ? `Because you like ${formatInterestList(interestGenreNames)}`
+    : 'Fresh picks from our discovery engine.';
 
   const handleViewDetails = useCallback(
     (selected: GameSummary) => {
@@ -135,24 +143,39 @@ export default function HomeScreen() {
   const loadExplore = useCallback(async () => {
     setExploreLoading(true);
     try {
-      const [featured, trending, surprise] = await Promise.allSettled([
+      const recommendationTask =
+        interestGenreIds.length > 0
+          ? fetchPersonalizedGames(interestGenreIds)
+          : fetchRandomGames();
+
+      const [featured, trending, personalized] = await Promise.allSettled([
         fetchFeaturedGames(),
         fetchTrendingGames(),
-        fetchRandomGames(),
+        recommendationTask,
       ]);
 
       const nextFeatured =
         featured.status === 'fulfilled' && Array.isArray(featured.value) ? featured.value : [];
       const nextTrending =
         trending.status === 'fulfilled' && Array.isArray(trending.value) ? trending.value : [];
-      const nextSurprise =
-        surprise.status === 'fulfilled' && Array.isArray(surprise.value) ? surprise.value : [];
+      let nextRecommended =
+        personalized.status === 'fulfilled' && Array.isArray(personalized.value)
+          ? personalized.value
+          : [];
+
+      if (interestGenreIds.length && nextRecommended.length === 0) {
+        try {
+          nextRecommended = await fetchRandomGames();
+        } catch (fallbackError) {
+          console.warn('Failed to load fallback recommendations', fallbackError);
+        }
+      }
 
       setFeaturedGames(nextFeatured);
       setLikedGames(nextTrending);
-      setRecommendedGames(nextSurprise);
+      setRecommendedGames(nextRecommended);
 
-      const hadFailure = [featured, trending, surprise].some(
+      const hadFailure = [featured, trending, personalized].some(
         (result) => result.status === 'rejected'
       );
       setExploreError(hadFailure ? 'Some discovery rows failed to load. Try refreshing.' : null);
@@ -162,7 +185,7 @@ export default function HomeScreen() {
     } finally {
       setExploreLoading(false);
     }
-  }, []);
+  }, [interestGenreIds]);
 
   useEffect(() => {
     const trimmed = submittedTerm.trim();
@@ -198,12 +221,12 @@ export default function HomeScreen() {
       },
       {
         key: 'recommended',
-        title: 'AI Recommended Games',
-        subtitle: 'Fresh picks from our discovery engine.',
+        title: personalizedTitle,
+        subtitle: personalizedSubtitle,
         games: recommendedGames,
       },
     ],
-    [featuredGames, likedGames, recommendedGames]
+    [featuredGames, likedGames, recommendedGames, personalizedTitle, personalizedSubtitle]
   );
 
   const hasActiveSearch = Boolean(activeQuery);
@@ -332,6 +355,7 @@ function NativeHome({
   const showGate = !initializing && !user && !hideGate;
   const heroGame = heroItems[heroIndex] ?? null;
   const heroCover = resolveHeroUri(heroGame);
+  const avatarUri = user?.photoURL ?? undefined;
 
   return (
     <SafeAreaView style={nativeStyles.container}>
@@ -359,8 +383,12 @@ function NativeHome({
               placeholderTextColor="#9ca3af"
             />
           </View>
-          <View style={nativeStyles.profileBox}>
-            <Text style={nativeStyles.profileText}>{user ? 'Profile' : 'Guest'}</Text>
+          <View style={nativeStyles.profileAvatar}>
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={nativeStyles.profileAvatarImage} />
+            ) : (
+              <Ionicons name="person" size={18} color="#e5e7eb" />
+            )}
           </View>
         </View>
 
@@ -495,8 +523,19 @@ function WebHome({
                   onPress={heroGame ? () => onSelectGame(heroGame) : undefined}
                   disabled={!heroGame}
                 >
+                  <LinearGradient
+                    colors={['rgba(5,11,22,0.95)', 'rgba(5,11,22,0.6)', 'rgba(5,11,22,0.95)']}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    pointerEvents="none"
+                    style={webStyles.heroGradient}
+                  />
                   {heroCover ? (
-                    <Image source={{ uri: heroCover }} style={webStyles.heroImage} />
+                    <Image
+                      source={{ uri: heroCover }}
+                      style={webStyles.heroImage}
+                      resizeMode="contain"
+                    />
                   ) : (
                     <View style={webStyles.heroGloss}>
                       <Ionicons name="play" color="#d1d5db" size={32} />
@@ -525,8 +564,19 @@ function WebHome({
               </Animated.View>
               {!sizes.isSM && (
                 <View style={[webStyles.sideCard, { height: sizes.heroH, width: sizes.sideW }]}>
+                  <LinearGradient
+                    colors={['rgba(5,11,22,0.95)', 'rgba(5,11,22,0.6)', 'rgba(5,11,22,0.95)']}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    pointerEvents="none"
+                    style={webStyles.sideGradient}
+                  />
                   {secondaryCover ? (
-                    <Image source={{ uri: secondaryCover }} style={webStyles.sideImage} />
+                    <Image
+                      source={{ uri: secondaryCover }}
+                      style={webStyles.sideImage}
+                      resizeMode="contain"
+                    />
                   ) : (
                     <View style={webStyles.sideGloss}>
                       <Ionicons name="sparkles" color="#d1d5db" size={24} />
@@ -881,6 +931,12 @@ function resolveCoverUri(raw?: string | null) {
 
 function resolveHeroUri(game?: GameSummary | null) {
   if (!game) return undefined;
+  if (game.bannerUrl) {
+    const banner = normalizeCoverSize(game.bannerUrl);
+    if (banner.startsWith('http')) return banner;
+    if (banner.startsWith('//')) return `https:${banner}`;
+    return banner;
+  }
   if (game.mediaUrl) {
     const media = normalizeCoverSize(game.mediaUrl);
     if (media.startsWith('http')) return media;
@@ -929,6 +985,38 @@ function shuffleGames(items: GameSummary[]) {
   return copy;
 }
 
+type GenrePreference = { id: number; name?: string | null; count: number };
+
+function deriveTopGenres(games: GameSummary[], limit = 3): GenrePreference[] {
+  const counts = new Map<number, GenrePreference>();
+  games.forEach((game) => {
+    game.genres?.forEach((genre) => {
+      if (!genre || typeof genre.id !== 'number') {
+        return;
+      }
+      const existing = counts.get(genre.id);
+      if (existing) {
+        existing.count += 1;
+        if (!existing.name && genre.name) {
+          existing.name = genre.name;
+        }
+      } else {
+        counts.set(genre.id, { id: genre.id, name: genre.name ?? null, count: 1 });
+      }
+    });
+  });
+  return Array.from(counts.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+}
+
+function formatInterestList(names: string[]) {
+  if (!names.length) return '';
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} & ${names[1]}`;
+  return `${names[0]}, ${names[1]} & ${names[2]}`;
+}
+
 const PLATFORM_ICON_MAP: Array<{ match: RegExp; icon: keyof typeof Ionicons.glyphMap }> = [
   { match: /(pc|win|windows)/i, icon: 'logo-windows' },
   { match: /(xbox)/i, icon: 'logo-xbox' },
@@ -960,15 +1048,30 @@ const nativeStyles = StyleSheet.create({
   searchBox: {
     flex: 1,
     backgroundColor: '#1f1f1f',
-    borderRadius: 8,
+    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
+    marginLeft: 8,
   },
   searchIcon: { marginRight: 6 },
   searchInput: { color: '#fff', flex: 1, fontSize: 14, paddingVertical: 6 },
-  profileBox: { backgroundColor: '#2e2e2e', paddingHorizontal: 8, paddingVertical: 8, borderRadius: 6 },
-  profileText: { color: '#fff', fontSize: 10 },
+  profileAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#1f1f1f',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    marginLeft: 10,
+  },
+  profileAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 19,
+  },
   hero: { alignItems: 'center', marginVertical: 16, gap: 10 },
   heroAnimatedWrap: { width: '90%' },
   heroBanner: {
@@ -1065,8 +1168,22 @@ const webStyles = StyleSheet.create({
   shell: { alignSelf: 'center', width: '100%', paddingTop: 16 },
   heroRow: { flexDirection: 'row', alignItems: 'stretch', paddingVertical: 24 },
   heroAnimatedWrap: { flex: 1 },
-  heroCard: { borderRadius: 18, backgroundColor: '#111827', overflow: 'hidden', flex: 1 },
-  heroImage: { ...StyleSheet.absoluteFillObject, width: undefined, height: undefined },
+  heroCard: {
+    borderRadius: 18,
+    backgroundColor: '#050b16',
+    overflow: 'hidden',
+    flex: 1,
+  },
+  heroGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: undefined,
+    height: undefined,
+    backgroundColor: '#050b16',
+    resizeMode: 'contain',
+  },
   heroGloss: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.06)' },
   heroOverlay: { marginTop: 'auto', padding: 24, backgroundColor: 'rgba(0,0,0,0.4)' },
   heroTag: { color: '#cbd5f5', textTransform: 'uppercase', fontSize: 12, letterSpacing: 1 },
@@ -1075,8 +1192,17 @@ const webStyles = StyleSheet.create({
   heroDots: { flexDirection: 'row', gap: 6, padding: 12 },
   heroDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.3)' },
   heroDotActive: { backgroundColor: '#fff' },
-  sideCard: { borderRadius: 18, backgroundColor: '#1f2937', overflow: 'hidden' },
-  sideImage: { ...StyleSheet.absoluteFillObject, width: undefined, height: undefined },
+  sideCard: { borderRadius: 18, backgroundColor: '#050b16', overflow: 'hidden' },
+  sideGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  sideImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: undefined,
+    height: undefined,
+    backgroundColor: '#050b16',
+    resizeMode: 'contain',
+  },
   sideGloss: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)' },
   sideOverlay: { marginTop: 'auto', padding: 16, backgroundColor: 'rgba(0,0,0,0.5)' },
   sideLabel: { color: '#cbd5f5', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 },
