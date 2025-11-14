@@ -1345,6 +1345,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#020617',
   },
+  scrollContent: {
+    paddingBottom: 120,
+    paddingHorizontal: 24,
+    gap: 32,
+  },
   screenContent: {
     paddingBottom: 48,
   },

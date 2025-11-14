@@ -189,7 +189,7 @@ type NativeTabsProps = {
   navBackground: string;
   navBorder: string;
   pageBackground: string;
-  profileBadge?: string;
+  profileBadge?: string | number;
 };
 
 function NativeTabs({
