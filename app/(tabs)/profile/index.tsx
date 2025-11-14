@@ -19,6 +19,7 @@ import { useAuthUser } from '../../../lib/hooks/useAuthUser';
 import { useUserProfile } from '../../../lib/userProfile';
 import { useFollowRequests } from '../../../lib/hooks/useFollowRequests';
 import { getProfileVisibility } from '../../../lib/profileVisibility';
+import { useGameFavorites } from '../../../lib/hooks/useGameFavorites';
 import type { GameSummary } from '../../../types/game';
 
 type ProfileAction = {
@@ -62,6 +63,7 @@ export default function ProfileHomeScreen() {
   const uid = user?.uid ?? null;
   const { profile, loading, error } = useUserProfile(uid);
   const followRequests = useFollowRequests(uid);
+  const { favourites } = useGameFavorites();
   const pendingRequests = followRequests.requests.length;
   const visibility = getProfileVisibility(profile ?? undefined);
   const isMobile = Platform.OS !== 'web';
@@ -122,17 +124,18 @@ export default function ProfileHomeScreen() {
   }
 
   if (isMobile) {
-      return (
-        <MobileProfile
-          profile={profile}
-          heroAvatar={heroAvatar}
-          stats={stats}
-          visibility={visibility}
-          joinedLabel={joinedLabel}
-          pendingRequests={pendingRequests}
-          onNavigate={handleNavigate}
-        />
-      );
+    return (
+      <MobileProfile
+        profile={profile}
+        heroAvatar={heroAvatar}
+        stats={stats}
+        visibility={visibility}
+        joinedLabel={joinedLabel}
+        favourites={favourites}
+        pendingRequests={pendingRequests}
+        onNavigate={handleNavigate}
+      />
+    );
   }
 
   return (

@@ -635,7 +635,6 @@ function mapToSummary(raw: IgdbGame | GameSummary): GameSummary {
     ? anyRaw.artworks.find((art: IgdbImage) => art?.url)?.url ?? null
     : null;
   const mediaUrl = anyRaw?.mediaUrl ?? screenshotUrl ?? artworkUrl ?? null;
-  const bannerUrl = anyRaw?.bannerUrl ?? screenshotUrl ?? artworkUrl ?? null;
 
   return {
     id: raw.id,
@@ -646,8 +645,6 @@ function mapToSummary(raw: IgdbGame | GameSummary): GameSummary {
     platforms: raw.platforms ?? undefined,
     first_release_date: raw.first_release_date ?? undefined,
     mediaUrl,
-    bannerUrl,
-    genres: Array.isArray(anyRaw?.genres) ? anyRaw.genres : undefined,
   };
 }
 
