@@ -43,6 +43,7 @@ import {
 } from '../../lib/events/categoryDrawer';
 
 const LOGO = require('../../assets/logo.png');
+const PAGE_SIZE = 12;
 
 type HeroGame = GameSummary | null;
 type HeroAnimatedStyle = Animated.WithAnimatedValue<ViewStyle>;
@@ -146,7 +147,12 @@ export default function HomeScreen() {
   const [activeQuery, setActiveQuery] = useState('');
   const [games, setGames] = useState<GameSummary[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const gamesRef = useRef<GameSummary[]>([]);
+  const cachedBufferRef = useRef<GameSummary[]>([]);
+  const nextOffsetRef = useRef(0);
 
   const [featuredGames, setFeaturedGames] = useState<GameSummary[]>([]);
   const [likedGames, setLikedGames] = useState<GameSummary[]>([]);
@@ -225,27 +231,77 @@ export default function HomeScreen() {
   );
 
   const fetchGames = useCallback(
-    async (query: string) => {
+    async (query: string, opts?: { append?: boolean }) => {
+      const normalized = query.trim();
+      if (!normalized) return;
       setError(null);
-      const cached = getCachedResults(query);
-      if (cached) {
-        setGames(cached);
-        setActiveQuery(query);
-        setLoading(false);
-        return;
+      const isAppend = Boolean(opts?.append);
+      if (isAppend) {
+        const buffer = cachedBufferRef.current;
+        if (buffer.length) {
+          const chunk = buffer.slice(0, PAGE_SIZE);
+          const remaining = buffer.slice(chunk.length);
+          cachedBufferRef.current = remaining;
+          setGames((prev) => {
+            const merged = [...prev, ...chunk];
+            gamesRef.current = merged;
+            return merged;
+          });
+          const next = Math.max(nextOffsetRef.current, gamesRef.current.length);
+          nextOffsetRef.current = next;
+          setHasMore(remaining.length > 0 || chunk.length === PAGE_SIZE);
+          setLoadingMore(false);
+          return;
+        }
+        setLoadingMore(true);
+      } else {
+        cachedBufferRef.current = [];
+        setLoading(true);
       }
-      setLoading(true);
+
       try {
-        const data = await searchGames(query);
+        if (!isAppend) {
+          const cached = getCachedResults(normalized);
+          if (cached) {
+            const initialPage = cached.slice(0, PAGE_SIZE);
+            const buffer = cached.slice(PAGE_SIZE);
+            cachedBufferRef.current = buffer;
+            setGames(() => {
+              gamesRef.current = initialPage;
+              return initialPage;
+            });
+            setActiveQuery(normalized);
+            setHasMore(buffer.length > 0 || cached.length >= PAGE_SIZE);
+            nextOffsetRef.current = cached.length;
+            setLoading(false);
+            return;
+          }
+        }
+
+        const offset = isAppend ? nextOffsetRef.current : 0;
+        const data = await searchGames(normalized, { limit: PAGE_SIZE, offset });
         const nextGames = Array.isArray(data) ? data : [];
-        setGames(nextGames);
-        setActiveQuery(query);
-        cacheResults(query, nextGames);
+        setGames((prev) => {
+          const merged = isAppend ? [...prev, ...nextGames] : nextGames;
+          cacheResults(normalized, merged);
+          gamesRef.current = merged;
+          return merged;
+        });
+        setActiveQuery(normalized);
+        const newOffset = offset + nextGames.length;
+        nextOffsetRef.current = newOffset;
+        setHasMore(nextGames.length === PAGE_SIZE);
+        cachedBufferRef.current = [];
       } catch (err) {
         console.error(err);
         setError('Unable to load games right now. Try again in a bit.');
+        setHasMore(false);
       } finally {
-        setLoading(false);
+        if (isAppend) {
+          setLoadingMore(false);
+        } else {
+          setLoading(false);
+        }
       }
     },
     [cacheResults, getCachedResults],
@@ -304,9 +360,14 @@ export default function HomeScreen() {
     if (!trimmed) {
       if (!categoryActive) {
         setLoading(false);
+        setLoadingMore(false);
         setActiveQuery('');
         setGames([]);
         setError(null);
+        setHasMore(false);
+        cachedBufferRef.current = [];
+        gamesRef.current = [];
+        nextOffsetRef.current = 0;
       }
       return;
     }
@@ -316,6 +377,11 @@ export default function HomeScreen() {
     }
     setCategoryActive(false);
     setFilters(INITIAL_FILTERS);
+    setHasMore(false);
+    cachedBufferRef.current = [];
+    gamesRef.current = [];
+    nextOffsetRef.current = 0;
+    setLoadingMore(false);
     fetchGames(trimmed);
   }, [submittedTerm, submissionId, fetchGames, cacheReady, categoryActive]);
 
@@ -366,6 +432,13 @@ export default function HomeScreen() {
   const sortedGames = useMemo(() => sortGames(filteredGames, sort), [filteredGames, sort]);
   const handleResetFilters = useCallback(() => setFilters(INITIAL_FILTERS), []);
   const handleChangeSort = useCallback((value: SortValue) => setSort(value), []);
+
+  const handleLoadMore = useCallback(() => {
+    if (!activeQuery || loading || loadingMore || !hasMore) {
+      return;
+    }
+    fetchGames(activeQuery, { append: true });
+  }, [activeQuery, fetchGames, hasMore, loading, loadingMore]);
   const handleCategorySelection = useCallback(
     async (selection: FilterSelection) => {
       const isClearing =
@@ -378,6 +451,11 @@ export default function HomeScreen() {
         setActiveQuery('');
         setGames([]);
         setError(null);
+        setHasMore(false);
+        cachedBufferRef.current = [];
+        gamesRef.current = [];
+        nextOffsetRef.current = 0;
+        setLoadingMore(false);
         resetSearch();
         setCategoryActive(false);
         return;
@@ -407,6 +485,11 @@ export default function HomeScreen() {
         setActiveQuery(selection.label);
         setFilters(nextFilters);
         resetSearch();
+        setHasMore(false);
+        cachedBufferRef.current = [];
+        gamesRef.current = [];
+        nextOffsetRef.current = 0;
+        setLoadingMore(false);
         setCategoryActive(true);
       } catch (err) {
         console.error(err);
@@ -434,12 +517,15 @@ export default function HomeScreen() {
   const searchResultsProps = {
     games: sortedGames,
     loading,
+    loadingMore,
+    hasMore,
     error,
     columnCount,
     onSelect: handleViewDetails,
     theme: 'dark' as const,
     cardVariant,
     query: activeQuery,
+    onLoadMore: handleLoadMore,
     emptyState: filtersActive
       ? {
           title: 'No games match these filters',
@@ -566,9 +652,12 @@ export default function HomeScreen() {
 type SearchResultsProps = {
   games: GameSummary[];
   loading: boolean;
+  loadingMore?: boolean;
+  hasMore?: boolean;
   error: string | null;
   columnCount: number;
   onSelect: (game: GameSummary) => void;
+  onLoadMore?: () => void;
   theme?: 'light' | 'dark';
   cardVariant?: 'default' | 'compact';
   query?: string;
@@ -671,65 +760,6 @@ function NativeHome({
           </View>
         </View>
 
-        {!hasActiveSearch && (
-          <View style={nativeStyles.hero}>
-            <Animated.View style={[nativeStyles.heroAnimatedWrap, heroAnimatedStyle]}>
-              <Pressable
-                style={[
-                  nativeStyles.heroBanner,
-                  heroIsPoster ? { minHeight: sizes.heroH } : { height: sizes.heroH },
-                  heroIsPoster && nativeStyles.heroBannerPoster,
-                ]}
-                onPress={heroGame ? () => onSelectGame(heroGame) : undefined}
-                disabled={!heroGame}
-              >
-                {heroGame && heroIsPoster ? (
-                  <View style={nativeStyles.heroPosterLayer}>
-                    <GameCard
-                      game={heroGame}
-                      containerStyle={[nativeStyles.heroPosterCard, { width: heroPosterWidth }]}
-                    />
-                  </View>
-                ) : heroCover ? (
-                  <Image source={{ uri: heroCover }} style={nativeStyles.heroImage} />
-                ) : (
-                  <View style={nativeStyles.heroPlaceholder}>
-                    <Ionicons name="arrow-forward-circle-outline" size={28} color="#d1d5db" />
-                  </View>
-                )}
-                <View
-                  style={[nativeStyles.heroOverlay, heroIsPoster && nativeStyles.heroOverlayPoster]}
-                >
-                  <Text style={[nativeStyles.heroTag, heroIsPoster && nativeStyles.heroTagPoster]}>
-                    Spotlight
-                  </Text>
-                  <Text
-                    style={[nativeStyles.heroTitle, heroIsPoster && nativeStyles.heroTitlePoster]}
-                  >{
-                    heroGame?.name ?? 'Discover new games'
-                  }</Text>
-                  <Text
-                    style={[
-                      nativeStyles.heroSubtitle,
-                      heroIsPoster && nativeStyles.heroSubtitlePoster,
-                    ]}
-                  >
-                    {heroGame ? 'Tap to jump into details' : 'Fresh picks are on the way'}
-                  </Text>
-                </View>
-              </Pressable>
-            </Animated.View>
-            <View style={nativeStyles.heroDots}>
-              {heroItems.map((_, idx) => (
-                <View
-                  key={`hero-dot-${idx}`}
-                  style={[nativeStyles.heroDot, idx === heroIndex && nativeStyles.heroDotActive]}
-                />
-              ))}
-            </View>
-          </View>
-        )}
-
         {hasActiveSearch ? (
           <View style={nativeStyles.searchResults}>
             {searchResultsProps.query ? (
@@ -741,19 +771,78 @@ function NativeHome({
             <SearchResults {...searchResultsProps} />
           </View>
         ) : (
-          <View style={nativeStyles.sectionsContainer}>
-            {sections.map((section) => (
-              <NativeSection
-                key={section.key}
-                section={section}
-                placeholders={placeholders}
-                itemWidth={sizes.ITEM_WIDTH}
-                itemGap={sizes.ITEM_GAP}
-                onSelectGame={onSelectGame}
-              />
-            ))}
-            <DiscoveryStatus state={discoveryState} />
-          </View>
+          <>
+            <View style={nativeStyles.hero}>
+              <Animated.View style={[nativeStyles.heroAnimatedWrap, heroAnimatedStyle]}>
+                <Pressable
+                  style={[
+                    nativeStyles.heroBanner,
+                    heroIsPoster ? { minHeight: sizes.heroH } : { height: sizes.heroH },
+                    heroIsPoster && nativeStyles.heroBannerPoster,
+                  ]}
+                  onPress={heroGame ? () => onSelectGame(heroGame) : undefined}
+                  disabled={!heroGame}
+                >
+                  {heroGame && heroIsPoster ? (
+                    <View style={nativeStyles.heroPosterLayer}>
+                      <GameCard
+                        game={heroGame}
+                        containerStyle={[nativeStyles.heroPosterCard, { width: heroPosterWidth }]}
+                      />
+                    </View>
+                  ) : heroCover ? (
+                    <Image source={{ uri: heroCover }} style={nativeStyles.heroImage} />
+                  ) : (
+                    <View style={nativeStyles.heroPlaceholder}>
+                      <Ionicons name="arrow-forward-circle-outline" size={28} color="#d1d5db" />
+                    </View>
+                  )}
+                  <View
+                    style={[nativeStyles.heroOverlay, heroIsPoster && nativeStyles.heroOverlayPoster]}
+                  >
+                    <Text style={[nativeStyles.heroTag, heroIsPoster && nativeStyles.heroTagPoster]}>
+                      Spotlight
+                    </Text>
+                    <Text
+                      style={[nativeStyles.heroTitle, heroIsPoster && nativeStyles.heroTitlePoster]}
+                    >{
+                      heroGame?.name ?? 'Discover new games'
+                    }</Text>
+                    <Text
+                      style={[
+                        nativeStyles.heroSubtitle,
+                        heroIsPoster && nativeStyles.heroSubtitlePoster,
+                      ]}
+                    >
+                      {heroGame ? 'Tap to jump into details' : 'Fresh picks are on the way'}
+                    </Text>
+                  </View>
+                </Pressable>
+              </Animated.View>
+              <View style={nativeStyles.heroDots}>
+                {heroItems.map((_, idx) => (
+                  <View
+                    key={`hero-dot-${idx}`}
+                    style={[nativeStyles.heroDot, idx === heroIndex && nativeStyles.heroDotActive]}
+                  />
+                ))}
+              </View>
+            </View>
+
+            <View style={nativeStyles.sectionsContainer}>
+              {sections.map((section) => (
+                <NativeSection
+                  key={section.key}
+                  section={section}
+                  placeholders={placeholders}
+                  itemWidth={sizes.ITEM_WIDTH}
+                  itemGap={sizes.ITEM_GAP}
+                  onSelectGame={onSelectGame}
+                />
+              ))}
+              <DiscoveryStatus state={discoveryState} />
+            </View>
+          </>
         )}
       </ScrollView>
 
