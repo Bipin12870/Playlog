@@ -9,6 +9,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 
 import { db } from './firebase';
+import { getFriendlyModerationMessage } from './errors';
 import type { UserReviewSummary } from '../types/game';
 
 function mapUserReview(id: string, data: any): UserReviewSummary {
@@ -56,7 +57,11 @@ export function useUserReviews(uid?: string | null) {
         setError(null);
       },
       (snapshotError) => {
-        setError(snapshotError);
+        const friendly = getFriendlyModerationMessage(
+          snapshotError,
+          'Unable to load your reviews right now.',
+        );
+        setError(new Error(friendly));
         setLoading(false);
         setReviews([]);
       },

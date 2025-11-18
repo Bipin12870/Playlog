@@ -4,6 +4,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { FollowRequestList } from '../../../components/profile';
 import { useAuthUser } from '../../../lib/hooks/useAuthUser';
 import { useFollowRequests } from '../../../lib/hooks/useFollowRequests';
+import { isModerationError } from '../../../lib/errors';
 
 export default function FollowRequestsScreen() {
   const { user, initializing } = useAuthUser();
@@ -12,6 +13,7 @@ export default function FollowRequestsScreen() {
     null,
   );
   const requests = useFollowRequests(uid);
+  const moderationBlocked = isModerationError(requests.error);
 
   const handleError = (error: Error) => {
     setFeedback({ type: 'error', message: error.message });
@@ -31,6 +33,17 @@ export default function FollowRequestsScreen() {
         <Text style={styles.emptyTitle}>Sign in to manage follow requests.</Text>
         <Text style={styles.emptyCopy}>
           Once you’re logged in you can approve or decline new followers.
+        </Text>
+      </View>
+    );
+  }
+
+  if (moderationBlocked) {
+    return (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyTitle}>Follow requests unavailable</Text>
+        <Text style={styles.emptyCopy}>
+          A recent request is under review. Please check back shortly while we verify the content.
         </Text>
       </View>
     );
