@@ -1,30 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  Animated,
   Alert,
   ActivityIndicator,
   FlatList,
   Image,
   Linking,
-  LayoutChangeEvent,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  Modal,
   View,
   useWindowDimensions,
 } from 'react-native';
 
 import { GameCard } from '../GameCard';
-import { getFriendlyModerationMessage } from '../../lib/errors';
 import type { GameDetailsData, GameReview, GameSummary } from '../../types/game';
 
 type ReviewFormInput = {
@@ -66,7 +59,6 @@ type GameDetailsProps = {
   onDeleteReply?: (reviewId: string, replyId: string) => Promise<void> | void;
   replyUpdatingIds?: string[];
   replyDeletingIds?: string[];
-  onBack?: () => void;
 };
 
 const REVIEW_PLACEHOLDER = 'Share what stood out to you about this game (at least 20 characters).';
@@ -111,12 +103,9 @@ export function GameDetails({
   onDeleteReply,
   replyUpdatingIds = [],
   replyDeletingIds = [],
-  onBack,
 }: GameDetailsProps) {
   const { width } = useWindowDimensions();
   const isWide = width >= 1024;
-  const isPhoneLayout = Platform.OS !== 'web' && width < 900;
-  const scrollY = useRef(new Animated.Value(0)).current;
 
   const rawCoverUrl = game.cover?.url ?? null;
   const rawMediaUrl = game.mediaUrl ?? null;
@@ -127,11 +116,14 @@ export function GameDetails({
     resolveBackdropUri(rawMediaUrl) ?? resolveBackdropUri(rawBannerUrl) ?? coverUri;
   const heroLandscapeUri = showcaseUri ?? coverUri;
   const releaseLine = buildReleaseLine(game);
-  const releaseMeta = useMemo(() => {
-    if (!releaseLine) return null;
-    return releaseLine.replace(/,/g, ' •');
-  }, [releaseLine]);
   const description = game.description ?? game.summary ?? 'No description available.';
+  const heroBlurb = useMemo(() => {
+    const source = game.description ?? game.summary ?? '';
+    const trimmed = source.trim();
+    if (!trimmed) return null;
+    return trimmed.length > 160 ? `${trimmed.slice(0, 157)}…` : trimmed;
+  }, [game.description, game.summary]);
+
   const [ratingInput, setRatingInput] = useState<number | null>(
     typeof userReview?.rating === 'number' ? userReview.rating : null,
   );
@@ -145,48 +137,11 @@ export function GameDetails({
   const [replyEditErrors, setReplyEditErrors] = useState<Record<string, string | null>>({});
   const [replyEditSuccess, setReplyEditSuccess] = useState<Record<string, string | null>>({});
   const [replyDeleteErrors, setReplyDeleteErrors] = useState<Record<string, string | null>>({});
-  const [replyComposerOpen, setReplyComposerOpen] = useState<Record<string, boolean>>({});
   const [editingReplies, setEditingReplies] = useState<string[]>([]);
   const [expandedReplies, setExpandedReplies] = useState<Record<string, boolean>>({});
   const [replyVisibleCounts, setReplyVisibleCounts] = useState<Record<string, number>>({});
   const [visibleCommunityCount, setVisibleCommunityCount] = useState(INITIAL_COMMUNITY_PREVIEW_COUNT);
   const [isOverviewExpanded, setIsOverviewExpanded] = useState(false);
-  const [showReviewForm, setShowReviewForm] = useState(true); // now unused but left unchanged
-  const [showCompactHeader, setShowCompactHeader] = useState(false);
-  const [showRateModal, setShowRateModal] = useState(false);
-  const [showAllReviewsModal, setShowAllReviewsModal] = useState(false);
-  const [showReplyModal, setShowReplyModal] = useState(false);
-  const [replyModalReviewId, setReplyModalReviewId] = useState<string | null>(null);
-  const [replyModalSource, setReplyModalSource] = useState<'detail' | 'reviews' | null>(null);
-  const [reviewModalMode, setReviewModalMode] = useState<'reviews' | 'replies'>('reviews');
-  const [replyModalFromReviews, setReplyModalFromReviews] = useState(false);
-  const scrollViewRef = useRef<ScrollView | null>(null);
-  const reviewSectionOffset = useRef(0);
-  const userReviewSnippet = useMemo(() => {
-    const text = userReview?.body?.trim();
-    if (!text) return null;
-    return text.length > 120 ? `${text.slice(0, 117)}…` : text;
-  }, [userReview?.body]);
-  const heroScale = useMemo(() => {
-    if (!isPhoneLayout) return null;
-    return scrollY.interpolate({
-      inputRange: [-120, 0, 220],
-      outputRange: [1.08, 1, 1.05],
-      extrapolate: 'clamp',
-    });
-  }, [isPhoneLayout, scrollY]);
-  const heroTranslateY = useMemo(() => {
-    if (!isPhoneLayout) return null;
-    return scrollY.interpolate({
-      inputRange: [-120, 0, 220],
-      outputRange: [-28, 0, 26],
-      extrapolate: 'clamp',
-    });
-  }, [isPhoneLayout, scrollY]);
-  const heroCardAnimatedStyle =
-    isPhoneLayout && heroScale && heroTranslateY
-      ? { transform: [{ translateY: heroTranslateY }, { scale: heroScale }] }
-      : undefined;
 
   useEffect(() => {
     setRatingInput(typeof userReview?.rating === 'number' ? userReview.rating : null);
@@ -195,14 +150,11 @@ export function GameDetails({
 
   useEffect(() => {
     if (!reviewSubmitting && formSuccess) {
-      if (showRateModal) {
-        setShowRateModal(false);
-      }
       const timeout = setTimeout(() => setFormSuccess(null), 2000);
       return () => clearTimeout(timeout);
     }
     return undefined;
-  }, [reviewSubmitting, formSuccess, showRateModal]);
+  }, [reviewSubmitting, formSuccess]);
 
   useEffect(() => {
     const reviewIds = new Set(reviews.map((review) => review.id));
@@ -343,8 +295,7 @@ export function GameDetails({
   }, [reviews, expandedReplies, replyVisibleCounts]);
 
   const platforms = useMemo(
-    () =>
-      game.platforms?.slice(0, 6).map((platform, index) => ({
+    () => game.platforms?.slice(0, 6).map((platform, index) => ({
         id: `${platform.slug ?? platform.abbreviation ?? index}`,
         label: platform.abbreviation ?? formatPlatform(platform.slug),
       })) ?? [],
@@ -357,78 +308,43 @@ export function GameDetails({
     canShowAverage && typeof communityAverage === 'number'
       ? communityAverage.toFixed(1)
       : null;
-  const igdbScoreValue = useMemo(() => {
-    if (typeof game.rating === 'number' && !Number.isNaN(game.rating)) {
-      return Math.round(game.rating);
-    }
-    return null;
-  }, [game.rating]);
-  const genreItems = useMemo(
+  const platformLine = useMemo(
+    () => platforms.map((platform) => platform.label).filter(Boolean).slice(0, 4).join(' • '),
+    [platforms],
+  );
+  const genreLine = useMemo(
     () =>
       (game.genres ?? [])
         .map((genre) => genre?.name)
-        .filter((name): name is string => Boolean(name)),
+        .filter((name): name is string => Boolean(name))
+        .slice(0, 3)
+        .join(' • '),
     [game.genres],
   );
-  const heroFactSections = useMemo(() => {
-    const sections: Array<{ key: string; label: string; items: string[] }> = [];
-    if (genreItems.length) {
-      sections.push({
-        key: 'genres',
-        label: 'Genres',
-        items: genreItems,
-      });
-    }
-    const platformItems = platforms.map((platform) => platform.label).filter(Boolean);
-    if (platformItems.length) {
-      sections.push({
-        key: 'platforms',
-        label: 'Platforms',
-        items: platformItems,
-      });
-    }
-    if (game.developer) {
-      sections.push({
-        key: 'studio',
-        label: 'Studio',
-        items: [game.developer],
-      });
-    }
-    if (igdbScoreValue !== null) {
-      sections.push({
-        key: 'igdb',
-        label: 'IGDB score',
-        items: [`${igdbScoreValue}/100 • Critic aggregate`],
-      });
-    }
-    return sections;
-  }, [genreItems, platforms, game.developer, igdbScoreValue]);
-  const [activeFactSection, setActiveFactSection] = useState<string | null>(
-    heroFactSections[0]?.key ?? null,
+  const heroFacts = useMemo(
+    () =>
+      [
+        genreLine ? { label: 'Genres', value: genreLine } : null,
+        platformLine ? { label: 'Platforms', value: platformLine } : null,
+        game.developer ? { label: 'Studio', value: game.developer } : null,
+      ].filter((fact): fact is { label: string; value: string } => Boolean(fact)),
+    [genreLine, platformLine, game.developer],
   );
-  useEffect(() => {
-    setActiveFactSection((prev) => {
-      if (!heroFactSections.length) {
-        return null;
-      }
-      if (prev && heroFactSections.some((section) => section.key === prev)) {
-        return prev;
-      }
-      if (prev === null) {
-        return null;
-      }
-      return heroFactSections[0]?.key ?? null;
-    });
-  }, [heroFactSections]);
-  const handleSelectFactSection = useCallback((sectionKey: string) => {
-    setActiveFactSection((prev) => (prev === sectionKey ? null : sectionKey));
-  }, []);
-  const activeFactItems =
-    heroFactSections.find((section) => section.key === activeFactSection)?.items ?? [];
   const quickMetrics = useMemo(
     () => {
       const metrics: Array<{ key: string; label: string; value: string; suffix?: string; meta?: string }> =
         [];
+      const igdbScore =
+        typeof game.rating === 'number' && !Number.isNaN(game.rating)
+          ? Math.round(game.rating).toString()
+          : '—';
+      metrics.push({
+        key: 'igdb',
+        label: 'IGDB score',
+        value: igdbScore,
+        suffix: igdbScore === '—' ? undefined : '/100',
+        meta: 'Critic aggregate',
+      });
       metrics.push({
         key: 'community',
         label: 'Community rating',
@@ -438,23 +354,12 @@ export function GameDetails({
       });
       return metrics;
     },
-    [communityAverageValue, reviewCountLabel],
+    [game.rating, communityAverageValue, reviewCountLabel],
   );
   const personalReviewCount =
     typeof userReviewCount === 'number' && !Number.isNaN(userReviewCount)
       ? Math.max(0, userReviewCount)
       : 0;
-
-  const reviewLimitRemaining = useMemo(() => {
-    if (typeof reviewLimit !== 'number' || Number.isNaN(reviewLimit)) return null;
-    return Math.max(0, reviewLimit - personalReviewCount);
-  }, [reviewLimit, personalReviewCount]);
-
-  const reviewLimitLabel = useMemo(() => {
-    if (reviewLimitRemaining === null) return null;
-    const plural = reviewLimitRemaining === 1 ? 'review' : 'reviews';
-    return `${reviewLimitRemaining} ${plural} left on free plan`;
-  }, [reviewLimitRemaining]);
 
   const replySubmittingSet = useMemo(() => new Set(replySubmittingIds ?? []), [replySubmittingIds]);
   const replyUpdatingSet = useMemo(() => new Set(replyUpdatingIds ?? []), [replyUpdatingIds]);
@@ -471,8 +376,6 @@ export function GameDetails({
 
   const remainingCommunityReviews = Math.max(0, reviews.length - visibleCommunityReviews.length);
   const hasMoreCommunityReviews = remainingCommunityReviews > 0;
-  const shouldUseReviewModal = reviews.length > 3;
-  const showFormFeedbackInModal = showRateModal;
 
   const handleReplyDraftChange = useCallback((reviewId: string, text: string) => {
     setReplyDrafts((prev) => ({ ...prev, [reviewId]: text }));
@@ -567,10 +470,15 @@ export function GameDetails({
             return next;
           });
         }, 2000);
-        setReplyComposerOpen((prev) => ({ ...prev, [reviewId]: false }));
       } catch (error) {
-        const friendly = getFriendlyModerationMessage(error, 'Unable to post reply right now.');
-        setReplyErrors((prev) => ({ ...prev, [reviewId]: friendly }));
+        if (error instanceof Error) {
+          setReplyErrors((prev) => ({ ...prev, [reviewId]: error.message }));
+        } else {
+          setReplyErrors((prev) => ({
+            ...prev,
+            [reviewId]: 'Unable to post reply right now.',
+          }));
+        }
       }
     },
     [onSubmitReply, replyDrafts, reviews],
@@ -578,62 +486,6 @@ export function GameDetails({
 
   const handleLoadMoreCommunityReviews = useCallback(() => {
     setVisibleCommunityCount((prev) => prev + COMMUNITY_LOAD_INCREMENT);
-  }, []);
-
-  const handleOpenAllReviews = useCallback(() => {
-    setShowReplyModal(false);
-    setReplyModalReviewId(null);
-    setReplyModalSource(null);
-    setShowAllReviewsModal(true);
-  }, []);
-
-  const handleCloseAllReviews = useCallback(() => {
-    setShowReplyModal(false);
-    setReplyModalReviewId(null);
-    setReplyModalSource(null);
-    setShowAllReviewsModal(false);
-  }, []);
-
-  const handleOpenReplyComposer = useCallback(
-    (reviewId: string, totalReplies: number, fromReviewsList = false) => {
-      if (totalReplies > 3) {
-        setReplyModalSource(fromReviewsList ? 'reviews' : 'detail');
-        setReplyModalReviewId(reviewId);
-        setShowReplyModal(true);
-        setShowAllReviewsModal(true);
-      }
-      setReplyComposerOpen((prev) => ({ ...prev, [reviewId]: true }));
-      if (totalReplies <= 3) {
-        setExpandedReplies((prev) => (prev[reviewId] ? prev : { ...prev, [reviewId]: true }));
-        setReplyVisibleCounts((prev) => {
-          const baseline = prev[reviewId] ?? getInitialVisibleCount(totalReplies);
-          if (prev[reviewId] === baseline) return prev;
-          return { ...prev, [reviewId]: baseline };
-        });
-      }
-    },
-    [],
-  );
-
-  const handleOpenReplyModal = useCallback((reviewId: string, fromReviewsList = false) => {
-    setReviewModalMode('replies');
-    setReplyModalFromReviews(fromReviewsList);
-    setShowAllReviewsModal(true);
-    setReplyModalReviewId(reviewId);
-  }, []);
-
-  const handleBackToReviewsList = useCallback(() => {
-    setShowAllReviewsModal(true);
-    setReviewModalMode('reviews');
-    setReplyModalFromReviews(false);
-    setReplyModalReviewId(null);
-  }, []);
-
-  const handleCloseReplyModal = useCallback(() => {
-    setShowAllReviewsModal(false);
-  }, []);
-  const handleReplyArrowCta = useCallback(() => {
-    // placeholder for future navigation
   }, []);
 
   const handleStartReplyEdit = useCallback(
@@ -710,8 +562,14 @@ export function GameDetails({
           return next;
         });
       } catch (error) {
-        const friendly = getFriendlyModerationMessage(error, 'Unable to update reply right now.');
-        setReplyEditErrors((prev) => ({ ...prev, [replyId]: friendly }));
+        if (error instanceof Error) {
+          setReplyEditErrors((prev) => ({ ...prev, [replyId]: error.message }));
+        } else {
+          setReplyEditErrors((prev) => ({
+            ...prev,
+            [replyId]: 'Unable to update reply right now.',
+          }));
+        }
       }
     },
     [onUpdateReply, replyEditDrafts],
@@ -793,7 +651,11 @@ export function GameDetails({
       await onSubmitReview({ rating: parsedRating, body: trimmedBody });
       setFormSuccess(userReview ? 'Review updated!' : 'Thanks for sharing your thoughts!');
     } catch (error) {
-      setFormError(getFriendlyModerationMessage(error));
+      if (error instanceof Error) {
+        setFormError(error.message);
+      } else {
+        setFormError('Unable to submit review right now.');
+      }
     }
   }, [onSubmitReview, ratingInput, reviewInput, userReview]);
 
@@ -822,1416 +684,591 @@ export function GameDetails({
     Linking.openURL(trailerUrl).catch((err) => console.warn('Failed to open trailer', err));
   }, [hasTrailer, trailerUrl]);
 
-  const heroHorizontalGradient = isPhoneLayout
-    ? ['rgba(4, 7, 18, 0.55)', 'rgba(4, 7, 18, 0)', 'rgba(4, 7, 18, 0.55)']
-    : ['rgba(4, 7, 18, 0.9)', 'rgba(4, 7, 18, 0)', 'rgba(4, 7, 18, 0.9)'];
-  const heroVerticalGradient = isPhoneLayout
-    ? ['rgba(4, 7, 18, 0.6)', 'rgba(4, 7, 18, 0.05)', 'rgba(4, 7, 18, 0.6)']
-    : ['rgba(4, 7, 18, 0.85)', 'rgba(4, 7, 18, 0)', 'rgba(4, 7, 18, 0.85)'];
-  const phoneInfoStyle = useMemo(() => {
-    if (!isPhoneLayout) return undefined;
-    const leftMargin = 24;
-    const thumbnailWidth = 120;
-    const thumbnailMargin = 20;
-    const gap = 20;
-    const reservedRight = thumbnailWidth + thumbnailMargin + gap;
-    return {
-      marginLeft: leftMargin,
-      marginRight: reservedRight,
-      alignSelf: 'stretch' as const,
-    };
-  }, [isPhoneLayout, width]);
-
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      if (!isPhoneLayout) return;
-      const offsetY = event?.nativeEvent?.contentOffset?.y ?? 0;
-      setShowCompactHeader(offsetY > 140);
-    },
-    [isPhoneLayout],
-  );
-  const scrollHandler = useMemo(
-    () =>
-      isPhoneLayout
-        ? Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-            useNativeDriver: true,
-            listener: handleScroll,
-          })
-        : undefined,
-    [handleScroll, isPhoneLayout, scrollY],
-  );
-
-  const factBoard = heroFactSections.length ? (
-    <View
-      style={[
-        styles.heroFactBoard,
-        !isPhoneLayout && styles.heroFactBoardDesktop,
-      ]}
-    >
-      <View style={styles.heroFactNav} accessibilityRole="tablist">
-        {heroFactSections.map((section) => {
-          const isActive = section.key === activeFactSection;
-          return (
-            <Pressable
-              key={section.key}
-              onPress={() => handleSelectFactSection(section.key)}
-              style={styles.heroFactNavItem}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: isActive }}
-            >
-              <Text
-                style={[
-                  styles.heroFactNavLabel,
-                  isActive && styles.heroFactNavLabelActive,
-                ]}
-              >
-                {section.label.toUpperCase()}
-              </Text>
-              <View
-                style={[
-                  styles.heroFactNavUnderline,
-                  isActive && styles.heroFactNavUnderlineActive,
-                ]}
-              />
-            </Pressable>
-          );
-        })}
-      </View>
-      {activeFactSection && activeFactItems.length ? (
-        <Text style={[styles.heroFactList, isPhoneLayout && styles.heroFactListPhone]}>
-          {activeFactItems.join(', ')}
-        </Text>
-      ) : null}
-    </View>
-  ) : null;
-
-  const metricsPanel = quickMetrics.length ? (
-    <View
-      style={[
-        styles.heroMetricsCard,
-        isPhoneLayout ? styles.heroMetricsCardPhone : styles.heroMetricsCardDesktop,
-      ]}
-    >
-      <View
-        style={[
-          styles.heroMetrics,
-          !isPhoneLayout && styles.heroMetricsDesktop,
-        ]}
-      >
-        {quickMetrics.map((metric) => (
-          <View
-            key={metric.key}
-            style={styles.heroMetricCard}
-          >
-            <Text
-              style={[
-                styles.heroMetricLabel,
-              ]}
-            >
-              {metric.label}
-            </Text>
-            <View style={styles.heroMetricValueRow}>
-              <Text
-                style={[
-                  styles.heroMetricValue,
-                ]}
-              >
-                {metric.value}
-              </Text>
-              {metric.suffix ? (
-                <Text
-                  style={[
-                    styles.heroMetricSuffix,
-                  ]}
-                >
-                  {metric.suffix}
-                </Text>
-              ) : null}
-            </View>
-            {metric.meta ? (
-              <Text
-                style={[
-                  styles.heroMetricMeta,
-                ]}
-              >
-                {metric.meta}
-              </Text>
-            ) : null}
-          </View>
-        ))}
-      </View>
-    </View>
-  ) : null;
-
-  const desktopMetaRow =
-    !isPhoneLayout && (metricsPanel || factBoard) ? (
-      <View style={styles.heroMetaRow}>
-        {metricsPanel}
-        {factBoard}
-      </View>
-    ) : null;
-
-  const handleReviewSectionLayout = useCallback((event: LayoutChangeEvent) => {
-    reviewSectionOffset.current = event.nativeEvent.layout.y;
-  }, []);
-
-  const handleJumpToReviews = useCallback(() => {
-    const scrollView = scrollViewRef.current;
-    if (!scrollView) return;
-    const rawNode = (scrollView as unknown as { getNode?: () => unknown }).getNode?.() ?? scrollView;
-    const node = rawNode as { scrollTo?: (options: { y: number; animated: boolean }) => void };
-    node.scrollTo?.({
-      y: Math.max(reviewSectionOffset.current - 80, 0),
-      animated: true,
-    });
-  }, []);
-
-  const handleCloseRateModal = useCallback(() => {
-    setShowRateModal(false);
-  }, []);
-
-  const handleRateShortcutPress = useCallback(() => {
-    if (!isAuthenticated) {
-      if (onSignIn) {
-        onSignIn();
-      }
-      return;
-    }
-    setShowRateModal(true);
-  }, [isAuthenticated, onSignIn]);
-
-  const phoneMetaStack =
-    isPhoneLayout && (factBoard || metricsPanel) ? (
-      <>
-        {factBoard}
-        {metricsPanel}
-      </>
-    ) : null;
-
-  const isViewingReplies = reviewModalMode === 'replies';
-
-  const handleReviewModalDismiss = useCallback(() => {
-    setReviewModalMode('reviews');
-    setReplyModalReviewId(null);
-    setReplyModalFromReviews(false);
-  }, []);
-
   return (
-    <View style={styles.screen}>
-      <Animated.ScrollView
-        ref={scrollViewRef}
-        style={styles.scrollView}
-        contentContainerStyle={styles.screenContent}
-        keyboardShouldPersistTaps="handled"
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
-      >
-        <View style={[styles.heroContentStack, isPhoneLayout && styles.heroContentStackPhone]}>
-          <Animated.View
-            style={[
-              styles.heroMediaCard,
-              isPhoneLayout && styles.heroMediaCardPhone,
-              !isPhoneLayout && styles.heroMediaCardDesktop,
-              heroCardAnimatedStyle,
-            ]}
-          >
-            {heroLandscapeUri ? (
-              <View style={[styles.heroMediaImageShell, isPhoneLayout && styles.heroMediaImageShellPhone]}>
-                <Image
-                  source={{ uri: heroLandscapeUri }}
-                  style={styles.heroMediaImage}
-                  resizeMode={isPhoneLayout ? 'cover' : 'contain'}
-                />
-                <LinearGradient
-                  colors={heroHorizontalGradient}
-                  locations={[0, 0.5, 1]}
-                  start={{ x: 0, y: 0.5 }}
-                  end={{ x: 1, y: 0.5 }}
-                  style={styles.heroMediaFadeHorizontal}
-                  pointerEvents="none"
-                />
-                <LinearGradient
-                  colors={heroVerticalGradient}
-                  locations={[0, 0.55, 1]}
-                  start={{ x: 0.5, y: 0 }}
-                  end={{ x: 0.5, y: 1 }}
-                  style={styles.heroMediaFadeVertical}
-                  pointerEvents="none"
-                />
-                <LinearGradient
-                  colors={['rgba(2, 6, 23, 0.85)', 'rgba(2, 6, 23, 0)']}
-                  locations={[0, 0.7]}
-                  start={{ x: 0, y: 0.5 }}
-                  end={{ x: 1, y: 0.5 }}
-                  style={[styles.heroCornerFade, styles.heroCornerFadeLeft]}
-                  pointerEvents="none"
-                />
-                <LinearGradient
-                  colors={['rgba(2, 6, 23, 0.9)', 'rgba(2, 6, 23, 0)']}
-                  locations={[0, 0.7]}
-                  start={{ x: 1, y: 0.5 }}
-                  end={{ x: 0, y: 0.5 }}
-                  style={[styles.heroCornerFade, styles.heroCornerFadeRight]}
-                  pointerEvents="none"
-                />
-                {isPhoneLayout ? (
-                  <LinearGradient
-                    colors={['rgba(2, 6, 23, 0)', 'rgba(2, 6, 23, 0.6)', 'rgba(2, 6, 23, 0.95)']}
-                    locations={[0, 0.45, 1]}
-                    start={{ x: 0.5, y: 0 }}
-                    end={{ x: 0.5, y: 1 }}
-                    style={styles.heroPhoneBlend}
-                    pointerEvents="none"
-                  />
-                ) : null}
-              </View>
-            ) : (
-              <View style={[styles.heroMediaImageShell, styles.heroMediaFallback]}>
-                <Text style={styles.heroMediaFallbackText}>Gameplay preview coming soon</Text>
-              </View>
-            )}
-            {isPhoneLayout ? (
-              <View style={[styles.heroOverviewThumbnailShell, styles.heroPhoneThumbnailFloating]}>
-                {coverUri ? (
-                  <Image source={{ uri: coverUri }} style={styles.heroOverviewThumbnailImage} />
-                ) : (
-                  <View style={styles.heroOverviewThumbnailFallback}>
-                    <Text style={styles.heroOverviewThumbnailFallbackText}>Artwork coming soon</Text>
-                  </View>
-                )}
-              </View>
-            ) : null}
-          </Animated.View>
-
-          {!isPhoneLayout &&
-            (coverUri ? (
-              <View style={[styles.heroPosterFloat, isWide && styles.heroPosterFloatWide]}>
-                <View style={styles.heroPosterWrap}>
-                  <Image source={{ uri: coverUri }} style={styles.heroPosterImage} />
-                </View>
-              </View>
-            ) : (
-              <View style={[styles.heroPosterFloat, styles.heroPosterFallback]}>
-                <View style={styles.heroPosterWrap}>
-                  <Text style={styles.heroPosterFallbackText}>Artwork coming soon</Text>
-                </View>
-              </View>
-            ))}
-
-          {isPhoneLayout ? (
-            <>
-              <View style={[styles.heroPhoneInfoShell, phoneInfoStyle]}>
-                <Text style={styles.heroPhoneTitle}>{game.name}</Text>
-                {releaseMeta ? <Text style={styles.heroPhoneMeta}>{releaseMeta}</Text> : null}
-                <View style={styles.heroPhoneActionsRow}>
-                  <Pressable
-                    onPress={handleWatchTrailer}
-                    disabled={!hasTrailer}
-                    style={({ pressed }) => [
-                      styles.heroPhonePrimaryButton,
-                      pressed && styles.heroPhonePrimaryButtonPressed,
-                      !hasTrailer && styles.heroActionDisabled,
-                    ]}
-                    accessibilityRole="button"
-                  >
-                    <Ionicons name="play" size={16} color="#0f172a" />
-                    <Text style={styles.heroPhonePrimaryLabel}>
-                      {hasTrailer ? 'Watch trailer' : 'Trailer unavailable'}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={handleFavoritePress}
-                    style={({ pressed }) => [
-                      styles.heroPhoneSecondaryButton,
-                      isFavorite && styles.heroPhoneSecondaryActive,
-                      (favoriteDisabled || pressed) && styles.heroPhoneSecondaryPressed,
-                    ]}
-                    accessibilityRole="button"
-                    disabled={favoriteDisabled}
-                  >
-                    {favoriteDisabled ? (
-                      <ActivityIndicator size="small" color="#f8fafc" />
-                    ) : (
-                      <>
-                        <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={16} color="#f8fafc" />
-                        <Text style={styles.heroPhoneSecondaryLabel}>
-                          {isFavorite ? 'Favourited' : 'Add to favourites'}
-                        </Text>
-                      </>
-                    )}
-                  </Pressable>
-                </View>
-                {favoriteError ? <Text style={styles.favoriteError}>{favoriteError}</Text> : null}
-              </View>
-              <View style={styles.heroPhoneAccordionWrapper}>
-                <View style={styles.heroPhoneAccordion}>
-                  <Pressable
-                    onPress={handleToggleOverview}
-                    style={styles.heroPhoneAccordionHeader}
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.heroPhoneAccordionLabel}>Overview</Text>
-                    <Ionicons
-                      name={isOverviewExpanded ? 'chevron-up' : 'chevron-down'}
-                      size={18}
-                      color="#e2e8f0"
-                    />
-                  </Pressable>
-                  <Text
-                    style={styles.heroPhoneOverviewText}
-                    numberOfLines={!isOverviewExpanded ? 3 : undefined}
-                  >
-                    {overviewText}
-                  </Text>
-                </View>
-              </View>
-            </>
+    <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <View style={styles.heroContentStack}>
+        <View style={styles.heroMediaCard}>
+          {heroLandscapeUri ? (
+            <View style={styles.heroMediaImageShell}>
+              <Image
+                source={{ uri: heroLandscapeUri }}
+                style={styles.heroMediaImage}
+                resizeMode="contain"
+              />
+              <LinearGradient
+                colors={['rgba(4, 7, 18, 0.9)', 'rgba(4, 7, 18, 0)', 'rgba(4, 7, 18, 0.9)']}
+                locations={[0, 0.5, 1]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={styles.heroMediaFadeHorizontal}
+                pointerEvents="none"
+              />
+              <LinearGradient
+                colors={['rgba(4, 7, 18, 0.85)', 'rgba(4, 7, 18, 0)', 'rgba(4, 7, 18, 0.85)']}
+                locations={[0, 0.55, 1]}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={styles.heroMediaFadeVertical}
+                pointerEvents="none"
+              />
+            </View>
           ) : (
-            <View
-              style={[
-                styles.heroOverviewCard,
-                isWide && styles.heroOverviewCardWide,
-              ]}
-            >
-              <View style={styles.heroOverviewLayout}>
-                <View style={styles.heroOverviewTextColumn}>
-                  <Text style={styles.heroHeadline}>{game.name}</Text>
-                  <Text style={styles.heroEyebrow}>{releaseLine ?? 'Upcoming release'}</Text>
-                  {!isPhoneLayout ? (
-                    <>
-                      <View style={[styles.heroActionsRow, styles.heroOverviewActionsRow]}>
-                        <Pressable
-                          onPress={handleWatchTrailer}
-                          disabled={!hasTrailer}
-                          style={({ pressed }) => [
-                            styles.heroPhonePrimaryButton,
-                            pressed && styles.heroPhonePrimaryButtonPressed,
-                            !hasTrailer && styles.heroActionDisabled,
-                          ]}
-                          accessibilityRole="button"
-                        >
-                          <Ionicons name="play" size={16} color="#0f172a" />
-                          <Text style={styles.heroPhonePrimaryLabel}>
-                            {hasTrailer ? 'Watch trailer' : 'Trailer unavailable'}
-                          </Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={handleFavoritePress}
-                          style={({ pressed }) => [
-                            styles.heroPhoneSecondaryButton,
-                            isFavorite && styles.heroPhoneSecondaryActive,
-                            (favoriteDisabled || pressed) && styles.heroPhoneSecondaryPressed,
-                          ]}
-                          accessibilityRole="button"
-                          disabled={favoriteDisabled}
-                        >
-                          {favoriteDisabled ? (
-                            <ActivityIndicator size="small" color="#f8fafc" />
-                          ) : (
-                            <>
-                              <Ionicons
-                                name={isFavorite ? 'heart' : 'heart-outline'}
-                                size={16}
-                                color="#f8fafc"
-                              />
-                              <Text style={styles.heroPhoneSecondaryLabel}>
-                                {isFavorite ? 'Favourited' : 'Add to favourites'}
-                              </Text>
-                            </>
-                          )}
-                        </Pressable>
-                      </View>
-                      {favoriteError ? (
-                        <Text style={[styles.favoriteError, styles.heroOverviewFavoriteError]}>
-                          {favoriteError}
-                        </Text>
-                      ) : null}
-                      {desktopMetaRow}
-                    </>
-                  ) : null}
-                </View>
-              </View>
+            <View style={[styles.heroMediaImageShell, styles.heroMediaFallback]}>
+              <Text style={styles.heroMediaFallbackText}>Gameplay preview coming soon</Text>
             </View>
           )}
-          {!isPhoneLayout ? (
-            <View
-              style={[
-                styles.heroOverviewDesktopSection,
-                isWide && styles.heroOverviewDesktopSectionWide,
-              ]}
-            >
-              <Pressable
-                onPress={handleToggleOverview}
-                style={styles.heroOverviewDesktopHeader}
-                accessibilityRole="button"
-              >
-                <Text style={styles.heroPhoneAccordionLabel}>Overview</Text>
-                <Ionicons
-                  name={isOverviewExpanded ? 'chevron-up' : 'chevron-down'}
-                  size={18}
-                  color="#e2e8f0"
-                />
-              </Pressable>
-              <Text style={styles.heroOverviewDesktopText} numberOfLines={overviewNumberOfLines}>
-                {overviewText}
-              </Text>
-              <View style={styles.heroOverviewCtaRow}>
-                <Pressable
-                  onPress={handleRateShortcutPress}
-                  style={({ pressed }) => [
-                    styles.heroOverviewCtaButton,
-                    pressed && styles.heroOverviewCtaButtonPressed,
-                  ]}
-                  accessibilityRole="button"
-                >
-                  <Ionicons name="star" size={16} color="#0f172a" />
-                  <Text style={styles.heroOverviewCtaLabel}>Rate & review</Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : null}
+        </View>
 
-          {phoneMetaStack}
-          {isPhoneLayout ? (
-            <Pressable
-              onPress={handleRateShortcutPress}
-              style={({ pressed }) => [
-                styles.phoneReviewShortcut,
-                pressed && styles.phoneReviewShortcutPressed,
-              ]}
-              accessibilityRole="button"
-            >
-              <View style={styles.phoneReviewShortcutIcon}>
-                <Ionicons name="star-outline" size={18} color="#f8fafc" />
-              </View>
-              <Text style={styles.phoneReviewShortcutTitle}>Rate & review</Text>
-              <Ionicons name="ellipsis-horizontal" size={18} color="#cbd5f5" />
+        {coverUri ? (
+          <View style={[styles.heroPosterFloat, isWide && styles.heroPosterFloatWide]}>
+            <View style={styles.heroPosterWrap}>
+              <Image source={{ uri: coverUri }} style={styles.heroPosterImage} />
+            </View>
+          </View>
+        ) : (
+          <View style={[styles.heroPosterFloat, styles.heroPosterFallback]}>
+            <View style={styles.heroPosterWrap}>
+              <Text style={styles.heroPosterFallbackText}>Artwork coming soon</Text>
+            </View>
+          </View>
+        )}
+
+        <View style={[styles.heroOverviewCard, isWide && styles.heroOverviewCardWide]}>
+          <Text style={styles.heroEyebrow}>
+            {releaseLine ?? 'Upcoming release'}
+            {game.developer ? ` • ${game.developer}` : ''}
+          </Text>
+          <Text style={styles.heroHeadline}>{game.name}</Text>
+          <Text style={styles.heroOverviewText} numberOfLines={overviewNumberOfLines}>
+            {overviewText}
+          </Text>
+          {shouldClampOverview ? (
+            <Pressable onPress={handleToggleOverview} style={styles.heroOverviewToggle}>
+              <Text style={styles.heroOverviewToggleText}>
+                {isOverviewExpanded ? 'Show less' : 'Read more'}
+              </Text>
             </Pressable>
           ) : null}
         </View>
 
         <View
           style={[
-            styles.detailSurface,
-            !isPhoneLayout && styles.detailSurfaceDesktop,
+            styles.heroDetailsPanel,
+            isWide ? styles.heroDetailsPanelWide : styles.heroDetailsPanelStacked,
           ]}
-          onLayout={handleReviewSectionLayout}
         >
+          <View style={[styles.heroDetailsRow, isWide && styles.heroDetailsRowWide]}>
+            <View style={[styles.heroDetailsColumn, styles.heroDetailsColumnPrimary]}>
+              {heroFacts.length ? (
+                <View style={styles.heroFactsGrid}>
+                  {heroFacts.map((fact) => (
+                    <View key={fact.label} style={styles.heroFactCard}>
+                      <Text style={styles.heroFactLabel}>{fact.label}</Text>
+                      <Text style={styles.heroFactValue}>{fact.value}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
 
-          <View style={[styles.section, !isPhoneLayout && styles.detailSurfaceSpacer]}>
-            <View style={styles.reviewSectionHeader}>
-              <Text style={styles.communitySectionTitle}>Community reviews</Text>
+              <View style={styles.heroActionsRow}>
+                <Pressable
+                  onPress={handleWatchTrailer}
+                  disabled={!hasTrailer}
+                  style={({ pressed }) => [
+                    styles.heroPrimaryButton,
+                    pressed && styles.heroPrimaryButtonPressed,
+                    !hasTrailer && styles.heroActionDisabled,
+                  ]}
+                  accessibilityRole="button"
+                >
+                  <Ionicons name="play" size={16} color="#0f172a" />
+                  <Text style={styles.heroPrimaryButtonLabel}>
+                    {hasTrailer ? 'Watch trailer' : 'Trailer unavailable'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleFavoritePress}
+                  style={({ pressed }) => [
+                    styles.heroSecondaryButton,
+                    isFavorite && styles.heroSecondaryButtonActive,
+                    (favoriteDisabled || pressed) && styles.heroSecondaryButtonPressed,
+                  ]}
+                  accessibilityRole="button"
+                  disabled={favoriteDisabled}
+                >
+                  {favoriteDisabled ? (
+                    <ActivityIndicator size="small" color="#f8fafc" />
+                  ) : (
+                    <>
+                      <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={16} color="#f8fafc" />
+                      <Text style={styles.heroSecondaryButtonLabel}>
+                        {isFavorite ? 'Favourited' : 'Add to list'}
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
+              {favoriteError ? <Text style={styles.favoriteError}>{favoriteError}</Text> : null}
             </View>
 
-            {reviewError ? <Text style={styles.errorText}>{reviewError}</Text> : null}
-            {reviewsLoading ? (
-              <View style={styles.reviewLoading}>
-                <ActivityIndicator size="large" color="#6366f1" />
-              </View>
-            ) : visibleCommunityReviews.length ? (
-              visibleCommunityReviews.map((review, index) => {
-                const isLastReview = index === visibleCommunityReviews.length - 1;
-                const replyDraft = replyDrafts[review.id] ?? '';
-                const replyError = replyErrors[review.id] ?? null;
-                const replySuccessMessage = replySuccess[review.id] ?? null;
-                const isReplySubmitting = replySubmittingSet.has(review.id);
-                const replies = review.replies ?? [];
-                const replyReady = replyDraft.trim().length > 0;
-                const totalReplies = replies.length;
-                const useReplyModal = totalReplies > 3;
-                const isRepliesExpanded = expandedReplies[review.id] ?? false;
-                const resolvedVisible =
-                  replyVisibleCounts[review.id] ??
-                  (isRepliesExpanded ? getInitialVisibleCount(totalReplies) : 0);
-                const visibleReplies = !useReplyModal && isRepliesExpanded
-                  ? replies.slice(Math.max(0, totalReplies - resolvedVisible))
-                  : [];
-                const remainingReplies = Math.max(0, totalReplies - resolvedVisible);
-                return (
-                  <View
-                    key={review.id}
-                    style={[
-                      styles.reviewThreadItem,
-                      !isLastReview && styles.reviewThreadItemSpaced,
-                    ]}
-                  >
-                    <View style={styles.reviewTimeline}>
-                      <View style={styles.reviewAvatar}>
-                        <Text style={styles.reviewInitial}>{review.author.charAt(0).toUpperCase()}</Text>
+            {quickMetrics.length ? (
+              <View style={[styles.heroDetailsColumn, styles.heroDetailsColumnSecondary]}>
+                <View style={styles.heroMetrics}>
+                  {quickMetrics.map((metric) => (
+                    <View key={metric.key} style={styles.heroMetricCard}>
+                      <Text style={styles.heroMetricLabel}>{metric.label}</Text>
+                      <View style={styles.heroMetricValueRow}>
+                        <Text style={styles.heroMetricValue}>{metric.value}</Text>
+                        {metric.suffix ? (
+                          <Text style={styles.heroMetricSuffix}>{metric.suffix}</Text>
+                        ) : null}
                       </View>
-                      {!isLastReview ? <View style={styles.reviewConnector} /> : null}
+                      {metric.meta ? <Text style={styles.heroMetricMeta}>{metric.meta}</Text> : null}
                     </View>
-                    <View style={styles.reviewCard}>
-                      <View style={styles.reviewHeader}>
-                        <Text
-                          style={styles.reviewAuthor}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {review.author}
-                        </Text>
-                        <Text style={styles.reviewRating}>{review.rating.toFixed(1)}/10</Text>
-                      </View>
-                      {review.createdAt ? (
-                        <Text style={styles.reviewDate}>{formatReviewDate(review.createdAt)}</Text>
-                      ) : null}
-                      <Text style={styles.reviewBody}>{review.body}</Text>
-                      {totalReplies > 0 ? (
-                        <View style={styles.replyToggleRow}>
-                          {useReplyModal ? (
+                  ))}
+                </View>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.detailSurface}>
+        {/* Community rating + platforms card removed to avoid duplication */}
+
+        <View style={styles.section}>
+          <View style={styles.reviewSectionHeader}>
+            <Text style={styles.sectionTitle}>Leave a review</Text>
+            <Text style={styles.sectionSubtitleText}>
+              Share your thoughts about {game.name} and help the community discover great games.
+            </Text>
+          </View>
+
+        <View style={styles.reviewForm}>
+          <Text style={styles.reviewFormTitle}>
+            {userReview ? 'Update your review' : 'Leave a review'}
+          </Text>
+          {formError ? <Text style={styles.formError}>{formError}</Text> : null}
+          {formSuccess ? <Text style={styles.formSuccess}>{formSuccess}</Text> : null}
+          {!isAuthenticated ? (
+            <Pressable
+              onPress={onSignIn}
+              style={({ pressed }) => [
+                styles.signInPromptBtn,
+                pressed && styles.signInPromptBtnPressed,
+              ]}
+              accessibilityRole="button"
+            >
+              <Text style={styles.signInPromptLabel}>Sign in to leave a review</Text>
+            </Pressable>
+          ) : reviewLimitReached && !userReview ? (
+            <Text style={styles.limitNotice}>
+              You have reached your review limit across games. Update an existing review to share a
+              new one.
+            </Text>
+          ) : (
+            <>
+              <View style={styles.ratingInputRow}>
+                <Text style={styles.ratingInputLabel}>Your rating (0-10)</Text>
+                <View style={styles.ratingStarsRow}>
+                  {ratingOptions.map((value) => {
+                    const isActive = ratingInput !== null && value <= ratingInput;
+                    return (
+                      <Pressable
+                        key={value}
+                        onPress={() => handleSelectRating(value)}
+                        style={({ pressed }) => [
+                          styles.ratingStarButton,
+                          pressed && styles.ratingStarButtonPressed,
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Set rating to ${value}`}
+                      >
+                        <Ionicons
+                          name={isActive ? 'star' : 'star-outline'}
+                          size={22}
+                          color={isActive ? '#fbbf24' : '#475569'}
+                        />
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <View style={styles.ratingMetaRow}>
+                  <Text style={styles.ratingSelectedValue}>
+                    {ratingInput !== null ? `${ratingInput}/10` : 'Tap a star to rate'}
+                  </Text>
+                  {ratingInput !== null ? (
+                    <Pressable
+                      onPress={handleClearRating}
+                      style={({ pressed }) => [
+                        styles.ratingClearButton,
+                        pressed && styles.ratingClearButtonPressed,
+                      ]}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.ratingClearLabel}>Clear</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              </View>
+              <TextInput
+                value={reviewInput}
+                onChangeText={setReviewInput}
+                placeholder={REVIEW_PLACEHOLDER}
+                placeholderTextColor="#6b7280"
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                style={styles.reviewTextarea}
+              />
+              <Pressable
+                onPress={handleSubmitReview}
+                disabled={reviewCtaDisabled}
+                style={({ pressed }) => [
+                  styles.submitBtn,
+                  reviewCtaDisabled && styles.submitBtnDisabled,
+                  pressed && !reviewCtaDisabled && styles.submitBtnPressed,
+                ]}
+                accessibilityRole="button"
+              >
+                {reviewSubmitting ? (
+                  <ActivityIndicator size="small" color="#f8fafc" />
+                ) : (
+                  <Text style={styles.submitBtnLabel}>
+                    {userReview ? 'Update review' : 'Share review'}
+                  </Text>
+                )}
+              </Pressable>
+            </>
+          )}
+          {reviewLimit && (
+            <Text style={styles.reviewLimitHelper}>
+              {Math.min(personalReviewCount, reviewLimit)}/{reviewLimit} personal review slots used.
+            </Text>
+          )}
+        </View>
+
+        <View style={styles.reviewSectionHeader}>
+          <Text style={styles.sectionTitle}>Community reviews</Text>
+          <Text style={styles.sectionSubtitleText}>
+            See what other players are saying. Explore the latest notes first.
+          </Text>
+        </View>
+
+        {reviewError ? <Text style={styles.errorText}>{reviewError}</Text> : null}
+        {reviewsLoading ? (
+          <View style={styles.reviewLoading}>
+            <ActivityIndicator size="large" color="#6366f1" />
+          </View>
+        ) : visibleCommunityReviews.length ? (
+          visibleCommunityReviews.map((review, index) => {
+            const isLastReview = index === visibleCommunityReviews.length - 1;
+            const replyDraft = replyDrafts[review.id] ?? '';
+            const replyError = replyErrors[review.id] ?? null;
+            const replySuccessMessage = replySuccess[review.id] ?? null;
+            const isReplySubmitting = replySubmittingSet.has(review.id);
+            const replies = review.replies ?? [];
+            const replyReady = replyDraft.trim().length > 0;
+            const totalReplies = replies.length;
+            const isRepliesExpanded = expandedReplies[review.id] ?? false;
+            const resolvedVisible =
+              replyVisibleCounts[review.id] ??
+              (isRepliesExpanded ? getInitialVisibleCount(totalReplies) : 0);
+            const visibleReplies = isRepliesExpanded
+              ? replies.slice(Math.max(0, totalReplies - resolvedVisible))
+              : [];
+            const remainingReplies = Math.max(0, totalReplies - resolvedVisible);
+            return (
+              <View
+                key={review.id}
+                style={[
+                  styles.reviewThreadItem,
+                  !isLastReview && styles.reviewThreadItemSpaced,
+                ]}
+              >
+                <View style={styles.reviewTimeline}>
+                  <View style={styles.reviewAvatar}>
+                    <Text style={styles.reviewInitial}>{review.author.charAt(0).toUpperCase()}</Text>
+                  </View>
+                  {!isLastReview ? <View style={styles.reviewConnector} /> : null}
+                </View>
+                <View style={styles.reviewCard}>
+                  <View style={styles.reviewHeader}>
+                    <Text style={styles.reviewAuthor}>{review.author}</Text>
+                    <Text style={styles.reviewRating}>{review.rating.toFixed(1)}/10</Text>
+                  </View>
+                  {review.createdAt ? (
+                    <Text style={styles.reviewDate}>{formatReviewDate(review.createdAt)}</Text>
+                  ) : null}
+                  <Text style={styles.reviewBody}>{review.body}</Text>
+                  {totalReplies > 0 ? (
+                    <View style={styles.replyToggleRow}>
+                      {!isRepliesExpanded ? (
                         <Pressable
-                          onPress={() => {
-                            setReviewModalMode('replies');
-                            setReplyModalReviewId(review.id);
-                            setReplyModalFromReviews(true);
-                            setShowAllReviewsModal(true);
-                          }}
+                          onPress={() => handleToggleReplies(review.id, totalReplies)}
                           style={({ pressed }) => [
                             styles.replyToggleButton,
                             pressed && styles.replyToggleButtonPressed,
                           ]}
                           accessibilityRole="button"
-                            >
-                              <Text style={styles.replyToggleLabel}>
-                                View replies ({totalReplies})
-                              </Text>
-                            </Pressable>
-                          ) : !isRepliesExpanded ? (
-                            <Pressable
-                              onPress={() => handleToggleReplies(review.id, totalReplies)}
-                              style={({ pressed }) => [
-                                styles.replyToggleButton,
-                                pressed && styles.replyToggleButtonPressed,
-                              ]}
-                              accessibilityRole="button"
-                            >
-                              <Text style={styles.replyToggleLabel}>
-                                View replies ({totalReplies})
-                              </Text>
-                            </Pressable>
-                          ) : (
-                            <>
-                              <Pressable
-                                onPress={() => handleToggleReplies(review.id, totalReplies)}
-                                style={({ pressed }) => [
-                                  styles.replyToggleButton,
-                                  pressed && styles.replyToggleButtonPressed,
-                                ]}
-                                accessibilityRole="button"
-                              >
-                                <Text style={styles.replyToggleLabel}>Hide replies</Text>
-                              </Pressable>
-                              {remainingReplies > 0 ? (
-                                <Pressable
-                                  onPress={() => handleLoadMoreReplies(review.id, totalReplies)}
-                                  style={({ pressed }) => [
-                                    styles.replyToggleSecondaryButton,
-                                    pressed && styles.replyToggleSecondaryButtonPressed,
-                                  ]}
-                                  accessibilityRole="button"
-                                >
-                                  <Text style={styles.replyToggleSecondaryLabel}>
-                                    See more replies (+{remainingReplies})
-                                  </Text>
-                                </Pressable>
-                              ) : null}
-                            </>
-                          )}
-                        </View>
-                      ) : null}
-                      {!useReplyModal && isRepliesExpanded && visibleReplies.length > 0 && (
-                        <View style={styles.replyList}>
-                          {visibleReplies.map((reply) => {
-                            const isOwnReply = currentUserId ? reply.userId === currentUserId : false;
-                            const isEditing = editingRepliesSet.has(reply.id);
-                            const editDraft = replyEditDrafts[reply.id] ?? reply.body;
-                            const editError = replyEditErrors[reply.id] ?? null;
-                            const editSuccessMessage = replyEditSuccess[reply.id] ?? null;
-                            const deleteError = replyDeleteErrors[reply.id] ?? null;
-                            const isUpdating = replyUpdatingSet.has(reply.id);
-                            const isDeleting = replyDeletingSet.has(reply.id);
-                            const showActions = isOwnReply && (onUpdateReply || onDeleteReply);
-
-                            return (
-                              <View key={reply.id} style={styles.replyItem}>
-                                <View style={styles.replyAvatar}>
-                                  <Text style={styles.replyInitial}>
-                                    {reply.author.charAt(0).toUpperCase()}
-                                  </Text>
-                                </View>
-                                <View style={styles.replyContent}>
-                                  <View style={styles.replyHeader}>
-                                    <Text style={styles.replyAuthor}>{reply.author}</Text>
-                                    {reply.createdAt ? (
-                                      <Text style={styles.replyDate}>
-                                        {formatReviewDate(reply.createdAt)}
-                                      </Text>
-                                    ) : null}
-                                  </View>
-                                  {isEditing ? (
-                                    <View style={styles.replyEditBlock}>
-                                      <TextInput
-                                        value={editDraft}
-                                        onChangeText={(text) => handleReplyEditChange(reply.id, text)}
-                                        placeholder="Update your reply..."
-                                        placeholderTextColor="#64748b"
-                                        multiline
-                                        numberOfLines={3}
-                                        textAlignVertical="top"
-                                        style={styles.replyInput}
-                                      />
-                                      {editError ? (
-                                        <Text style={styles.replyErrorText}>{editError}</Text>
-                                      ) : null}
-                                      {editSuccessMessage ? (
-                                        <Text style={styles.replySuccessText}>
-                                          {editSuccessMessage}
-                                        </Text>
-                                      ) : null}
-                                      <View style={styles.replyEditActions}>
-                                        <Pressable
-                                          onPress={() => handleCancelReplyEdit(reply.id)}
-                                          style={({ pressed }) => [
-                                            styles.replyCancelButton,
-                                            pressed && styles.replyCancelButtonPressed,
-                                          ]}
-                                          accessibilityRole="button"
-                                          disabled={isUpdating}
-                                        >
-                                          <Text style={styles.replyCancelLabel}>Cancel</Text>
-                                        </Pressable>
-                                        <Pressable
-                                          onPress={() => handleSubmitReplyEdit(review.id, reply.id)}
-                                          disabled={isUpdating}
-                                          style={({ pressed }) => [
-                                            styles.replySaveButton,
-                                            isUpdating && styles.replyButtonDisabled,
-                                            pressed &&
-                                              !isUpdating &&
-                                              styles.replySaveButtonPressed,
-                                          ]}
-                                          accessibilityRole="button"
-                                        >
-                                          {isUpdating ? (
-                                            <ActivityIndicator size="small" color="#f8fafc" />
-                                          ) : (
-                                            <Text style={styles.replySaveLabel}>Save</Text>
-                                          )}
-                                        </Pressable>
-                                      </View>
-                                    </View>
-                                  ) : (
-                                    <Text style={styles.replyBody}>{reply.body}</Text>
-                                  )}
-                                  {deleteError ? (
-                                    <Text style={styles.replyErrorText}>{deleteError}</Text>
-                                  ) : null}
-                                  {showActions ? (
-                                    <View style={styles.replyActions}>
-                                      {isEditing ? null : onUpdateReply ? (
-                                        <Pressable
-                                          onPress={() =>
-                                            handleStartReplyEdit(review.id, reply.id, reply.body)
-                                          }
-                                          style={({ pressed }) => [
-                                            styles.replyActionButton,
-                                            pressed && styles.replyActionButtonPressed,
-                                          ]}
-                                          accessibilityRole="button"
-                                        >
-                                          <Text style={styles.replyActionLabel}>Edit</Text>
-                                        </Pressable>
-                                      ) : null}
-                                      {onDeleteReply ? (
-                                        <Pressable
-                                          onPress={() =>
-                                            handleConfirmDeleteReply(review.id, reply.id, isOwnReply)
-                                          }
-                                          disabled={isDeleting}
-                                          style={({ pressed }) => [
-                                            styles.replyDeleteButton,
-                                            pressed && styles.replyDeleteButtonPressed,
-                                          ]}
-                                          accessibilityRole="button"
-                                        >
-                                          {isDeleting ? (
-                                            <ActivityIndicator size="small" color="#f8fafc" />
-                                          ) : (
-                                            <Text style={styles.replyDeleteLabel}>Delete</Text>
-                                          )}
-                                        </Pressable>
-                                      ) : null}
-                                    </View>
-                                  ) : null}
-                                </View>
-                              </View>
-                            );
-                        })}
-                      </View>
-                    )}
-                    <View
-                      style={[
-                        styles.replyComposer,
-                        replyComposerOpen[review.id]
-                          ? styles.replyComposerExpanded
-                          : styles.replyComposerCollapsed,
-                      ]}
-                    >
-                      {isAuthenticated ? (
-                        replyComposerOpen[review.id] ? (
-                          <>
-                            <TextInput
-                              value={replyDraft}
-                              onChangeText={(text) => handleReplyDraftChange(review.id, text)}
-                              placeholder="Share your thoughts..."
-                              placeholderTextColor="#64748b"
-                              multiline
-                              numberOfLines={3}
-                              textAlignVertical="top"
-                              style={styles.replyInput}
-                            />
-                            {replyError ? <Text style={styles.replyErrorText}>{replyError}</Text> : null}
-                            {replySuccessMessage ? (
-                              <Text style={styles.replySuccessText}>{replySuccessMessage}</Text>
-                            ) : null}
-                            <Pressable
-                              onPress={() => handleReplySubmit(review.id)}
-                              disabled={!replyReady || isReplySubmitting}
-                              style={({ pressed }) => [
-                                styles.replyButton,
-                                (!replyReady || isReplySubmitting) && styles.replyButtonDisabled,
-                                pressed && replyReady && !isReplySubmitting && styles.replyButtonPressed,
-                              ]}
-                              accessibilityRole="button"
-                            >
-                              {isReplySubmitting ? (
-                                <ActivityIndicator size="small" color="#f8fafc" />
-                              ) : (
-                                <Text style={styles.replyButtonLabel}>Reply</Text>
-                              )}
-                            </Pressable>
-                          </>
-                        ) : (
+                        >
+                          <Text style={styles.replyToggleLabel}>
+                            View replies ({totalReplies})
+                          </Text>
+                        </Pressable>
+                      ) : (
+                        <>
                           <Pressable
-                            onPress={() =>
-                              totalReplies > 3
-                                ? handleOpenReplyModal(review.id)
-                                : handleOpenReplyComposer(review.id, totalReplies)
-                            }
+                            onPress={() => handleToggleReplies(review.id, totalReplies)}
                             style={({ pressed }) => [
-                              styles.replyCompactButton,
-                              pressed && styles.replyCompactButtonPressed,
+                              styles.replyToggleButton,
+                              pressed && styles.replyToggleButtonPressed,
                             ]}
                             accessibilityRole="button"
                           >
-                            <Ionicons name="chatbubble-ellipses-outline" size={14} color="#cbd5f5" />
-                            <Text style={styles.replyCompactLabel}>Reply</Text>
+                            <Text style={styles.replyToggleLabel}>Hide replies</Text>
                           </Pressable>
-                        )
-                      ) : (
-                        <Pressable
-                          onPress={onSignIn}
-                          style={({ pressed }) => [
-                            styles.replySigninButton,
-                            pressed && styles.replySigninButtonPressed,
-                          ]}
-                          accessibilityRole="button"
-                        >
-                          <Text style={styles.replySigninLabel}>Sign in to reply</Text>
-                        </Pressable>
+                          {remainingReplies > 0 ? (
+                            <Pressable
+                              onPress={() => handleLoadMoreReplies(review.id, totalReplies)}
+                              style={({ pressed }) => [
+                                styles.replyToggleSecondaryButton,
+                                pressed && styles.replyToggleSecondaryButtonPressed,
+                              ]}
+                              accessibilityRole="button"
+                            >
+                              <Text style={styles.replyToggleSecondaryLabel}>
+                                See more replies (+{remainingReplies})
+                              </Text>
+                            </Pressable>
+                          ) : null}
+                        </>
                       )}
                     </View>
-                  </View>
-                </View>
-              );
-            })
-            ) : (
-              <Text style={styles.emptyState}>No reviews yet. Be the first to share your thoughts.</Text>
-            )}
+                  ) : null}
+                  {isRepliesExpanded && visibleReplies.length > 0 && (
+                    <View style={styles.replyList}>
+                      {visibleReplies.map((reply) => {
+                        const isOwnReply = currentUserId ? reply.userId === currentUserId : false;
+                        const isEditing = editingRepliesSet.has(reply.id);
+                        const editDraft = replyEditDrafts[reply.id] ?? reply.body;
+                        const editError = replyEditErrors[reply.id] ?? null;
+                        const editSuccessMessage = replyEditSuccess[reply.id] ?? null;
+                        const deleteError = replyDeleteErrors[reply.id] ?? null;
+                        const isUpdating = replyUpdatingSet.has(reply.id);
+                        const isDeleting = replyDeletingSet.has(reply.id);
+                        const showActions = isOwnReply && (onUpdateReply || onDeleteReply);
 
-            {hasMoreCommunityReviews ? (
-              <Pressable
-                onPress={shouldUseReviewModal ? handleOpenAllReviews : handleLoadMoreCommunityReviews}
-                style={({ pressed }) => [
-                  styles.communityLoadMoreButton,
-                  pressed && styles.communityLoadMoreButtonPressed,
-                ]}
-                accessibilityRole="button"
-              >
-                <Text style={styles.communityLoadMoreLabel}>
-                  {shouldUseReviewModal
-                    ? `See all reviews (${reviews.length})`
-                    : `See more reviews (+${remainingCommunityReviews})`}
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
-        </View>
-
-        {similarGames.length > 0 && (
-          <View
-            style={[
-              styles.section,
-              isPhoneLayout ? styles.similarSectionPhone : styles.similarSectionDesktop,
-            ]}
-          >
-            <Text style={styles.sectionTitle}>Similar games</Text>
-            <FlatList
-              data={similarGames}
-              keyExtractor={(item) => item.id.toString()}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={
-                isPhoneLayout ? styles.similarListContentPhone : styles.similarListContentDesktop
-              }
-              ItemSeparatorComponent={() => <View style={styles.similarSeparator} />}
-              renderItem={({ item }) => (
-                <GameCard
-                  game={item}
-                  containerStyle={[
-                    styles.similarCard,
-                    isPhoneLayout ? styles.similarCardPhone : styles.similarCardDesktop,
-                  ]}
-                  onPress={onSelectSimilar ? () => onSelectSimilar(item) : undefined}
-                />
-              )}
-            />
-          </View>
-        )}
-      </Animated.ScrollView>
-      {isPhoneLayout ? (
-        <SafeAreaView
-          pointerEvents="box-none"
-          style={[styles.heroSafeArea, showCompactHeader && styles.heroSafeAreaSolid]}
-        >
-          {!showCompactHeader && onBack ? (
-            <Pressable
-              onPress={onBack}
-              style={({ pressed }) => [
-                styles.heroBackButtonFloat,
-                pressed && styles.heroBackButtonFloatPressed,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Back"
-            >
-              <Ionicons name="chevron-back" size={18} color="#f8fafc" />
-            </Pressable>
-          ) : null}
-          {showCompactHeader ? (
-            <View style={styles.heroTopBarRow}>
-              {onBack ? (
-                <Pressable
-                  onPress={onBack}
-                  style={({ pressed }) => [
-                    styles.heroTopBarButton,
-                    pressed && styles.heroTopBarButtonPressed,
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Back"
-                >
-                  <Ionicons name="chevron-back" size={18} color="#f8fafc" />
-                </Pressable>
-              ) : (
-                <View style={styles.heroTopBarButtonPlaceholder} />
-              )}
-              <Text style={styles.heroTopBarTitle} numberOfLines={1}>
-                {game.name}
-              </Text>
-              <View style={styles.heroTopBarButtonPlaceholder} />
-            </View>
-          ) : null}
-        </SafeAreaView>
-      ) : null}
-      <Modal
-        animationType="none"
-        visible={showRateModal}
-        presentationStyle={isPhoneLayout ? 'pageSheet' : 'overFullScreen'}
-        transparent={!isPhoneLayout}
-        onRequestClose={handleCloseRateModal}
-      >
-        <SafeAreaView style={styles.rateModalSafeArea}>
-          <View
-            style={[
-              styles.rateModalFrame,
-              !isPhoneLayout && styles.rateModalFrameDesktop,
-            ]}
-          >
-            <View
-              style={[
-                styles.rateModalSheet,
-                !isPhoneLayout && styles.rateModalSheetDesktop,
-              ]}
-            >
-              <View style={styles.rateModalHeader}>
-                <Pressable
-                  onPress={handleCloseRateModal}
-                  style={({ pressed }) => [
-                    styles.rateModalHeaderButton,
-                    pressed && styles.rateModalHeaderButtonPressed,
-                  ]}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.rateModalHeaderButtonLabel}>Cancel</Text>
-                </Pressable>
-                <Text style={styles.rateModalTitle}>Rate & review</Text>
-                <Pressable
-                  onPress={handleSubmitReview}
-                  disabled={reviewCtaDisabled}
-                  style={({ pressed }) => [
-                    styles.rateModalSaveButton,
-                    (pressed || reviewCtaDisabled) && styles.rateModalSaveButtonDisabled,
-                  ]}
-                  accessibilityRole="button"
-                >
-                  {reviewSubmitting ? (
-                    <ActivityIndicator size="small" color="#0f172a" />
-                  ) : (
-                    <Text style={styles.rateModalSaveLabel}>Save</Text>
-                  )}
-                </Pressable>
-              </View>
-              <ScrollView
-                style={styles.rateModalScroll}
-                contentContainerStyle={styles.rateModalContent}
-                keyboardShouldPersistTaps="handled"
-              >
-                {showFormFeedbackInModal && formError ? (
-                  <Text style={styles.formError}>{formError}</Text>
-                ) : null}
-                {showFormFeedbackInModal && formSuccess ? (
-                  <Text style={styles.formSuccess}>{formSuccess}</Text>
-                ) : null}
-                <View style={styles.rateModalGameRow}>
-                  {coverUri ? (
-                    <Image source={{ uri: coverUri }} style={styles.rateModalCover} />
-                  ) : (
-                    <View style={styles.rateModalCoverFallback}>
-                      <Text style={styles.rateModalCoverFallbackText}>No art</Text>
+                        return (
+                          <View key={reply.id} style={styles.replyItem}>
+                            <View style={styles.replyAvatar}>
+                              <Text style={styles.replyInitial}>
+                                {reply.author.charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                            <View style={styles.replyContent}>
+                              <View style={styles.replyHeader}>
+                                <Text style={styles.replyAuthor}>{reply.author}</Text>
+                                {reply.createdAt ? (
+                                  <Text style={styles.replyDate}>
+                                    {formatReviewDate(reply.createdAt)}
+                                  </Text>
+                                ) : null}
+                              </View>
+                              {isEditing ? (
+                                <View style={styles.replyEditBlock}>
+                                  <TextInput
+                                    value={editDraft}
+                                    onChangeText={(text) => handleReplyEditChange(reply.id, text)}
+                                    placeholder="Update your reply..."
+                                    placeholderTextColor="#64748b"
+                                    multiline
+                                    numberOfLines={3}
+                                    textAlignVertical="top"
+                                    style={styles.replyInput}
+                                  />
+                                  {editError ? (
+                                    <Text style={styles.replyErrorText}>{editError}</Text>
+                                  ) : null}
+                                  {editSuccessMessage ? (
+                                    <Text style={styles.replySuccessText}>
+                                      {editSuccessMessage}
+                                    </Text>
+                                  ) : null}
+                                  <View style={styles.replyEditActions}>
+                                    <Pressable
+                                      onPress={() => handleCancelReplyEdit(reply.id)}
+                                      style={({ pressed }) => [
+                                        styles.replyCancelButton,
+                                        pressed && styles.replyCancelButtonPressed,
+                                      ]}
+                                      accessibilityRole="button"
+                                      disabled={isUpdating}
+                                    >
+                                      <Text style={styles.replyCancelLabel}>Cancel</Text>
+                                    </Pressable>
+                                    <Pressable
+                                      onPress={() => handleSubmitReplyEdit(review.id, reply.id)}
+                                      disabled={isUpdating}
+                                      style={({ pressed }) => [
+                                        styles.replySaveButton,
+                                        isUpdating && styles.replyButtonDisabled,
+                                        pressed &&
+                                          !isUpdating &&
+                                          styles.replySaveButtonPressed,
+                                      ]}
+                                      accessibilityRole="button"
+                                    >
+                                      {isUpdating ? (
+                                        <ActivityIndicator size="small" color="#f8fafc" />
+                                      ) : (
+                                        <Text style={styles.replySaveLabel}>Save</Text>
+                                      )}
+                                    </Pressable>
+                                  </View>
+                                </View>
+                              ) : (
+                                <Text style={styles.replyBody}>{reply.body}</Text>
+                              )}
+                              {deleteError ? (
+                                <Text style={styles.replyErrorText}>{deleteError}</Text>
+                              ) : null}
+                              {showActions ? (
+                                <View style={styles.replyActions}>
+                                  {isEditing ? null : onUpdateReply ? (
+                                    <Pressable
+                                      onPress={() =>
+                                        handleStartReplyEdit(review.id, reply.id, reply.body)
+                                      }
+                                      style={({ pressed }) => [
+                                        styles.replyActionButton,
+                                        pressed && styles.replyActionButtonPressed,
+                                      ]}
+                                      accessibilityRole="button"
+                                    >
+                                      <Text style={styles.replyActionLabel}>Edit</Text>
+                                    </Pressable>
+                                  ) : null}
+                                  {onDeleteReply ? (
+                                    <Pressable
+                                      onPress={() =>
+                                        handleConfirmDeleteReply(review.id, reply.id, isOwnReply)
+                                      }
+                                      disabled={isDeleting}
+                                      style={({ pressed }) => [
+                                        styles.replyDeleteButton,
+                                        pressed && styles.replyDeleteButtonPressed,
+                                      ]}
+                                      accessibilityRole="button"
+                                    >
+                                      {isDeleting ? (
+                                        <ActivityIndicator size="small" color="#f8fafc" />
+                                      ) : (
+                                        <Text style={styles.replyDeleteLabel}>Delete</Text>
+                                      )}
+                                    </Pressable>
+                                  ) : null}
+                                </View>
+                              ) : null}
+                            </View>
+                          </View>
+                        );
+                      })}
                     </View>
                   )}
-                  <View style={styles.rateModalGameCopy}>
-                    <Text style={styles.rateModalGameTitle}>{game.name}</Text>
-                    {releaseLine ? (
-                      <Text style={styles.rateModalGameMeta}>{releaseLine}</Text>
-                    ) : null}
-                  </View>
-                </View>
-                <View style={styles.rateModalSection}>
-                  <Text style={styles.rateModalLabel}>Rate</Text>
-                  <View style={styles.ratingStarsRow}>
-                    {ratingOptions.map((value) => {
-                      const isActive = ratingInput !== null && value <= ratingInput;
-                      return (
+                  <View style={styles.replyComposer}>
+                    {isAuthenticated ? (
+                      <>
+                        <TextInput
+                          value={replyDraft}
+                          onChangeText={(text) => handleReplyDraftChange(review.id, text)}
+                          placeholder="Share your thoughts..."
+                          placeholderTextColor="#64748b"
+                          multiline
+                          numberOfLines={3}
+                          textAlignVertical="top"
+                          style={styles.replyInput}
+                        />
+                        {replyError ? <Text style={styles.replyErrorText}>{replyError}</Text> : null}
+                        {replySuccessMessage ? (
+                          <Text style={styles.replySuccessText}>{replySuccessMessage}</Text>
+                        ) : null}
                         <Pressable
-                          key={value}
-                          onPress={() => handleSelectRating(value)}
+                          onPress={() => handleReplySubmit(review.id)}
+                          disabled={!replyReady || isReplySubmitting}
                           style={({ pressed }) => [
-                            styles.ratingStarButton,
-                            pressed && styles.ratingStarButtonPressed,
+                            styles.replyButton,
+                            (!replyReady || isReplySubmitting) && styles.replyButtonDisabled,
+                            pressed && replyReady && !isReplySubmitting && styles.replyButtonPressed,
                           ]}
                           accessibilityRole="button"
-                          accessibilityLabel={`Set rating to ${value}`}
                         >
-                          <Ionicons
-                            name={isActive ? 'star' : 'star-outline'}
-                            size={24}
-                            color={isActive ? '#fbbf24' : '#475569'}
-                          />
+                          {isReplySubmitting ? (
+                            <ActivityIndicator size="small" color="#f8fafc" />
+                          ) : (
+                            <Text style={styles.replyButtonLabel}>Reply</Text>
+                          )}
                         </Pressable>
-                      );
-                    })}
-                  </View>
-                  <View style={styles.ratingMetaRow}>
-                    <Text style={styles.ratingSelectedValue}>
-                      {ratingInput === null ? 'No rating yet' : `${ratingInput}/10 selected`}
-                    </Text>
-                    {ratingInput !== null ? (
+                      </>
+                    ) : (
                       <Pressable
-                        onPress={handleClearRating}
+                        onPress={onSignIn}
                         style={({ pressed }) => [
-                          styles.ratingClearButton,
-                          pressed && styles.ratingClearButtonPressed,
+                          styles.replySigninButton,
+                          pressed && styles.replySigninButtonPressed,
                         ]}
                         accessibilityRole="button"
                       >
-                        <Text style={styles.ratingClearLabel}>Clear</Text>
+                        <Text style={styles.replySigninLabel}>Sign in to reply</Text>
                       </Pressable>
-                    ) : null}
+                    )}
                   </View>
                 </View>
-                <View style={styles.rateModalSection}>
-                  <Text style={styles.rateModalLabel}>Add review</Text>
-                  {reviewLimitLabel ? (
-                    <Text style={styles.reviewLimitHelper}>{reviewLimitLabel}</Text>
-                  ) : null}
-                  <TextInput
-                    value={reviewInput}
-                    onChangeText={setReviewInput}
-                    placeholder={REVIEW_PLACEHOLDER}
-                    placeholderTextColor="#94a3b8"
-                    multiline
-                    numberOfLines={4}
-                    textAlignVertical="top"
-                    style={styles.rateModalTextarea}
-                  />
-                </View>
-              </ScrollView>
-            </View>
-          </View>
-        </SafeAreaView>
-      </Modal>
+              </View>
+            );
+          })
+        ) : (
+          <Text style={styles.emptyState}>No reviews yet. Be the first to share your thoughts.</Text>
+        )}
 
-      <Modal
-        animationType="none"
-        visible={showAllReviewsModal}
-        presentationStyle={isPhoneLayout ? 'pageSheet' : 'overFullScreen'}
-        transparent={!isPhoneLayout}
-        onRequestClose={handleCloseAllReviews}
-        onDismiss={handleReviewModalDismiss}
-      >
-        <SafeAreaView style={styles.fullModalSafeArea}>
-          <View
-            style={[
-              styles.fullModalSheet,
-              !isPhoneLayout && styles.fullModalSheetDesktop,
+        {hasMoreCommunityReviews ? (
+          <Pressable
+            onPress={handleLoadMoreCommunityReviews}
+            style={({ pressed }) => [
+              styles.communityLoadMoreButton,
+              pressed && styles.communityLoadMoreButtonPressed,
             ]}
+            accessibilityRole="button"
           >
-            <View style={styles.fullModalHeader}>
-              <Pressable
-                onPress={
-                  isViewingReplies
-                    ? handleCloseReplyModal
-                    : handleCloseAllReviews
-                }
-                style={({ pressed }) => [
-                  styles.fullModalHeaderButton,
-                  pressed && styles.fullModalHeaderButtonPressed,
-                ]}
-                accessibilityRole="button"
-              >
-                <Text style={styles.fullModalHeaderButtonLabel}>
-                  {isViewingReplies && !replyModalFromReviews ? 'Back' : 'Close'}
-                </Text>
-              </Pressable>
-              <Text style={styles.fullModalTitle}>{isViewingReplies ? 'Replies' : 'All reviews'}</Text>
-              {isViewingReplies && !replyModalFromReviews ? (
-                <View style={styles.fullModalHeaderActions}>
-                  <Pressable
-                    onPress={handleReplyArrowCta}
-                    style={({ pressed }) => [
-                      styles.fullModalIconButton,
-                      pressed && styles.fullModalIconButtonPressed,
-                    ]}
-                    accessibilityRole="button"
-                  >
-                    <Ionicons name="arrow-forward" size={18} color="#cbd5f5" />
-                  </Pressable>
-                  <Pressable
-                    onPress={handleCloseReplyModal}
-                    style={({ pressed }) => [
-                      styles.fullModalHeaderButton,
-                      pressed && styles.fullModalHeaderButtonPressed,
-                    ]}
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.fullModalHeaderButtonLabel}>Close</Text>
-                  </Pressable>
-                </View>
-              ) : (
-                <View style={styles.fullModalHeaderButtonPlaceholder} />
-              )}
-            </View>
-            <ScrollView
-              style={styles.fullModalScroll}
-              contentContainerStyle={styles.fullModalContent}
-              keyboardShouldPersistTaps="handled"
-            >
-              {isViewingReplies
-                ? (() => {
-                    const review = reviews.find((item) => item.id === replyModalReviewId);
-                    if (!review) return null;
-                    const replyDraft = replyDrafts[review.id] ?? '';
-                    const replyError = replyErrors[review.id] ?? null;
-                    const replySuccessMessage = replySuccess[review.id] ?? null;
-                    const isReplySubmitting = replySubmittingSet.has(review.id);
-                    return (
-                      <View style={styles.fullModalReviewCard}>
-                        <View style={styles.reviewHeader}>
-                          <Text
-                            style={styles.reviewAuthor}
-                            numberOfLines={1}
-                            ellipsizeMode="tail"
-                          >
-                            {review.author}
-                          </Text>
-                          <Text style={styles.reviewRating}>{review.rating.toFixed(1)}/10</Text>
-                        </View>
-                        {review.createdAt ? (
-                          <Text style={styles.reviewDate}>{formatReviewDate(review.createdAt)}</Text>
-                        ) : null}
-                        <Text style={styles.reviewBody}>{review.body}</Text>
-                        <View style={styles.replyList}>
-                          {(review.replies ?? []).map((reply) => {
-                            const isOwnReply = currentUserId ? reply.userId === currentUserId : false;
-                            const isEditing = editingRepliesSet.has(reply.id);
-                            const editDraft = replyEditDrafts[reply.id] ?? reply.body;
-                            const editError = replyEditErrors[reply.id] ?? null;
-                            const editSuccessMessage = replyEditSuccess[reply.id] ?? null;
-                            const deleteError = replyDeleteErrors[reply.id] ?? null;
-                            const isUpdating = replyUpdatingSet.has(reply.id);
-                            const isDeleting = replyDeletingSet.has(reply.id);
-                            const showActions = isOwnReply && (onUpdateReply || onDeleteReply);
-                            return (
-                              <View key={reply.id} style={styles.replyItem}>
-                                <View style={styles.replyAvatar}>
-                                  <Text style={styles.replyInitial}>
-                                    {reply.author.charAt(0).toUpperCase()}
-                                  </Text>
-                                </View>
-                                <View style={styles.replyContent}>
-                                  <View style={styles.replyHeader}>
-                                    <Text style={styles.replyAuthor}>{reply.author}</Text>
-                                    {reply.createdAt ? (
-                                      <Text style={styles.replyDate}>
-                                        {formatReviewDate(reply.createdAt)}
-                                      </Text>
-                                    ) : null}
-                                  </View>
-                                  {isEditing ? (
-                                    <View style={styles.replyEditBlock}>
-                                      <TextInput
-                                        value={editDraft}
-                                        onChangeText={(text) => handleReplyEditChange(reply.id, text)}
-                                        placeholder="Update your reply..."
-                                        placeholderTextColor="#64748b"
-                                        multiline
-                                        numberOfLines={3}
-                                        textAlignVertical="top"
-                                        style={styles.replyInput}
-                                      />
-                                      {editError ? <Text style={styles.replyErrorText}>{editError}</Text> : null}
-                                      {editSuccessMessage ? (
-                                        <Text style={styles.replySuccessText}>{editSuccessMessage}</Text>
-                                      ) : null}
-                                      <View style={styles.replyEditActions}>
-                                        <Pressable
-                                          onPress={() => handleCancelReplyEdit(reply.id)}
-                                          style={({ pressed }) => [
-                                            styles.replyCancelButton,
-                                            pressed && styles.replyCancelButtonPressed,
-                                          ]}
-                                          accessibilityRole="button"
-                                        >
-                                          <Text style={styles.replyCancelLabel}>Cancel</Text>
-                                        </Pressable>
-                                        <Pressable
-                                          onPress={() => handleSubmitReplyEdit(review.id, reply.id)}
-                                          disabled={isUpdating}
-                                          style={({ pressed }) => [
-                                            styles.replySaveButton,
-                                            pressed && styles.replySaveButtonPressed,
-                                          ]}
-                                          accessibilityRole="button"
-                                        >
-                                          {isUpdating ? (
-                                            <ActivityIndicator size="small" color="#f8fafc" />
-                                          ) : (
-                                            <Text style={styles.replySaveLabel}>Save</Text>
-                                          )}
-                                        </Pressable>
-                                      </View>
-                                    </View>
-                                  ) : (
-                                    <Text style={styles.replyBody}>{reply.body}</Text>
-                                  )}
-                                  {deleteError ? (
-                                    <Text style={styles.replyErrorText}>{deleteError}</Text>
-                                  ) : null}
-                                  {showActions ? (
-                                    <View style={styles.replyActions}>
-                                      {isEditing ? null : onUpdateReply ? (
-                                        <Pressable
-                                          onPress={() =>
-                                            handleStartReplyEdit(review.id, reply.id, reply.body)
-                                          }
-                                          style={({ pressed }) => [
-                                            styles.replyActionButton,
-                                            pressed && styles.replyActionButtonPressed,
-                                          ]}
-                                          accessibilityRole="button"
-                                        >
-                                          <Text style={styles.replyActionLabel}>Edit</Text>
-                                        </Pressable>
-                                      ) : null}
-                                      {onDeleteReply ? (
-                                        <Pressable
-                                          onPress={() =>
-                                            handleConfirmDeleteReply(review.id, reply.id, isOwnReply)
-                                          }
-                                          disabled={isDeleting}
-                                          style={({ pressed }) => [
-                                            styles.replyDeleteButton,
-                                            pressed && styles.replyDeleteButtonPressed,
-                                          ]}
-                                          accessibilityRole="button"
-                                        >
-                                          {isDeleting ? (
-                                            <ActivityIndicator size="small" color="#f8fafc" />
-                                          ) : (
-                                            <Text style={styles.replyDeleteLabel}>Delete</Text>
-                                          )}
-                                        </Pressable>
-                                      ) : null}
-                                    </View>
-                                  ) : null}
-                                </View>
-                              </View>
-                            );
-                          })}
-                        </View>
-                        {isAuthenticated ? (
-                          <View style={[styles.replyComposer, styles.replyComposerExpanded]}>
-                            <TextInput
-                              value={replyDraft}
-                              onChangeText={(text) => handleReplyDraftChange(review.id, text)}
-                              placeholder="Share your thoughts..."
-                              placeholderTextColor="#64748b"
-                              multiline
-                              numberOfLines={3}
-                              textAlignVertical="top"
-                              style={styles.replyInput}
-                            />
-                            {replyError ? <Text style={styles.replyErrorText}>{replyError}</Text> : null}
-                            {replySuccessMessage ? (
-                              <Text style={styles.replySuccessText}>{replySuccessMessage}</Text>
-                            ) : null}
-                            <Pressable
-                              onPress={() => handleReplySubmit(review.id)}
-                              disabled={replyDraft.trim().length <= 0 || isReplySubmitting}
-                              style={({ pressed }) => [
-                                styles.replyButton,
-                                (replyDraft.trim().length <= 0 || isReplySubmitting) &&
-                                  styles.replyButtonDisabled,
-                                pressed &&
-                                  replyDraft.trim().length > 0 &&
-                                  !isReplySubmitting &&
-                                  styles.replyButtonPressed,
-                              ]}
-                              accessibilityRole="button"
-                            >
-                              {isReplySubmitting ? (
-                                <ActivityIndicator size="small" color="#f8fafc" />
-                              ) : (
-                                <Text style={styles.replyButtonLabel}>Reply</Text>
-                              )}
-                            </Pressable>
-                          </View>
-                        ) : (
-                          <Pressable
-                            onPress={onSignIn}
-                            style={({ pressed }) => [
-                              styles.replySigninButton,
-                              pressed && styles.replySigninButtonPressed,
-                            ]}
-                            accessibilityRole="button"
-                          >
-                            <Text style={styles.replySigninLabel}>Sign in to reply</Text>
-                          </Pressable>
-                        )}
-                      </View>
-                    );
-                  })()
-                : reviews.map((review) => {
-                    const replyDraft = replyDrafts[review.id] ?? '';
-                    const replyError = replyErrors[review.id] ?? null;
-                    const replySuccessMessage = replySuccess[review.id] ?? null;
-                    const isReplySubmitting = replySubmittingSet.has(review.id);
-                    const totalReplies = review.replies?.length ?? 0;
-                    return (
-                      <View key={review.id} style={styles.fullModalReviewCard}>
-                        <View style={styles.reviewHeader}>
-                          <Text
-                            style={styles.reviewAuthor}
-                            numberOfLines={1}
-                            ellipsizeMode="tail"
-                          >
-                            {review.author}
-                          </Text>
-                          <Text style={styles.reviewRating}>{review.rating.toFixed(1)}/10</Text>
-                        </View>
-                        {review.createdAt ? (
-                          <Text style={styles.reviewDate}>{formatReviewDate(review.createdAt)}</Text>
-                        ) : null}
-                          <Text style={styles.reviewBody}>{review.body}</Text>
-                          {totalReplies > 0 ? (
-                            <Pressable
-                              onPress={() => handleOpenReplyModal(review.id, true)}
-                              style={({ pressed }) => [
-                                styles.replyToggleButton,
-                                pressed && styles.replyToggleButtonPressed,
-                              ]}
-                              accessibilityRole="button"
-                          >
-                            <Text style={styles.replyToggleLabel}>View replies ({totalReplies})</Text>
-                          </Pressable>
-                        ) : null}
-                        <Pressable
-                          onPress={() => handleOpenReplyComposer(review.id, totalReplies)}
-                          style={({ pressed }) => [
-                            styles.replyCompactButton,
-                            pressed && styles.replyCompactButtonPressed,
-                          ]}
-                          accessibilityRole="button"
-                        >
-                          <Ionicons name="chatbubble-ellipses-outline" size={14} color="#cbd5f5" />
-                          <Text style={styles.replyCompactLabel}>Reply</Text>
-                        </Pressable>
-                        {replyComposerOpen[review.id] ? (
-                          <View style={[styles.replyComposer, styles.replyComposerExpanded]}>
-                            <TextInput
-                              value={replyDraft}
-                              onChangeText={(text) => handleReplyDraftChange(review.id, text)}
-                              placeholder="Share your thoughts..."
-                              placeholderTextColor="#64748b"
-                              multiline
-                              numberOfLines={3}
-                              textAlignVertical="top"
-                              style={styles.replyInput}
-                            />
-                            {replyError ? <Text style={styles.replyErrorText}>{replyError}</Text> : null}
-                            {replySuccessMessage ? (
-                              <Text style={styles.replySuccessText}>{replySuccessMessage}</Text>
-                            ) : null}
-                            <Pressable
-                              onPress={() => handleReplySubmit(review.id)}
-                              disabled={replyDraft.trim().length <= 0 || isReplySubmitting}
-                              style={({ pressed }) => [
-                                styles.replyButton,
-                                (replyDraft.trim().length <= 0 || isReplySubmitting) &&
-                                  styles.replyButtonDisabled,
-                                pressed &&
-                                  replyDraft.trim().length > 0 &&
-                                  !isReplySubmitting &&
-                                  styles.replyButtonPressed,
-                              ]}
-                              accessibilityRole="button"
-                            >
-                              {isReplySubmitting ? (
-                                <ActivityIndicator size="small" color="#f8fafc" />
-                              ) : (
-                                <Text style={styles.replyButtonLabel}>Reply</Text>
-                              )}
-                            </Pressable>
-                          </View>
-                        ) : null}
-                      </View>
-                    );
-                  })}
-            </ScrollView>
-          </View>
-        </SafeAreaView>
-      </Modal>
-    </View>
+            <Text style={styles.communityLoadMoreLabel}>
+              See more reviews (+{remainingCommunityReviews})
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+
+      {similarGames.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Similar games</Text>
+          <FlatList
+            data={similarGames}
+            keyExtractor={(item) => item.id.toString()}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.similarListContent}
+            ItemSeparatorComponent={() => <View style={styles.similarSeparator} />}
+            renderItem={({ item }) => (
+              <GameCard
+                game={item}
+                containerStyle={styles.similarCard}
+                onPress={onSelectSimilar ? () => onSelectSimilar(item) : undefined}
+              />
+            )}
+          />
+        </View>
+      )}
+      </View>
+    </ScrollView>
   );
 }
 
@@ -2308,9 +1345,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#020617',
   },
-  scrollView: {
-    flex: 1,
-  },
   screenContent: {
     paddingBottom: 48,
   },
@@ -2323,68 +1357,6 @@ const styles = StyleSheet.create({
   heroContentStack: {
     gap: 20,
   },
-  heroContentStackPhone: {
-    paddingBottom: 12,
-  },
-  heroSafeArea: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 40,
-    backgroundColor: 'transparent',
-  },
-  heroSafeAreaSolid: {
-    backgroundColor: '#020617',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(15, 23, 42, 0.5)',
-  },
-  heroTopBarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 10,
-    backgroundColor: 'rgba(2, 6, 23, 0.95)',
-  },
-  heroBackButtonFloat: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: 'rgba(2, 6, 23, 0.8)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 16,
-    marginTop: 8,
-  },
-  heroBackButtonFloatPressed: {
-    backgroundColor: 'rgba(2, 6, 23, 1)',
-  },
-  heroTopBarButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(2, 6, 23, 0.8)',
-  },
-  heroTopBarButtonPressed: {
-    backgroundColor: 'rgba(2, 6, 23, 1)',
-  },
-  heroTopBarButtonPlaceholder: {
-    width: 42,
-    height: 42,
-  },
-  heroTopBarTitle: {
-    flex: 1,
-    color: '#f8fafc',
-    fontWeight: '600',
-    fontSize: 15,
-  },
-  heroTopBarTitleSpacer: {
-    flex: 1,
-  },
   heroMediaCard: {
     width: '100%',
     aspectRatio: 21 / 9,
@@ -2392,23 +1364,10 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginBottom: 32,
   },
-  heroMediaCardDesktop: {
-    aspectRatio: undefined,
-    height: 450,
-  },
-  heroMediaCardPhone: {
-    borderRadius: 0,
-    aspectRatio: undefined,
-    height: 270,
-    marginBottom: -48,
-  },
   heroMediaImageShell: {
     flex: 1,
     borderRadius: 28,
     overflow: 'hidden',
-  },
-  heroMediaImageShellPhone: {
-    borderRadius: 0,
   },
   heroMediaImage: {
     width: '100%',
@@ -2420,25 +1379,6 @@ const styles = StyleSheet.create({
   heroMediaFadeVertical: {
     ...StyleSheet.absoluteFillObject,
   },
-  heroCornerFade: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 180,
-  },
-  heroCornerFadeLeft: {
-    left: 0,
-  },
-  heroCornerFadeRight: {
-    right: 0,
-  },
-  heroPhoneBlend: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: -80,
-    height: 200,
-  },
   heroMediaFallback: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -2449,6 +1389,27 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontWeight: '600',
     textAlign: 'center',
+  },
+  heroDetailsPanel: {
+    width: '100%',
+    borderRadius: 32,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.3)',
+    backgroundColor: 'rgba(2, 6, 23, 0.92)',
+    padding: 24,
+    gap: 20,
+    shadowColor: '#01030a',
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
+  },
+  heroDetailsPanelWide: {
+    padding: 32,
+    marginTop: 24,
+  },
+  heroDetailsPanelStacked: {
+    marginTop: 220,
   },
   heroDetailsRow: {
     flexDirection: 'column',
@@ -2466,23 +1427,27 @@ const styles = StyleSheet.create({
   heroDetailsColumnPrimary: {
     minWidth: 0,
   },
+  heroDetailsColumnSecondary: {
+    minWidth: 240,
+  },
   heroPosterFloat: {
     width: 220,
     alignSelf: 'center',
-    marginTop: -130,
+    marginTop: -120,
     zIndex: 5,
   },
   heroPosterFloatWide: {
     alignSelf: 'flex-start',
-    marginLeft: 364,
-    marginTop: -100,
+    marginLeft: 264,
+    marginTop: -180,
   },
   heroPosterWrap: {
     width: '100%',
     borderRadius: 28,
     padding: 12,
-    backgroundColor: 'rgba(4, 7, 18, 0)',
-    borderWidth: 0,
+    backgroundColor: 'rgba(4, 7, 18, 0.95)',
+    borderWidth: 2,
+    borderColor: 'rgba(248, 250, 252, 0.18)',
     shadowColor: '#000',
     shadowOpacity: 0.45,
     shadowRadius: 18,
@@ -2506,8 +1471,10 @@ const styles = StyleSheet.create({
   heroOverviewCard: {
     width: '100%',
     borderRadius: 28,
-    padding: 4,
-    backgroundColor: 'rgba(2, 6, 23, 0.2)',
+    padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.35)',
+    backgroundColor: 'rgba(2, 6, 23, 0.9)',
     gap: 12,
     marginTop: -120,
     shadowColor: '#01030a',
@@ -2518,165 +1485,22 @@ const styles = StyleSheet.create({
   },
   heroOverviewCardWide: {
     alignSelf: 'flex-end',
-    marginTop: -320,
+    marginTop: -337,
     marginLeft: 50,
-    marginRight: 310,
-    maxWidth: 525,
+    marginRight: 178,
+    maxWidth: 640,
     paddingHorizontal: 40,
-    paddingVertical: 2,
-  },
-  heroPhoneInfoShell: {
-    marginTop: -20,
-    paddingTop: 16,
-    paddingBottom: 8,
-    gap: 12,
-  },
-  heroPhoneAccordionWrapper: {
-    alignSelf: 'stretch',
-    paddingHorizontal: 24,
-    marginTop: 8,
-  },
-  heroPhoneTitle: {
-    fontSize: 23,
-    fontWeight: '800',
-    color: '#f8fafc',
-  },
-  heroPhoneMeta: {
-    color: '#cbd5f5',
-    fontSize: 13,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-  },
-  heroPhoneActionsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  heroPhonePrimaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 999,
-    backgroundColor: '#f8fafc',
-  },
-  heroPhonePrimaryButtonPressed: {
-    opacity: 0.85,
-  },
-  heroPhonePrimaryLabel: {
-    color: '#0f172a',
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  heroPhoneSecondaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(248, 250, 252, 0.4)',
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-  },
-  heroPhoneSecondaryPressed: {
-    opacity: 0.75,
-  },
-  heroPhoneSecondaryActive: {
-    borderColor: '#f8fafc',
-    backgroundColor: 'rgba(248, 250, 252, 0.12)',
-  },
-  heroPhoneSecondaryLabel: {
-    color: '#f8fafc',
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  heroPhoneAccordion: {
-    borderTopWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.25)',
-    paddingTop: 12,
-    gap: 8,
-  },
-  heroPhoneAccordionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  heroPhoneAccordionLabel: {
-    color: '#e2e8f0',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  heroPhoneOverviewText: {
-    color: '#d1d5db',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  heroOverviewLayout: {
-    flexDirection: 'column',
-    gap: 16,
-  },
-  heroOverviewLayoutPhone: {
-    flexDirection: 'column',
-  },
-  heroOverviewTextColumn: {
-    flex: 1,
-    gap: 12,
-  },
-  heroOverviewThumbnailShell: {
-    width: 120,
-    borderRadius: 18,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(248, 250, 252, 0.12)',
-    backgroundColor: 'rgba(2, 6, 23, 0.85)',
-  },
-  heroPhoneThumbnailFloating: {
-    position: 'absolute',
-    right: 20,
-    bottom: -138,
-    shadowColor: '#01030a',
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 6,
-  },
-  heroOverviewThumbnailImage: {
-    width: '100%',
-    aspectRatio: 2 / 3,
-  },
-  heroOverviewThumbnailFallback: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-  },
-  heroOverviewThumbnailFallbackText: {
-    color: '#94a3b8',
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
+    paddingVertical: 32,
   },
   heroHeadline: {
-    fontSize: 30,
+    fontSize: 40,
     fontWeight: '800',
     color: '#f8fafc',
-  },
-  heroHeadlinePhone: {
-    fontSize: 34,
-    lineHeight: 38,
   },
   heroOverviewText: {
     color: '#cbd5f5',
     fontSize: 15,
     lineHeight: 22,
-  },
-  heroOverviewTextPhone: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#d5dbfa',
   },
   heroOverviewToggle: {
     alignSelf: 'flex-start',
@@ -2691,59 +1515,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
-  },
-  heroOverviewDesktopSection: {
-    width: '100%',
-    borderRadius: 26,
-    padding: 20,
-    backgroundColor: 'rgba(4, 7, 18, 0.7)',
-    marginTop: 20,
-    gap: 12,
-  },
-  heroOverviewDesktopSectionWide: {
-    alignSelf: 'flex-end',
-    marginRight: 178,
-    marginLeft: 50,
-    maxWidth: 640,
-    paddingHorizontal: 36,
-    paddingVertical: 26,
-    shadowColor: '#01030a',
-    shadowOpacity: 0.25,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-  },
-  heroOverviewDesktopHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  heroOverviewDesktopText: {
-    color: '#cbd5f5',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  heroOverviewCtaRow: {
-    marginTop: 10,
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-  },
-  heroOverviewCtaButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 12,
-    backgroundColor: '#fbbf24',
-  },
-  heroOverviewCtaButtonPressed: {
-    backgroundColor: '#f59e0b',
-  },
-  heroOverviewCtaLabel: {
-    color: '#0f172a',
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 0.3,
   },
   heroDetailsBody: {
     flex: 1,
@@ -2760,178 +1531,39 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#f8fafc',
   },
-  heroFactBoard: {
-    width: '100%',
-    gap: 14,
-    paddingHorizontal: 4,
-    paddingTop: 6,
-    paddingBottom: 10,
-    alignItems: 'center',
-  },
-  heroFactBoardDesktop: {
-    flex: 1,
-    alignItems: 'flex-start',
-    paddingHorizontal: 24,
-    paddingVertical: 18,
-    maxWidth: 480,
-  },
-  heroMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    justifyContent: 'center',
-    gap: 24,
-    marginTop: 28,
-  },
-  heroFactNav: {
+  heroFactsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 18,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.2)',
-    paddingBottom: 8,
+    gap: 12,
   },
-  heroFactNavItem: {
-    alignItems: 'center',
-  },
-  heroFactNavLabel: {
-    color: '#10b981',
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 1,
-    opacity: 0.6,
-  },
-  heroFactNavLabelActive: {
-    opacity: 1,
-  },
-  heroFactNavUnderline: {
-    marginTop: 6,
-    width: '100%',
-    height: 2,
-    backgroundColor: 'transparent',
-  },
-  heroFactNavUnderlineActive: {
-    backgroundColor: '#10b981',
-  },
-  heroFactList: {
-    color: '#e2e8f0',
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: 0.2,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  heroFactListPhone: {
-    textAlign: 'left',
-  },
-  phoneReviewPeek: {
-    alignSelf: 'stretch',
-    borderRadius: 18,
-    padding: 16,
-    marginTop: 12,
-    gap: 8,
+  heroFactCard: {
+    flexGrow: 1,
+    minWidth: 145,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
-    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+    borderColor: 'rgba(148, 163, 184, 0.25)',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
   },
-  phoneReviewPeekHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  heroFactLabel: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
-  phoneReviewPeekTitle: {
+  heroFactValue: {
     color: '#f8fafc',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  phoneReviewPeekButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.4)',
-  },
-  phoneReviewPeekButtonPressed: {
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-  },
-  phoneReviewPeekButtonLabel: {
-    color: '#cbd5f5',
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: '600',
-  },
-  phoneReviewPeekBody: {
-    gap: 4,
-  },
-  phoneReviewPeekAuthor: {
-    color: '#bae6fd',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  phoneReviewPeekSnippet: {
-    color: '#e2e8f0',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  phoneReviewPeekEmpty: {
-    color: '#cbd5f5',
-    fontSize: 13,
-  },
-  phoneReviewShortcut: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(203, 213, 225, 0.35)',
-    backgroundColor: '#1e293b',
-    paddingVertical: 5,
-    paddingHorizontal: 12,
-    gap: 6,
-  },
-  phoneReviewShortcutPressed: {
-    backgroundColor: '#172133',
-  },
-  phoneReviewShortcutIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(15, 23, 42, 0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  phoneReviewShortcutTitle: {
-    flex: 1,
-    color: '#e2e8f0',
-    fontWeight: '600',
-    fontSize: 13,
-    letterSpacing: 0.3,
-  },
-  heroMetricsCard: {
-    borderRadius: 18,
-    borderWidth: 0,
-    backgroundColor: 'transparent',
-    padding: 16,
-  },
-  heroMetricsCardDesktop: {
-    flex: 1,
-    maxWidth: 420,
-    paddingLeft: 0,
-    paddingRight: 0,
-  },
-  heroMetricsCardPhone: {
-    marginTop: 18,
-    alignSelf: 'stretch',
+    marginTop: 2,
   },
   heroActionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
     alignItems: 'center',
-  },
-  heroOverviewActionsRow: {
-    marginTop: 12,
-    alignItems: 'stretch',
-  },
-  heroOverviewFavoriteError: {
-    marginTop: -4,
   },
   heroPrimaryButton: {
     flexDirection: 'row',
@@ -2983,26 +1615,21 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 12,
   },
-  heroMetricsDesktop: {
-    flexDirection: 'column',
-    gap: 18,
-    alignItems: 'stretch',
-  },
   heroMetricCard: {
-    borderRadius: 0,
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-    padding: 0,
+    borderRadius: 20,
+    backgroundColor: 'rgba(8, 13, 28, 0.85)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.25)',
+    padding: 14,
     gap: 4,
     flexGrow: 1,
     minWidth: 110,
   },
   heroMetricLabel: {
-    color: '#bae6fd',
-    fontSize: 12,
-    fontWeight: '700',
+    color: '#94a3b8',
+    fontSize: 11,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0.8,
   },
   heroMetricValueRow: {
     flexDirection: 'row',
@@ -3027,76 +1654,9 @@ const styles = StyleSheet.create({
     gap: 24,
     borderRadius: 28,
     padding: 24,
-    backgroundColor: 'transparent',
-  },
-  detailSurfaceDesktop: {
-    maxWidth: 1100,
-    width: '100%',
-    alignSelf: 'center',
-    paddingHorizontal: 32,
-  },
-  detailSurfaceSpacer: {
-    marginTop: 24,
-  },
-  reviewHighlights: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  reviewHighlightsPhone: {
-    flexDirection: 'column',
-  },
-  reviewHighlightCard: {
-    flex: 1,
-    borderRadius: 18,
+    backgroundColor: 'rgba(4, 7, 18, 0.9)',
     borderWidth: 1,
     borderColor: 'rgba(148, 163, 184, 0.2)',
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
-    padding: 16,
-    gap: 6,
-    minWidth: 0,
-  },
-  reviewHighlightLabel: {
-    color: '#94a3b8',
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    fontWeight: '600',
-  },
-  reviewHighlightValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  reviewHighlightValue: {
-    color: '#f8fafc',
-    fontSize: 28,
-    fontWeight: '800',
-  },
-  reviewHighlightSuffix: {
-    color: '#94a3b8',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  reviewHighlightMeta: {
-    color: '#cbd5f5',
-    fontSize: 13,
-  },
-  reviewHighlightButton: {
-    marginTop: 6,
-    alignSelf: 'flex-start',
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.4)',
-  },
-  reviewHighlightButtonPressed: {
-    backgroundColor: 'rgba(148, 163, 184, 0.15)',
-  },
-  reviewHighlightButtonLabel: {
-    color: '#e2e8f0',
-    fontWeight: '600',
-    fontSize: 12,
   },
   authPrompt: {
     backgroundColor: '#111827',
@@ -3153,7 +1713,6 @@ const styles = StyleSheet.create({
   },
   reviewSectionHeader: {
     gap: 4,
-    alignItems: 'flex-start',
   },
   sectionSubtitleText: {
     fontSize: 14,
@@ -3163,12 +1722,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: '#f8fafc',
-  },
-  communitySectionTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#e2e8f0',
-    letterSpacing: 0.3,
   },
   reviewLoading: {
     paddingVertical: 32,
@@ -3182,7 +1735,7 @@ const styles = StyleSheet.create({
   reviewThreadItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: 16,
   },
   reviewThreadItemSpaced: {
     marginBottom: 20,
@@ -3195,11 +1748,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(99, 102, 241, 0.2)',
+    backgroundColor: '#6366f1',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.35)',
   },
   reviewConnector: {
     flex: 1,
@@ -3214,13 +1765,17 @@ const styles = StyleSheet.create({
   },
   reviewCard: {
     flex: 1,
-    backgroundColor: 'transparent',
-    borderRadius: 12,
-    paddingHorizontal: 4,
-    paddingVertical: 12,
+    backgroundColor: '#111827',
+    borderRadius: 16,
+    padding: 16,
     gap: 8,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.12)',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
   },
   reviewHeader: {
     flexDirection: 'row',
@@ -3231,23 +1786,21 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
     fontWeight: '600',
     fontSize: 15,
-    flex: 1,
-    minWidth: 0,
   },
   reviewRating: {
-    color: '#fbbf24',
+    color: '#a5b4fc',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   reviewDate: {
     color: '#94a3b8',
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: 12,
+    marginTop: -2,
   },
   reviewBody: {
     color: '#e2e8f0',
     lineHeight: 20,
-    marginTop: 2,
+    marginTop: 4,
   },
   replyList: {
     marginTop: 16,
@@ -3291,18 +1844,18 @@ const styles = StyleSheet.create({
   communityLoadMoreButton: {
     alignSelf: 'center',
     marginTop: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 22,
-    borderRadius: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 999,
     backgroundColor: 'rgba(99, 102, 241, 0.18)',
   },
   communityLoadMoreButtonPressed: {
-    backgroundColor: 'rgba(99, 102, 241, 0.28)',
+    backgroundColor: 'rgba(99, 102, 241, 0.32)',
   },
   communityLoadMoreLabel: {
-    color: '#e2e8f0',
+    color: '#c7d2fe',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   replyItem: {
     flexDirection: 'row',
@@ -3348,18 +1901,11 @@ const styles = StyleSheet.create({
   replyComposer: {
     marginTop: 16,
     gap: 8,
-  },
-  replyComposerCollapsed: {
-    padding: 0,
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-  },
-  replyComposerExpanded: {
-    padding: 12,
     backgroundColor: '#0f172a',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(99, 102, 241, 0.2)',
+    padding: 12,
   },
   replyInput: {
     minHeight: 72,
@@ -3484,24 +2030,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  replyCompactButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: 'rgba(148, 163, 184, 0.12)',
-    alignSelf: 'flex-start',
-  },
-  replyCompactButtonPressed: {
-    backgroundColor: 'rgba(148, 163, 184, 0.22)',
-  },
-  replyCompactLabel: {
-    color: '#cbd5f5',
-    fontSize: 12,
-    fontWeight: '600',
-  },
   emptyState: {
     color: '#94a3b8',
     fontSize: 14,
@@ -3513,22 +2041,6 @@ const styles = StyleSheet.create({
     gap: 12,
     borderWidth: 1,
     borderColor: 'rgba(148, 163, 184, 0.12)',
-  },
-  reviewFormToggle: {
-    marginTop: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.4)',
-  },
-  reviewFormTogglePressed: {
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-  },
-  reviewFormToggleLabel: {
-    color: '#cbd5f5',
-    fontSize: 13,
-    fontWeight: '600',
   },
   reviewFormTitle: {
     color: '#f8fafc',
@@ -3617,222 +2129,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  rateModalSafeArea: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  rateModalFrame: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  rateModalFrameDesktop: {
-    justifyContent: 'center',
-    backgroundColor: 'rgba(2, 6, 23, 0.8)',
-  },
-  rateModalSheet: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingBottom: 24,
-    borderRadius: 22,
-    backgroundColor: '#0b1220',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 8,
-  },
-  rateModalSheetDesktop: {
-    maxWidth: 820,
-    width: '92%',
-    alignSelf: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 28,
-  },
-  fullModalSafeArea: {
-    flex: 1,
-    backgroundColor: 'rgba(2, 6, 23, 0.92)',
-  },
-  fullModalSheet: {
-    flex: 1,
-    marginHorizontal: 12,
-    marginVertical: 10,
-    paddingHorizontal: 22,
-    paddingBottom: 24,
-    backgroundColor: '#0c1624',
-    borderRadius: 22,
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 14 },
-    elevation: 10,
-  },
-  fullModalSheetDesktop: {
-    maxWidth: 1100,
-    width: '100%',
-    alignSelf: 'center',
-    borderRadius: 24,
-    marginHorizontal: 0,
-  },
-  fullModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-  },
-  fullModalHeaderButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-  },
-  fullModalHeaderButtonPressed: {
-    opacity: 0.7,
-  },
-  fullModalHeaderButtonLabel: {
-    color: '#cbd5f5',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  fullModalHeaderActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  fullModalIconButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-  },
-  fullModalIconButtonPressed: {
-    opacity: 0.7,
-  },
-  fullModalHeaderButtonPlaceholder: {
-    width: 60,
-  },
-  fullModalTitle: {
-    color: '#f8fafc',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  fullModalScroll: {
-    flex: 1,
-  },
-  fullModalContent: {
-    paddingBottom: 24,
-    gap: 16,
-  },
-  fullModalReviewCard: {
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.14)',
-    gap: 6,
-  },
-  rateModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-  },
-  rateModalHeaderButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-  },
-  rateModalHeaderButtonPressed: {
-    opacity: 0.7,
-  },
-  rateModalHeaderButtonLabel: {
-    color: '#cbd5f5',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  rateModalTitle: {
-    color: '#f8fafc',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  rateModalSaveButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    borderRadius: 999,
-    backgroundColor: '#22c55e',
-  },
-  rateModalSaveButtonDisabled: {
-    backgroundColor: 'rgba(34, 197, 94, 0.4)',
-  },
-  rateModalSaveLabel: {
-    color: '#0f172a',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  rateModalScroll: {
-    flex: 1,
-  },
-  rateModalContent: {
-    paddingBottom: 32,
-    gap: 20,
-  },
-  rateModalGameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 4,
-  },
-  rateModalCover: {
-    width: 64,
-    height: 96,
-    borderRadius: 12,
-  },
-  rateModalCoverFallback: {
-    width: 64,
-    height: 96,
-    borderRadius: 12,
-    backgroundColor: '#1f2937',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rateModalCoverFallbackText: {
-    color: '#94a3b8',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  rateModalGameCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  rateModalGameTitle: {
-    color: '#f8fafc',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  rateModalGameMeta: {
-    color: '#94a3b8',
-    fontSize: 13,
-  },
-  rateModalSection: {
-    gap: 8,
-    borderTopWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
-    paddingTop: 16,
-  },
-  rateModalLabel: {
-    color: '#cbd5f5',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  rateModalTextarea: {
-    minHeight: 250,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#1f2937',
-    backgroundColor: '#0b1220',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    color: '#f8fafc',
-    fontSize: 14,
-    lineHeight: 20,
-  },
   reviewLimitHelper: {
     color: '#94a3b8',
     fontSize: 12,
@@ -3861,33 +2157,10 @@ const styles = StyleSheet.create({
   similarListContent: {
     paddingVertical: 8,
   },
-  similarListContentPhone: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-  },
-  similarListContentDesktop: {
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-  },
   similarSeparator: {
     width: 16,
   },
   similarCard: {
     width: 220,
-  },
-  similarCardPhone: {
-    width: 150,
-  },
-  similarCardDesktop: {
-    width: 200,
-  },
-  similarSectionPhone: {
-    paddingHorizontal: 12,
-  },
-  similarSectionDesktop: {
-    paddingHorizontal: 4,
-    maxWidth: 1100,
-    width: '100%',
-    alignSelf: 'center',
   },
 });

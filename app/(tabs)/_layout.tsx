@@ -11,7 +11,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import { signOut } from 'firebase/auth';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
 import { auth } from '../../lib/firebase';
@@ -22,10 +22,6 @@ import {
 } from '../../lib/hooks/useGameSearch';
 import { GameFavoritesProvider } from '../../lib/hooks/useGameFavorites';
 import { useFollowRequests } from '../../lib/hooks/useFollowRequests';
-import {
-  requestCategoryDrawerOpen,
-  subscribeToCategoryDrawerEvents,
-} from '../../lib/events/categoryDrawer';
 
 const LOGO = require('../../assets/logo.png');
 
@@ -53,7 +49,6 @@ type WebNavBarProps = {
 function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarProps) {
   const router = useRouter();
   const { term, setTerm, submit, resetSearch, setScope } = useGameSearch();
-  const [categoryActive, setCategoryActive] = useState(false);
 
   const scopeByRoute: Record<string, SearchScope> = {
     home: 'games',
@@ -71,14 +66,6 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
   useEffect(() => {
     setScope(nextScope);
   }, [setScope, nextScope]);
-  useEffect(() => {
-    const unsubscribe = subscribeToCategoryDrawerEvents((event) => {
-      if (event.type === 'summary') {
-        setCategoryActive(event.filtersActive);
-      }
-    });
-    return unsubscribe;
-  }, []);
 
   const placeholder = placeholderByScope[nextScope] ?? 'Search';
   const showSearch = activeRoute !== 'profile';
@@ -99,15 +86,6 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
     resetSearch();
     if (activeRoute !== 'home') {
       router.push('/(tabs)/home');
-    }
-  };
-  const handleCategoryOpen = () => {
-    const open = () => requestCategoryDrawerOpen();
-    if (activeRoute !== 'home') {
-      handleHomePress();
-      setTimeout(open, 0);
-    } else {
-      open();
     }
   };
   return (
@@ -150,69 +128,56 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
           })}
         </View>
       </View>
-      <View style={styles.rightSection}>
-        {showSearch ? (
-          <TextInput
-            placeholder={placeholder}
-            placeholderTextColor={palette.muted}
-            value={term}
-            onChangeText={setTerm}
-            returnKeyType="search"
-            onSubmitEditing={() => submit()}
-            autoCorrect={false}
-            autoCapitalize="none"
+      {showSearch ? (
+        <TextInput
+          placeholder={placeholder}
+          placeholderTextColor={palette.muted}
+          value={term}
+          onChangeText={setTerm}
+          returnKeyType="search"
+          onSubmitEditing={() => submit()}
+          autoCorrect={false}
+          autoCapitalize="none"
+          style={[
+            styles.searchInput,
+            {
+              borderColor: palette.border,
+              color: palette.text,
+              backgroundColor: inputBackground,
+            },
+          ]}
+        />
+      ) : (
+        <View style={styles.searchPlaceholder} />
+      )}
+      <View style={styles.authLinks}>
+        {user ? (
+          <Pressable
+            onPress={handleSignOut}
+            style={[styles.signOutButton, { borderColor: palette.border }]}
+          >
+            <Text
             style={[
-              styles.searchInput,
+              styles.signOutLabel,
               {
-                borderColor: palette.border,
-                color: palette.text,
-                backgroundColor: inputBackground,
+                color: signOutTextColor,
               },
             ]}
-          />
+          >
+              Sign out
+            </Text>
+          </Pressable>
         ) : (
-          <View style={styles.searchPlaceholder} />
-        )}
-        <Pressable
-          onPress={handleCategoryOpen}
-          style={[
-            styles.categoryButton,
-            { borderColor: palette.border },
-            categoryActive && styles.categoryButtonActive,
-          ]}
-          hitSlop={8}
-        >
-          <Ionicons name="options-outline" size={18} color="#f8fafc" />
-        </Pressable>
-        <View style={styles.authLinks}>
-          {user ? (
-            <Pressable
-              onPress={handleSignOut}
-              style={[styles.signOutButton, { borderColor: palette.border }]}
+          <>
+            <Link href="/signup" style={[styles.loginLink, { color: palette.text }]}>Sign Up</Link>
+            <Link
+              href="/login"
+              style={[styles.loginLink, styles.authSpacing, { color: palette.text }]}
             >
-              <Text
-                style={[
-                  styles.signOutLabel,
-                  {
-                    color: signOutTextColor,
-                  },
-                ]}
-              >
-                Sign out
-              </Text>
-            </Pressable>
-          ) : (
-            <>
-              <Link href="/signup" style={[styles.loginLink, { color: palette.text }]}>Sign Up</Link>
-              <Link
-                href="/login"
-                style={[styles.loginLink, styles.authSpacing, { color: palette.text }]}
-              >
-                Login
-              </Link>
-            </>
-          )}
-        </View>
+              Login
+            </Link>
+          </>
+        )}
       </View>
     </View>
   );
@@ -368,13 +333,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  rightSection: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 32,
-    gap: 16,
-  },
   leftSection: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -415,25 +373,14 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     height: 36,
+    marginHorizontal: 32,
     paddingHorizontal: 16,
     borderWidth: 1,
     borderRadius: 999,
   },
   searchPlaceholder: {
     flex: 1,
-  },
-  categoryButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    backgroundColor: 'rgba(15,23,42,0.8)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  categoryButtonActive: {
-    borderColor: '#7c3aed',
-    backgroundColor: 'rgba(67,56,202,0.25)',
+    marginHorizontal: 32,
   },
   loginLink: {
     fontSize: 16,

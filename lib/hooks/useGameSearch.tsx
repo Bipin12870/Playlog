@@ -32,9 +32,6 @@ type GameSearchContextValue = {
   cacheReady: boolean;
   getCachedResults: (term: string) => GameSummary[] | null;
   cacheResults: (term: string, games: GameSummary[]) => void;
-  history: string[];
-  addToHistory: (term: string) => void;
-  removeFromHistory: (term: string) => void;
 };
 
 const DEFAULT_SCOPE_STATE: ScopeState = {
@@ -46,8 +43,6 @@ const DEFAULT_SCOPE_STATE: ScopeState = {
 const CACHE_STORAGE_KEY = 'playlog:game-search-cache';
 const CACHE_TTL_MS = 1000 * 60 * 15; // 15 minutes
 const CACHE_LIMIT = 20;
-const HISTORY_STORAGE_KEY = 'playlog:game-search-history';
-const HISTORY_LIMIT = 20;
 
 type SearchCacheEntry = {
   data: GameSummary[];
@@ -69,8 +64,6 @@ export function GameSearchProvider({ children }: { children: ReactNode }) {
   const [scopes, setScopes] = useState<Record<SearchScope, ScopeState>>(INITIAL_STATE);
   const [cache, setCache] = useState<SearchCache>({});
   const [cacheReady, setCacheReady] = useState(false);
-  const [history, setHistory] = useState<string[]>([]);
-  const [historyReady, setHistoryReady] = useState(false);
   const cacheRef = useRef<SearchCache>(cache);
 
   useEffect(() => {
@@ -112,52 +105,6 @@ export function GameSearchProvider({ children }: { children: ReactNode }) {
     });
   }, [cache, cacheReady]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const loadHistory = async () => {
-      try {
-        const stored = await AsyncStorage.getItem(HISTORY_STORAGE_KEY);
-        if (cancelled || !stored) return;
-        const parsed = parseStoredHistory(stored);
-        if (parsed.length) {
-          setHistory(parsed);
-        }
-      } catch (error) {
-        console.warn('Failed to load search history', error);
-      } finally {
-        if (!cancelled) {
-          setHistoryReady(true);
-        }
-      }
-    };
-    loadHistory();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!historyReady) return;
-    AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history)).catch((error) => {
-      console.warn('Failed to persist search history', error);
-    });
-  }, [history, historyReady]);
-
-  const addToHistory = useCallback((value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    const normalized = trimmed.toLowerCase();
-    setHistory((prev) => {
-      const next = [trimmed, ...prev.filter((entry) => entry.toLowerCase() !== normalized)];
-      return next.slice(0, HISTORY_LIMIT);
-    });
-  }, []);
-
-  const removeFromHistory = useCallback((value: string) => {
-    const normalized = value.toLowerCase();
-    setHistory((prev) => prev.filter((entry) => entry.toLowerCase() !== normalized));
-  }, []);
-
   const setTerm = useCallback((value: string) => {
     setScopes((prev) => {
       const current = prev[scope];
@@ -181,23 +128,22 @@ export function GameSearchProvider({ children }: { children: ReactNode }) {
             ...prev,
             [scope]: {
               term: '',
-            submittedTerm: '',
+              submittedTerm: '',
+              submissionId: current.submissionId + 1,
+            },
+          };
+        }
+        return {
+          ...prev,
+          [scope]: {
+            term: nextValue,
+            submittedTerm: nextValue,
             submissionId: current.submissionId + 1,
           },
         };
-      }
-        addToHistory(nextValue);
-      return {
-        ...prev,
-        [scope]: {
-          term: nextValue,
-          submittedTerm: nextValue,
-          submissionId: current.submissionId + 1,
-        },
-      };
-    });
-  },
-    [scope, addToHistory],
+      });
+    },
+    [scope],
   );
 
   const resetSearch = useCallback(() => {
@@ -254,23 +200,8 @@ export function GameSearchProvider({ children }: { children: ReactNode }) {
       cacheReady,
       getCachedResults,
       cacheResults,
-      history,
-      addToHistory,
-      removeFromHistory,
     };
-  }, [
-    scope,
-    scopes,
-    setTerm,
-    submit,
-    resetSearch,
-    cacheReady,
-    getCachedResults,
-    cacheResults,
-    history,
-    addToHistory,
-    removeFromHistory,
-  ]);
+  }, [scope, scopes, setTerm, submit, resetSearch, cacheReady, getCachedResults, cacheResults]);
 
   return <GameSearchContext.Provider value={value}>{children}</GameSearchContext.Provider>;
 }
@@ -332,19 +263,5 @@ function parseStoredCache(payload: string): SearchCache {
   } catch (error) {
     console.warn('Failed to parse search cache', error);
     return {};
-  }
-}
-
-function parseStoredHistory(payload: string): string[] {
-  try {
-    const parsed = JSON.parse(payload);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map((entry) => (typeof entry === 'string' ? entry : null))
-      .filter(Boolean)
-      .slice(0, HISTORY_LIMIT) as string[];
-  } catch (error) {
-    console.warn('Failed to parse search history', error);
-    return [];
   }
 }

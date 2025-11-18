@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { GameDetails } from '../../components/home';
 import type { GameDetailsData, GameReview, GameSummary } from '../../types/game';
@@ -513,6 +514,17 @@ export default function GameDetailsScreen() {
     <View style={styles.page}>
       <Stack.Screen options={{ headerShown: false }} />
 
+      <View style={styles.backButtonContainer}>
+        <Pressable
+          onPress={handleGoBack}
+          style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+          accessibilityRole="button"
+        >
+          <Ionicons name="chevron-back" size={18} color="#f8fafc" />
+          <Text style={styles.backButtonLabel}>Back</Text>
+        </Pressable>
+      </View>
+
       {loading ? (
         <View style={styles.centerContent}>
           <ActivityIndicator size="large" color="#6366f1" />
@@ -559,7 +571,6 @@ export default function GameDetailsScreen() {
           replyDeletingIds={replyDeletingIds}
           similarGames={similarGames}
           onSelectSimilar={handleSelectSimilar}
-          onBack={handleGoBack}
         />
       ) : null}
     </View>
@@ -641,6 +652,31 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
     backgroundColor: '#0f172a',
+  },
+  backButtonContainer: {
+    position: 'absolute',
+    top: 40,
+    left: 24,
+    zIndex: 10,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.25)',
+  },
+  backButtonPressed: {
+    backgroundColor: 'rgba(15, 23, 42, 1)',
+  },
+  backButtonLabel: {
+    color: '#f8fafc',
+    fontWeight: '600',
+    fontSize: 14,
   },
   centerContent: {
     flex: 1,

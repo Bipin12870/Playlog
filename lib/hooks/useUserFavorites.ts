@@ -11,9 +11,9 @@ import {
 import { db } from '../firebase';
 import type { GameSummary } from '../../types/game';
 
-export type UserFavorite = GameSummary & { savedAt?: string | null };
+type UserFavorite = GameSummary & { savedAt?: string | null };
 
-export function mapFavoriteDocument(data: any): UserFavorite | null {
+function mapFavoriteDocument(data: any): GameSummary | null {
   if (typeof data?.id !== 'number' || typeof data?.name !== 'string') {
     return null;
   }
