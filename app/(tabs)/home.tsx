@@ -33,6 +33,10 @@ import { useHomeScreen } from './useHomeScreen';
 import { useGameSearch } from '../../lib/hooks/useGameSearch';
 import { useDiscoveryCache } from '../../lib/hooks/useDiscoveryCache';
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
+import {
+  useFriendFavoriteGames,
+  type FriendFavoriteMeta,
+} from '../../lib/hooks/useFriendFavoriteGames';
 import type { GameSummary } from '../../types/game';
 
 const LOGO = require('../../assets/logo.png');
@@ -44,6 +48,12 @@ export default function HomeScreen() {
   const router = useRouter();
   const { sizes, placeholders } = useHomeScreen();
   const isWeb = Platform.OS === 'web';
+  const { user: currentUser, initializing: authInitializing } = useAuthUser();
+  const friendFavorites = useFriendFavoriteGames(currentUser?.uid ?? null, {
+    friendLimit: 6,
+    gamesPerFriend: 4,
+    maxGames: 12,
+  });
 
   const {
     term,
@@ -230,8 +240,10 @@ export default function HomeScreen() {
     }
   }, [submittedTerm, loadExplore, discoveryCacheReady]);
 
-  const sections = useMemo<DiscoverySection[]>(
-    () => [
+  const friendFavoriteGames = friendFavorites.games;
+
+  const sections = useMemo<DiscoverySection[]>(() => {
+    const rows: DiscoverySection[] = [
       {
         key: 'featured',
         title: 'Featured Games',
@@ -244,15 +256,26 @@ export default function HomeScreen() {
         subtitle: 'Trending with the Playlog community right now.',
         games: likedGames,
       },
-      {
+    ];
+
+    if (friendFavoriteGames.length) {
+      rows.push({
+        key: 'friends',
+        title: "Friends' favourites",
+        subtitle: 'Loved by people you follow.',
+        games: friendFavoriteGames,
+      });
+    }
+
+    rows.push({
         key: 'recommended',
         title: 'AI Recommended Games',
         subtitle: 'Fresh picks from our discovery engine.',
         games: recommendedGames,
-      },
-    ],
-    [featuredGames, likedGames, recommendedGames]
-  );
+      });
+
+    return rows;
+  }, [friendFavoriteGames, featuredGames, likedGames, recommendedGames]);
 
   const hasActiveSearch = Boolean(activeQuery);
 
@@ -321,6 +344,8 @@ export default function HomeScreen() {
       heroIndex={heroIndex}
       heroAnimatedStyle={heroAnimatedStyle}
       onLogoPress={handleLogoPress}
+      currentUser={currentUser}
+      authInitializing={authInitializing}
     />
   );
 }
@@ -358,6 +383,8 @@ type NativeHomeProps = HomeSectionProps & {
   searchInputProps: TextInputProps;
   router: ReturnType<typeof useRouter>;
   onLogoPress: () => void;
+  currentUser: ReturnType<typeof useAuthUser>['user'];
+  authInitializing: boolean;
 };
 
 function NativeHome({
@@ -374,10 +401,11 @@ function NativeHome({
   heroIndex,
   heroAnimatedStyle,
   onLogoPress,
+  currentUser,
+  authInitializing,
 }: NativeHomeProps) {
-  const { user, initializing } = useAuthUser();
   const [hideGate, setHideGate] = useState(false);
-  const showGate = !initializing && !user && !hideGate;
+  const showGate = !authInitializing && !currentUser && !hideGate;
   const heroGame = heroItems[heroIndex] ?? null;
   const heroCover = resolveHeroUri(heroGame);
   const heroIsPoster = shouldUsePosterLayout(heroGame);
@@ -410,7 +438,7 @@ function NativeHome({
             />
           </View>
           <View style={nativeStyles.profileBox}>
-            <Text style={nativeStyles.profileText}>{user ? 'Profile' : 'Guest'}</Text>
+            <Text style={nativeStyles.profileText}>{currentUser ? 'Profile' : 'Guest'}</Text>
           </View>
         </View>
 
@@ -730,27 +758,38 @@ function NativeGameCard({
   onPress?: () => void;
 }) {
   const placeholderTitle = game?.name ?? 'Coming soon';
+  const friendLabel = getFriendLabel(game);
 
   if (game) {
     return (
-      <GameCard
-        game={game}
-        onPress={onPress}
-        containerStyle={[nativeStyles.posterCard, { width }]}
-      />
+      <View style={{ width }}>
+        {friendLabel ? (
+          <View style={nativeStyles.friendLabel}>
+            <Ionicons name="people" size={12} color="#fbbf24" />
+            <Text style={nativeStyles.friendLabelText}>{friendLabel}</Text>
+          </View>
+        ) : null}
+        <GameCard
+          game={game}
+          onPress={onPress}
+          containerStyle={[nativeStyles.posterCard, { width }]}
+        />
+      </View>
     );
   }
 
   const cardBase = [nativeStyles.card, { width }];
 
   return (
-    <View style={cardBase}>
-      <NativeCardContent
-        coverUri={undefined}
-        platformIcons={[]}
-        ratingDisplay={null}
-        game={{ id: -1, name: placeholderTitle }}
-      />
+    <View style={{ width }}>
+      <View style={cardBase}>
+        <NativeCardContent
+          coverUri={undefined}
+          platformIcons={[]}
+          ratingDisplay={null}
+          game={{ id: -1, name: placeholderTitle }}
+        />
+      </View>
     </View>
   );
 }
@@ -813,36 +852,47 @@ function WebGameCard({
   onPress?: () => void;
 }) {
   const placeholderTitle = game?.name ?? 'Coming soon';
+  const friendLabel = getFriendLabel(game);
 
   if (game) {
     return (
-      <GameCard
-        game={game}
-        onPress={onPress}
-        containerStyle={[webStyles.posterCard, { width }]}
-      />
+      <View style={[webStyles.cardWrap, { width }]}>
+        {friendLabel ? (
+          <View style={webStyles.friendLabel}>
+            <Ionicons name="people" size={12} color="#fbbf24" />
+            <Text style={webStyles.friendLabelText}>{friendLabel}</Text>
+          </View>
+        ) : null}
+        <GameCard
+          game={game}
+          onPress={onPress}
+          containerStyle={[webStyles.posterCard, { width }]}
+        />
+      </View>
     );
   }
 
   const baseStyle = [webStyles.card, { width }];
 
   return (
-    <View style={baseStyle}>
-      <View style={webStyles.thumbWrap}>
-        <View style={webStyles.thumbFallback}>
-          <Text style={webStyles.thumbText}>Image</Text>
+    <View style={[webStyles.cardWrap, { width }]}>
+      <View style={baseStyle}>
+        <View style={webStyles.thumbWrap}>
+          <View style={webStyles.thumbFallback}>
+            <Text style={webStyles.thumbText}>Image</Text>
+          </View>
         </View>
-      </View>
-      <Text style={webStyles.gameName} numberOfLines={1}>
-        {placeholderTitle}
-      </Text>
-      <View style={webStyles.metaRow}>
-        <Ionicons name="star" size={12} color="#facc15" />
-        <Text style={webStyles.metaText}>N/A</Text>
-      </View>
-      <View style={webStyles.platformRow}>
-        <Ionicons name="game-controller" size={16} color="#e0e7ff" />
-        <Ionicons name="logo-windows" size={16} color="#e0e7ff" />
+        <Text style={webStyles.gameName} numberOfLines={1}>
+          {placeholderTitle}
+        </Text>
+        <View style={webStyles.metaRow}>
+          <Ionicons name="star" size={12} color="#facc15" />
+          <Text style={webStyles.metaText}>N/A</Text>
+        </View>
+        <View style={webStyles.platformRow}>
+          <Ionicons name="game-controller" size={16} color="#e0e7ff" />
+          <Ionicons name="logo-windows" size={16} color="#e0e7ff" />
+        </View>
       </View>
     </View>
   );
@@ -1028,6 +1078,26 @@ function formatRating(value?: number | null) {
   return (value / 10).toFixed(1);
 }
 
+type GameWithFriendMeta = GameSummary & { friendMeta: FriendFavoriteMeta };
+
+function hasFriendMeta(game?: GameSummary | null): game is GameWithFriendMeta {
+  if (!game) return false;
+  const meta = (game as GameWithFriendMeta).friendMeta;
+  return Boolean(meta && Array.isArray(meta.friendNames) && meta.friendNames.length);
+}
+
+function formatFriendLabel(names: string[]) {
+  if (!names?.length) return null;
+  if (names.length === 1) return `${names[0]} loves this`;
+  if (names.length === 2) return `${names[0]} & ${names[1]} love this`;
+  return `${names[0]} & ${names.length - 1} others love this`;
+}
+
+function getFriendLabel(game?: GameSummary | null) {
+  if (!hasFriendMeta(game)) return null;
+  return formatFriendLabel(game.friendMeta.friendNames);
+}
+
 function resolveGames(section: DiscoverySection, placeholders: unknown[]) {
   if (section.games && section.games.length > 0) {
     return section.games;
@@ -1152,6 +1222,17 @@ const nativeStyles = StyleSheet.create({
   },
   posterCard: { width: '100%' },
   card: { backgroundColor: '#1e1e1e', borderRadius: 10, padding: 12, gap: 8 },
+  friendLabel: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(251,191,36,0.15)',
+    marginBottom: 6,
+  },
+  friendLabelText: { color: '#fde68a', fontSize: 12, fontWeight: '600', marginLeft: 6 },
   thumbnail: {
     width: '100%',
     aspectRatio: 2 / 3,
@@ -1275,6 +1356,19 @@ const webStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
   },
+  cardWrap: { width: '100%' },
+  friendLabel: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: 'rgba(251,191,36,0.15)',
+    marginBottom: 8,
+  },
+  friendLabelText: { color: '#fde68a', fontSize: 12, fontWeight: '700' },
   thumbWrap: {
     width: '100%',
     aspectRatio: 2 / 3,
