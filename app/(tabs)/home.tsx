@@ -15,6 +15,7 @@ import {
   Text,
   TextInput,
   TextInputProps,
+  TouchableOpacity,
   View,
   ViewStyle,
 } from 'react-native';
@@ -131,6 +132,7 @@ const SORT_OPTIONS: FilterOption[] = [
 
 const CATEGORY_DRAWER_WIDTH = 360;
 const SECTION_AD_FREQUENCY = 2;
+const SEARCH_PAGE_SIZE = 24;
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -152,12 +154,17 @@ export default function HomeScreen() {
     resetSearch,
     getCachedResults,
     cacheResults,
+    history,
+    addToHistory,
+    removeFromHistory,
     cacheReady,
   } = useGameSearch();
   const [activeQuery, setActiveQuery] = useState('');
   const [games, setGames] = useState<GameSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nextOffset, setNextOffset] = useState<number | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const [featuredGames, setFeaturedGames] = useState<GameSummary[]>([]);
   const [likedGames, setLikedGames] = useState<GameSummary[]>([]);
@@ -248,27 +255,53 @@ export default function HomeScreen() {
   );
 
   const fetchGames = useCallback(
-    async (query: string) => {
-      setError(null);
-      const cached = getCachedResults(query);
+    async (query: string, options?: { append?: boolean; offset?: number }) => {
+      const offset = options?.offset ?? 0;
+      const append = options?.append ?? false;
+      const isInitialPage = !append && offset === 0;
+
+      if (isInitialPage) {
+        setError(null);
+      }
+
+      const cached = isInitialPage ? getCachedResults(query) : null;
       if (cached) {
         setGames(cached);
         setActiveQuery(query);
-        setLoading(false);
+        setNextOffset(cached.length ? cached.length : null);
+        if (isInitialPage) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
         return;
       }
-      setLoading(true);
+
+      if (isInitialPage) {
+        setLoading(true);
+        setNextOffset(null);
+        setGames([]);
+      } else {
+        setLoadingMore(true);
+      }
+
       try {
-        const data = await searchGames(query);
+        const data = await searchGames(query, { limit: SEARCH_PAGE_SIZE, offset });
         const nextGames = Array.isArray(data) ? data : [];
-        setGames(nextGames);
+        setGames((prev) => (append ? [...prev, ...nextGames] : nextGames));
         setActiveQuery(query);
-        cacheResults(query, nextGames);
+        setNextOffset(nextGames.length >= SEARCH_PAGE_SIZE ? offset + SEARCH_PAGE_SIZE : null);
+        if (isInitialPage) {
+          cacheResults(query, nextGames);
+        }
       } catch (err) {
         console.error(err);
         setError('Unable to load games right now. Try again in a bit.');
       } finally {
-        setLoading(false);
+        if (isInitialPage) {
+          setLoading(false);
+        } else {
+          setLoadingMore(false);
+        }
       }
     },
     [cacheResults, getCachedResults],
@@ -327,6 +360,8 @@ export default function HomeScreen() {
     if (!trimmed) {
       if (!categoryActive) {
         setLoading(false);
+        setNextOffset(null);
+        setLoadingMore(false);
         setActiveQuery('');
         setGames([]);
         setError(null);
@@ -414,6 +449,7 @@ export default function HomeScreen() {
         setActiveQuery('');
         setGames([]);
         setError(null);
+        setNextOffset(null);
         resetSearch();
         setCategoryActive(false);
         return;
@@ -442,6 +478,7 @@ export default function HomeScreen() {
         setGames(nextGames);
         setActiveQuery(selection.label);
         setFilters(nextFilters);
+        setNextOffset(null);
         resetSearch();
         setCategoryActive(true);
       } catch (err) {
@@ -470,12 +507,18 @@ export default function HomeScreen() {
   const searchResultsProps = {
     games: sortedGames,
     loading,
+    loadingMore,
     error,
     columnCount,
     onSelect: handleViewDetails,
     theme: 'dark' as const,
     cardVariant,
     query: activeQuery,
+    hasMore: !categoryActive && nextOffset !== null && Boolean(activeQuery),
+    onLoadMore:
+      !categoryActive && nextOffset !== null
+        ? () => fetchGames(activeQuery, { append: true, offset: nextOffset })
+        : undefined,
     emptyState: filtersActive
       ? {
           title: 'No games match these filters',
@@ -483,6 +526,17 @@ export default function HomeScreen() {
         }
       : undefined,
   };
+
+  const historyListProps: SearchHistoryProps = {
+    items: history,
+    onSelect: (value: string) => {
+      setTerm(value);
+      submit(value);
+      addToHistory(value);
+    },
+    onRemove: removeFromHistory,
+  };
+  const showHistoryList = !hasActiveSearch && !term.trim() && history.length > 0;
 
   const discoveryState = {
     exploreLoading,
@@ -555,16 +609,18 @@ export default function HomeScreen() {
           sizes={sizes}
           placeholders={placeholders}
           sections={sections}
-          discoveryBlocks={discoveryBlocks}
-          hasActiveSearch={hasActiveSearch}
-          searchResultsProps={searchResultsProps}
-          discoveryState={discoveryState}
-          onSelectGame={handleViewDetails}
-          heroItems={heroItems}
+        discoveryBlocks={discoveryBlocks}
+        hasActiveSearch={hasActiveSearch}
+        searchResultsProps={searchResultsProps}
+        discoveryState={discoveryState}
+        onSelectGame={handleViewDetails}
+        heroItems={heroItems}
           heroIndex={heroIndex}
           heroAnimatedStyle={heroAnimatedStyle}
           filterControls={filterControls}
           sortControls={sortControls}
+          historyProps={historyListProps}
+          showHistory={showHistoryList}
         />
         {categoryDrawer}
       </>
@@ -595,6 +651,8 @@ export default function HomeScreen() {
         filterControls={filterControls}
         sortControls={sortControls}
         onOpenCategoryDrawer={handleOpenCategoryDrawer}
+        historyProps={historyListProps}
+        showHistory={showHistoryList}
       />
     );
   }
@@ -627,13 +685,22 @@ export default function HomeScreen() {
 type SearchResultsProps = {
   games: GameSummary[];
   loading: boolean;
+  loadingMore?: boolean;
   error: string | null;
   columnCount: number;
   onSelect: (game: GameSummary) => void;
   theme?: 'light' | 'dark';
   cardVariant?: 'default' | 'compact';
   query?: string;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
   emptyState?: { title: string; copy: string };
+};
+
+type SearchHistoryProps = {
+  items: string[];
+  onSelect: (term: string) => void;
+  onRemove: (term: string) => void;
 };
 
 type DiscoveryState = {
@@ -655,6 +722,8 @@ type HomeSectionProps = {
   heroAnimatedStyle: HeroAnimatedStyle;
   filterControls: FilterControls;
   sortControls: SortControls;
+  historyProps: SearchHistoryProps;
+  showHistory: boolean;
 };
 
 type NativeHomeProps = HomeSectionProps & {
@@ -680,8 +749,11 @@ function NativeHome({
   heroIndex,
   heroAnimatedStyle,
   onLogoPress,
-  currentUser,
-  authInitializing,
+  filterControls,
+  sortControls,
+  onOpenCategoryDrawer,
+  historyProps,
+  showHistory,
 }: NativeHomeProps) {
   const [hideGate, setHideGate] = useState(false);
   const showGate = !authInitializing && !currentUser && !hideGate;
@@ -732,6 +804,10 @@ function NativeHome({
             <Text style={nativeStyles.profileText}>{currentUser ? 'Profile' : 'Guest'}</Text>
           </View>
         </View>
+
+        {showHistory ? (
+          <SearchHistoryList tone="dark" historyProps={historyProps} />
+        ) : null}
 
         {!hasActiveSearch && (
           <View style={nativeStyles.hero}>
@@ -875,6 +951,8 @@ function WebHome({
   heroIndex,
   heroAnimatedStyle,
   sortControls,
+  historyProps,
+  showHistory,
 }: WebHomeProps) {
   const heroGame = heroItems[heroIndex] ?? null;
   const heroCover = resolveHeroUri(heroGame);
@@ -1004,8 +1082,55 @@ function WebHome({
             </>
           )}
         </View>
+        {showHistory && historyProps.items.length ? (
+          <SearchHistoryList tone="dark" historyProps={historyProps} />
+        ) : null}
         <Footer sizes={sizes} />
       </ScrollView>
+    </View>
+  );
+}
+
+function SearchHistoryList({
+  historyProps,
+  tone = 'dark',
+}: {
+  historyProps: SearchHistoryProps;
+  tone?: 'light' | 'dark';
+}) {
+  const isDark = tone === 'dark';
+  const bg = isDark ? 'rgba(15,23,42,0.92)' : '#ffffff';
+  const border = isDark ? 'rgba(148,163,184,0.2)' : '#e2e8f0';
+  const text = isDark ? '#e2e8f0' : '#0f172a';
+  const subtext = isDark ? '#cbd5f5' : '#475569';
+
+  if (!historyProps.items.length) return null;
+
+  return (
+    <View style={[historyStyles.container, { backgroundColor: bg, borderColor: border }]}>
+      <Text style={[historyStyles.heading, { color: subtext }]}>Recent searches</Text>
+      <View style={historyStyles.list}>
+        {historyProps.items.map((item) => (
+          <View key={item} style={historyStyles.row}>
+            <TouchableOpacity
+              style={historyStyles.rowPressable}
+              onPress={() => historyProps.onSelect(item)}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="time-outline" size={16} color={subtext} style={{ marginTop: 2 }} />
+              <Text style={[historyStyles.rowText, { color: text }]} numberOfLines={1}>
+                {item}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => historyProps.onRemove(item)}
+              hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+            >
+              <Ionicons name="close" size={16} color={subtext} />
+            </TouchableOpacity>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -1955,6 +2080,31 @@ function getPlatformIcons(game?: GameSummary | null) {
   });
   return Array.from(icons);
 }
+
+const historyStyles = StyleSheet.create({
+  container: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  heading: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6 },
+  list: { gap: 4 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 12,
+  },
+  rowPressable: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  rowText: { fontSize: 15, fontWeight: '600', flexShrink: 1 },
+});
 
 const nativeStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f172a' },

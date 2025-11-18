@@ -5,6 +5,7 @@ import {
   FlatList,
   ListRenderItem,
   Platform,
+  Pressable,
   StyleProp,
   StyleSheet,
   Text,
@@ -34,6 +35,9 @@ type SearchResultsProps = {
   footerComponent?: ReactElement | null;
   cardVariant?: 'default' | 'compact';
   query?: string;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
+  loadingMore?: boolean;
 };
 
 export function SearchResults({
@@ -52,6 +56,9 @@ export function SearchResults({
   headerComponent = null,
   footerComponent = null,
   cardVariant = Platform.OS === 'web' ? 'default' : 'compact',
+  hasMore = false,
+  onLoadMore,
+  loadingMore = false,
 }: SearchResultsProps) {
   const isCompact = cardVariant === 'compact';
   const isWeb = Platform.OS === 'web';
@@ -93,6 +100,31 @@ export function SearchResults({
     );
   }
 
+  const loadMoreFooter =
+    hasMore && !loading ? (
+      <View style={styles.loadMoreRow}>
+        {loadingMore ? (
+          <ActivityIndicator size="small" color="#4f46e5" />
+        ) : (
+          <Pressable
+            style={styles.loadMoreButton}
+            onPress={onLoadMore}
+            disabled={!onLoadMore || loadingMore}
+          >
+            <Text style={styles.loadMoreText}>Load more results</Text>
+          </Pressable>
+        )}
+      </View>
+    ) : null;
+
+  const resolvedFooterComponent =
+    footerComponent || loadMoreFooter ? (
+      <>
+        {footerComponent}
+        {loadMoreFooter}
+      </>
+    ) : null;
+
   return (
     <View style={styles.wrapper}>
       <FlatList
@@ -113,7 +145,7 @@ export function SearchResults({
         keyboardShouldPersistTaps="handled"
         renderItem={renderItem}
         ListHeaderComponent={headerComponent}
-        ListFooterComponent={footerComponent}
+        ListFooterComponent={resolvedFooterComponent}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>{emptyState.title}</Text>
@@ -141,4 +173,14 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },
   emptyCopy: { fontSize: 14, color: '#6b7280', textAlign: 'center', paddingHorizontal: 40 },
   errorText: { marginTop: 12, color: '#ef4444', textAlign: 'center' },
+  loadMoreRow: { paddingVertical: 24, alignItems: 'center' },
+  loadMoreButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: '#4f46e5',
+  },
+  loadMoreText: { color: '#e0e7ff', fontWeight: '700' },
 });
