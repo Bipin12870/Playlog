@@ -8,7 +8,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleProp,
@@ -21,6 +20,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GameCard } from '../../components/GameCard';
 import { SearchResults } from '../../components/home';
@@ -126,6 +126,7 @@ const SORT_OPTIONS: FilterOption[] = [
 ];
 
 const CATEGORY_DRAWER_WIDTH = 360;
+const SECTION_AD_FREQUENCY = 2;
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -196,6 +197,18 @@ export default function HomeScreen() {
       useNativeDriver: true,
     }).start();
   }, [heroIndex, heroItems, heroAnim]);
+
+  useEffect(() => {
+    const trimmedTerm = term.trim();
+    const trimmedSubmitted = submittedTerm.trim();
+    if (trimmedTerm === trimmedSubmitted) {
+      return;
+    }
+    const handle = setTimeout(() => {
+      submit(trimmedTerm);
+    }, 350);
+    return () => clearTimeout(handle);
+  }, [term, submittedTerm, submit]);
 
   const heroScale = useMemo(
     () =>
@@ -347,6 +360,23 @@ export default function HomeScreen() {
       },
     ],
     [featuredGames, likedGames, recommendedGames]
+  );
+  const discoveryBlocks = useMemo(
+    () =>
+      sections.reduce<
+        Array<{ type: 'section'; section: DiscoverySection } | { type: 'ad'; key: string }>
+      >((acc, section, index) => {
+        acc.push({ type: 'section', section });
+        const shouldInsertAd =
+          SECTION_AD_FREQUENCY > 0 &&
+          (index + 1) % SECTION_AD_FREQUENCY === 0 &&
+          index + 1 < sections.length;
+        if (shouldInsertAd) {
+          acc.push({ type: 'ad', key: `inline-ad-${index}` });
+        }
+        return acc;
+      }, []),
+    [sections]
   );
 
   const hasActiveSearch = Boolean(activeQuery);
@@ -519,6 +549,7 @@ export default function HomeScreen() {
           sizes={sizes}
           placeholders={placeholders}
           sections={sections}
+          discoveryBlocks={discoveryBlocks}
           hasActiveSearch={hasActiveSearch}
           searchResultsProps={searchResultsProps}
           discoveryState={discoveryState}
@@ -544,6 +575,7 @@ export default function HomeScreen() {
         sizes={sizes}
         placeholders={placeholders}
         sections={sections}
+        discoveryBlocks={discoveryBlocks}
         hasActiveSearch={hasActiveSearch}
         searchResultsProps={searchResultsProps}
         discoveryState={discoveryState}
@@ -584,6 +616,7 @@ type HomeSectionProps = {
   sizes: ReturnType<typeof useHomeScreen>['sizes'];
   placeholders: unknown[];
   sections: DiscoverySection[];
+  discoveryBlocks: Array<{ type: 'section'; section: DiscoverySection } | { type: 'ad'; key: string }>;
   hasActiveSearch: boolean;
   searchResultsProps: SearchResultsProps;
   discoveryState: DiscoveryState;
@@ -606,6 +639,7 @@ function NativeHome({
   sizes,
   placeholders,
   sections,
+  discoveryBlocks,
   hasActiveSearch,
   searchResultsProps,
   discoveryState,
@@ -742,16 +776,20 @@ function NativeHome({
           </View>
         ) : (
           <View style={nativeStyles.sectionsContainer}>
-            {sections.map((section) => (
-              <NativeSection
-                key={section.key}
-                section={section}
-                placeholders={placeholders}
-                itemWidth={sizes.ITEM_WIDTH}
-                itemGap={sizes.ITEM_GAP}
-                onSelectGame={onSelectGame}
-              />
-            ))}
+            {discoveryBlocks.map((block) =>
+              block.type === 'section' ? (
+                <NativeSection
+                  key={block.section.key}
+                  section={block.section}
+                  placeholders={placeholders}
+                  itemWidth={sizes.ITEM_WIDTH}
+                  itemGap={sizes.ITEM_GAP}
+                  onSelectGame={onSelectGame}
+                />
+              ) : (
+                <NativeInlineAd key={block.key} />
+              )
+            )}
             <DiscoveryStatus state={discoveryState} />
           </View>
         )}
@@ -800,6 +838,7 @@ function WebHome({
   sizes,
   placeholders,
   sections,
+  discoveryBlocks,
   hasActiveSearch,
   searchResultsProps,
   discoveryState,
@@ -910,21 +949,29 @@ function WebHome({
             </View>
           ) : (
             <>
-              {sections.map((section) => (
-                <View key={section.key}>
-                  <SectionTitle title={section.title} tight={sizes.isSM} />
-                  <Carousel itemWidth={sizes.ITEM_WIDTH} itemGap={sizes.ITEM_GAP}>
-                    {resolveGames(section, placeholders).map((game, index) => (
-                      <WebGameCard
-                        key={game ? `${section.key}-${game.id}` : `${section.key}-placeholder-${index}`}
-                        width={sizes.ITEM_WIDTH}
-                        game={game}
-                        onPress={game ? () => onSelectGame(game) : undefined}
-                      />
-                    ))}
-                  </Carousel>
-                </View>
-              ))}
+              {discoveryBlocks.map((block) =>
+                block.type === 'section' ? (
+                  <View key={block.section.key}>
+                    <SectionTitle title={block.section.title} tight={sizes.isSM} />
+                    <Carousel itemWidth={sizes.ITEM_WIDTH} itemGap={sizes.ITEM_GAP}>
+                      {resolveGames(block.section, placeholders).map((game, index) => (
+                        <WebGameCard
+                          key={
+                            game
+                              ? `${block.section.key}-${game.id}`
+                              : `${block.section.key}-placeholder-${index}`
+                          }
+                          width={sizes.ITEM_WIDTH}
+                          game={game}
+                          onPress={game ? () => onSelectGame(game) : undefined}
+                        />
+                      ))}
+                    </Carousel>
+                  </View>
+                ) : (
+                  <WebInlineAd key={block.key} />
+                )
+              )}
               <DiscoveryStatus state={discoveryState} />
             </>
           )}
@@ -976,6 +1023,23 @@ function NativeSection({
           ))}
         </View>
       </ScrollView>
+    </View>
+  );
+}
+
+function NativeInlineAd() {
+  return (
+    <View style={nativeStyles.inlineAd}>
+      <View style={nativeStyles.inlineAdBadge}>
+        <Text style={nativeStyles.inlineAdBadgeLabel}>SPONSORED</Text>
+      </View>
+      <Text style={nativeStyles.inlineAdTitle}>Partner highlight</Text>
+      <Text style={nativeStyles.inlineAdCopy}>
+        Reserve this space for affiliate drops or campaigns you want to surface between rows.
+      </Text>
+      <Pressable style={nativeStyles.inlineAdButton}>
+        <Text style={nativeStyles.inlineAdButtonLabel}>Learn more</Text>
+      </Pressable>
     </View>
   );
 }
@@ -1103,6 +1167,23 @@ function WebGameCard({
       <View style={webStyles.platformRow}>
         <Ionicons name="game-controller" size={16} color="#e0e7ff" />
         <Ionicons name="logo-windows" size={16} color="#e0e7ff" />
+      </View>
+    </View>
+  );
+}
+
+function WebInlineAd() {
+  return (
+    <View style={webStyles.inlineAd}>
+      <View style={webStyles.inlineAdBadge}>
+        <Text style={webStyles.inlineAdBadgeLabel}>Sponsored</Text>
+      </View>
+      <Text style={webStyles.inlineAdTitle}>Curated partner pick</Text>
+      <Text style={webStyles.inlineAdCopy}>
+        Drop an affiliate CTA here without breaking the rhythm of the discovery grid.
+      </Text>
+      <View style={webStyles.inlineAdButton}>
+        <Text style={webStyles.inlineAdButtonLabel}>Shop now</Text>
       </View>
     </View>
   );
@@ -1873,6 +1954,34 @@ const nativeStyles = StyleSheet.create({
   heroDotActive: { backgroundColor: '#fff' },
   sectionsContainer: { gap: 16, paddingTop: 8 },
   section: { marginBottom: 8 },
+  inlineAd: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 18,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.25)',
+    backgroundColor: '#101828',
+    gap: 10,
+  },
+  inlineAdBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(148,163,184,0.2)',
+  },
+  inlineAdBadgeLabel: { color: '#cbd5f5', fontWeight: '700', fontSize: 11, letterSpacing: 0.6 },
+  inlineAdTitle: { color: '#f8fafc', fontSize: 16, fontWeight: '700' },
+  inlineAdCopy: { color: '#cbd5f5', fontSize: 13, lineHeight: 18 },
+  inlineAdButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#2563eb',
+  },
+  inlineAdButtonLabel: { color: '#f8fafc', fontWeight: '700' },
   sectionTitle: {
     color: '#fff',
     fontSize: 16,
@@ -2001,6 +2110,34 @@ const webStyles = StyleSheet.create({
   },
   sectionTitle: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 0.2, marginBottom: 8 },
   posterCard: { width: '100%' },
+  inlineAd: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.25)',
+    backgroundColor: '#111827',
+    padding: 20,
+    marginHorizontal: 16,
+    marginBottom: 24,
+    gap: 12,
+  },
+  inlineAdBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(79,70,229,0.25)',
+  },
+  inlineAdBadgeLabel: { color: '#cbd5f5', fontSize: 11, fontWeight: '700', letterSpacing: 0.8 },
+  inlineAdTitle: { color: '#f8fafc', fontSize: 18, fontWeight: '800' },
+  inlineAdCopy: { color: '#cbd5f5', fontSize: 14, lineHeight: 20 },
+  inlineAdButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: '#2563eb',
+  },
+  inlineAdButtonLabel: { color: '#f8fafc', fontWeight: '700' },
   card: {
     backgroundColor: '#3f3f46',
     borderRadius: 12,
