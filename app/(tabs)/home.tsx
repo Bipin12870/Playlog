@@ -1234,6 +1234,13 @@ function Carousel({
 }
 
 function Footer({ sizes }: { sizes: ReturnType<typeof useHomeScreen>['sizes'] }) {
+  const router = useRouter();
+  const quickLinks = [
+    { label: 'Home', route: '/(tabs)/home' },
+    { label: 'Favourites', route: '/(tabs)/fav' },
+    { label: 'Profile', route: '/(tabs)/profile' },
+  ];
+
   return (
     <View style={webStyles.footerOuter}>
       <View style={[webStyles.footer, { maxWidth: sizes.MAX_WIDTH, paddingHorizontal: sizes.SHELL_PADDING }]}>
@@ -1249,9 +1256,9 @@ function Footer({ sizes }: { sizes: ReturnType<typeof useHomeScreen>['sizes'] })
           </View>
           <View style={webStyles.footerCol}>
             <Text style={webStyles.footerHeading}>Quick Links</Text>
-            <FooterLink label="Home" />
-            <FooterLink label="Favourites" />
-            <FooterLink label="Profile" />
+            {quickLinks.map(({ label, route }) => (
+              <FooterLink key={label} label={label} onPress={() => router.push(route)} />
+            ))}
           </View>
           <View style={webStyles.footerCol}>
             <Text style={webStyles.footerHeading}>Company</Text>
@@ -1279,8 +1286,16 @@ function Footer({ sizes }: { sizes: ReturnType<typeof useHomeScreen>['sizes'] })
   );
 }
 
-function FooterLink({ label }: { label: string }) {
-  return <Text style={webStyles.footerLink}>{label}</Text>;
+function FooterLink({ label, onPress }: { label: string; onPress?: () => void }) {
+  if (!onPress) {
+    return <Text style={webStyles.footerLink}>{label}</Text>;
+  }
+
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [pressed && { opacity: 0.6 }]}>
+      <Text style={webStyles.footerLink}>{label}</Text>
+    </Pressable>
+  );
 }
 
 function IconPill({ name }: { name: keyof typeof Ionicons.glyphMap }) {
