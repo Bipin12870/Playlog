@@ -77,7 +77,7 @@ export function useFriendFavoriteGames(
     setLoading(true);
     setError(null);
 
-    const ready = new Set<string>();
+    const readyFriends = new Set<string>();
     const unsubscribers: Array<() => void> = [];
 
     activeFriends.forEach((friend) => {
@@ -100,16 +100,16 @@ export function useFriendFavoriteGames(
             [friend.uid]: items,
           }));
 
-          ready.add(friend.uid);
-          if (ready.size === activeFriends.length) {
+          readyFriends.add(friend.uid);
+          if (readyFriends.size === activeFriends.length) {
             setLoading(false);
           }
         },
         (snapshotError) => {
           console.warn('Failed to load friend favourites', snapshotError);
           setError(snapshotError);
-          ready.add(friend.uid);
-          if (ready.size === activeFriends.length) {
+          readyFriends.add(friend.uid);
+          if (readyFriends.size === activeFriends.length) {
             setLoading(false);
           }
         },
@@ -168,8 +168,8 @@ export function useFriendFavoriteGames(
 
     return Array.from(aggregate.values())
       .sort((a, b) => {
-        const byRecency = toTimestamp(b.savedAt) - toTimestamp(a.savedAt);
-        if (byRecency !== 0) return byRecency;
+        const byTime = toTimestamp(b.savedAt) - toTimestamp(a.savedAt);
+        if (byTime !== 0) return byTime;
         return b.friendMeta.friendIds.length - a.friendMeta.friendIds.length;
       })
       .slice(0, maxGames);
