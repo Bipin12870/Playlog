@@ -12,12 +12,20 @@ export async function igdbQuery(endpoint: string, query: string) {
   return res.json();
 }
 
-export async function searchGames(term: string) {
+type SearchGamesOptions = {
+  limit?: number;
+  offset?: number;
+};
+
+export async function searchGames(term: string, options?: SearchGamesOptions) {
+  const limit = options?.limit ?? 24;
+  const offset = options?.offset && options.offset > 0 ? `offset ${options.offset};` : '';
   const query = `
     fields name, cover.url, summary, rating, first_release_date, platforms.slug, platforms.abbreviation, screenshots.url, artworks.url, genres.id, genres.name;
     search "${term}";
     where version_parent = null;
-    limit 10;
+    limit ${limit};
+    ${offset}
   `;
   return mapGameSummaries(await igdbQuery("games", query));
 }
