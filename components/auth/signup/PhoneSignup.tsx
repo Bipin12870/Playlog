@@ -10,8 +10,8 @@ import {
   type ConfirmationResult,
 } from 'firebase/auth';
 
-import { ensureUserProfile } from '../../lib/auth';
-import { auth } from '../../lib/firebase';
+import { ensureUserProfile } from '../../../lib/auth';
+import { auth } from '../../../lib/firebase';
 import { signupStyles as styles } from './styles';
 
 interface PhoneSignupProps {
