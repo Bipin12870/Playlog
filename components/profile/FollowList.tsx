@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View }
 
 import type { FollowEdge } from '../../types/follow';
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
+import { resolveAvatarSource } from '../../lib/avatar';
 import FollowButton from './FollowButton';
 import BlockButton from './BlockButton';
 
@@ -72,13 +73,10 @@ export function FollowList({
             disabled={!onSelectUser}
           >
             <View style={styles.avatarWrapper}>
-              {item.photoURL ? (
-                <Image source={{ uri: item.photoURL }} style={styles.avatarImage} />
-              ) : (
-                <View style={[styles.avatarFallback, isDark && styles.avatarFallbackDark]}>
-                  <Ionicons name="person" size={20} color={isDark ? '#f9fafb' : '#1f2937'} />
-                </View>
-              )}
+              <Image
+                source={resolveAvatarSource(item.photoURL, item.avatarKey)}
+                style={styles.avatarImage}
+              />
             </View>
             <View style={styles.meta}>
               <Text style={[styles.displayName, isDark && styles.displayNameDark]}>
@@ -174,21 +172,10 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     overflow: 'hidden',
     backgroundColor: '#e5e7eb',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   avatarImage: {
     width: '100%',
     height: '100%',
-  },
-  avatarFallback: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarFallbackDark: {
-    backgroundColor: '#1f2937',
   },
   meta: {
     flex: 1,

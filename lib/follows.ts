@@ -122,7 +122,10 @@ export type FollowListOptions = {
 
 export function buildFollowListQuery(uid: string, mode: 'followers' | 'following', opts?: FollowListOptions) {
   const baseCollection = mode === 'followers' ? followersCollection(uid) : followingCollection(uid);
-  const constraints: QueryConstraint[] = [orderBy('followedAt', 'desc'), limit(opts?.pageSize ?? 25)];
+  const constraints: QueryConstraint[] = [orderBy('followedAt', 'desc')];
+  if (typeof opts?.pageSize === 'number') {
+    constraints.push(limit(opts.pageSize));
+  }
   if (opts?.cursor) {
     constraints.push(startAfter(opts.cursor));
   }
@@ -160,7 +163,10 @@ export function subscribeToFollowList(
 
 export function buildBlockedListQuery(uid: string, opts?: FollowListOptions) {
   const baseCollection = blockedCollection(uid);
-  const constraints: QueryConstraint[] = [orderBy('blockedAt', 'desc'), limit(opts?.pageSize ?? 25)];
+  const constraints: QueryConstraint[] = [orderBy('blockedAt', 'desc')];
+  if (typeof opts?.pageSize === 'number') {
+    constraints.push(limit(opts.pageSize));
+  }
   if (opts?.cursor) {
     constraints.push(startAfter(opts.cursor));
   }

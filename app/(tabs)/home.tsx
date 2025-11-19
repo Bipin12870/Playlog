@@ -5,6 +5,7 @@ import {
   Dimensions,
   Easing,
   Image,
+  ImageSourcePropType,
   Modal,
   Platform,
   Pressable,
@@ -36,6 +37,7 @@ import { useHomeScreen } from './useHomeScreen';
 import { useGameSearch } from '../../lib/hooks/useGameSearch';
 import { useDiscoveryCache } from '../../lib/hooks/useDiscoveryCache';
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
+import { useUserProfile } from '../../lib/userProfile';
 import {
   useFriendFavoriteGames,
   type FriendFavoriteMeta,
@@ -45,6 +47,7 @@ import {
   broadcastCategorySummary,
   subscribeToCategoryDrawerEvents,
 } from '../../lib/events/categoryDrawer';
+import { resolveAvatarSource } from '../../lib/avatar';
 
 const LOGO = require('../../assets/logo.png');
 const PAGE_SIZE = 12;
@@ -163,6 +166,15 @@ export default function HomeScreen() {
   const { sizes, placeholders } = useHomeScreen();
   const isWeb = Platform.OS === 'web';
   const { user: currentUser, initializing: authInitializing } = useAuthUser();
+  const { profile: userProfile } = useUserProfile(currentUser?.uid ?? null);
+  const headerAvatar = useMemo(
+    () =>
+      resolveAvatarSource(
+        userProfile?.photoURL ?? currentUser?.photoURL ?? null,
+        userProfile?.avatarKey ?? null
+      ),
+    [userProfile?.photoURL, userProfile?.avatarKey, currentUser?.photoURL]
+  );
   const friendFavorites = useFriendFavoriteGames(currentUser?.uid ?? null, {
     friendLimit: 6,
     gamesPerFriend: 4,
@@ -706,6 +718,7 @@ export default function HomeScreen() {
         onOpenCategoryDrawer={handleOpenCategoryDrawer}
         currentUser={currentUser}
         authInitializing={authInitializing}
+        profileAvatar={headerAvatar}
       />
       {categoryDrawer}
     </>
@@ -754,6 +767,7 @@ type NativeHomeProps = HomeSectionProps & {
   onOpenCategoryDrawer: () => void;
   currentUser: ReturnType<typeof useAuthUser>['user'];
   authInitializing: boolean;
+  profileAvatar: ImageSourcePropType;
 };
 
 function NativeHome({
@@ -775,6 +789,7 @@ function NativeHome({
   onOpenCategoryDrawer,
   currentUser,
   authInitializing,
+  profileAvatar,
 }: NativeHomeProps) {
   const [hideGate, setHideGate] = useState(false);
   const showGate = !authInitializing && !currentUser && !hideGate;
@@ -815,9 +830,17 @@ function NativeHome({
       >
         <Ionicons name="options-outline" size={18} color="#f8fafc" />
       </Pressable>
-      <View style={nativeStyles.profileBox}>
-        <Text style={nativeStyles.profileText}>{currentUser ? 'Profile' : 'Guest'}</Text>
-      </View>
+      <Pressable
+        onPress={() => router.push('/(tabs)/profile')}
+        style={({ pressed }) => [
+          nativeStyles.profileAvatarButton,
+          pressed && nativeStyles.profileAvatarButtonPressed,
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="Open profile"
+      >
+        <Image source={profileAvatar} style={nativeStyles.profileAvatarImage} />
+      </Pressable>
     </View>
   );
 
@@ -2124,8 +2147,21 @@ const nativeStyles = StyleSheet.create({
     borderColor: '#60a5fa',
     backgroundColor: 'rgba(37,99,235,0.25)',
   },
-  profileBox: { backgroundColor: '#2e2e2e', paddingHorizontal: 8, paddingVertical: 8, borderRadius: 6 },
-  profileText: { color: '#fff', fontSize: 10 },
+  profileAvatarButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    overflow: 'hidden',
+    backgroundColor: '#2e2e2e',
+    marginLeft: 4,
+  },
+  profileAvatarButtonPressed: {
+    opacity: 0.85,
+  },
+  profileAvatarImage: {
+    width: '100%',
+    height: '100%',
+  },
   hero: { alignItems: 'center', marginVertical: 16, gap: 10 },
   heroAnimatedWrap: { width: '90%' },
   heroBanner: {
