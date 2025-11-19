@@ -302,7 +302,7 @@ export default function TabsLayout() {
   const followRequests = useFollowRequests(user?.uid ?? null);
   const pendingRequests = followRequests.requests.length;
   const profileBadge =
-    pendingRequests > 0 ? (pendingRequests > 99 ? '99+' : pendingRequests) : undefined;
+    pendingRequests > 0 ? (pendingRequests > 99 ? '99+' : String(pendingRequests)) : undefined;
   const pageBackground = '#0f172a';
   const navBackground = pageBackground;
   const navBorder = '#1e293b';
