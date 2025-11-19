@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { signOut } from 'firebase/auth';
 import { useMemo } from 'react';
 import {
   ActivityIndicator,
@@ -15,6 +16,7 @@ import {
   View,
 } from 'react-native';
 
+import { auth } from '../../../lib/firebase';
 import { useAuthUser } from '../../../lib/hooks/useAuthUser';
 import { useUserProfile } from '../../../lib/userProfile';
 import { useFollowRequests } from '../../../lib/hooks/useFollowRequests';
@@ -85,6 +87,13 @@ export default function ProfileHomeScreen() {
   }, [profile]);
 
   const stats = profile?.stats ?? {};
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.warn('Failed to sign out', error);
+    }
+  };
 
   const handleNavigate = (action: ProfileAction) => {
     router.push(`/(tabs)/profile/${action.key}`);
@@ -130,6 +139,7 @@ export default function ProfileHomeScreen() {
         joinedLabel={joinedLabel}
         pendingRequests={pendingRequests}
         onNavigate={handleNavigate}
+        onSignOut={handleSignOut}
       />
     );
   }
@@ -166,6 +176,16 @@ export default function ProfileHomeScreen() {
                   : 'Anyone on Playlog can see your favourites and reviews.'}
               </Text>
             </View>
+            <Pressable
+              onPress={handleSignOut}
+              style={({ pressed }) => [
+                styles.signOutButton,
+                pressed && styles.signOutButtonPressed,
+              ]}
+            >
+              <Ionicons name="log-out-outline" size={16} color="#f8fafc" />
+              <Text style={styles.signOutLabel}>Sign out</Text>
+            </Pressable>
           </View>
         </View>
         <View style={styles.statRow}>
@@ -225,6 +245,7 @@ function MobileProfile({
   joinedLabel,
   pendingRequests,
   onNavigate,
+  onSignOut,
 }: {
   profile: any;
   heroAvatar: ImageSourcePropType | null;
@@ -233,6 +254,7 @@ function MobileProfile({
   joinedLabel: string | null;
   pendingRequests: number;
   onNavigate: (action: ProfileAction) => void;
+  onSignOut: () => void;
 }) {
   return (
     <SafeAreaView style={styles.mobileSafe}>
@@ -242,6 +264,17 @@ function MobileProfile({
           <View style={styles.mobileProfileBubble}>
             <Ionicons name="person" size={20} color="#f8fafc" />
           </View>
+          <Pressable
+            onPress={onSignOut}
+            style={({ pressed }) => [
+              styles.mobileSignOutButton,
+              pressed && styles.mobileSignOutButtonPressed,
+            ]}
+            accessibilityRole="button"
+          >
+            <Ionicons name="log-out-outline" size={16} color="#f8fafc" />
+            <Text style={styles.mobileSignOutLabel}>Sign out</Text>
+          </Pressable>
         </View>
 
         <View style={styles.mobileHeroCard}>
@@ -358,6 +391,19 @@ const styles = StyleSheet.create({
   actionCopy: { flex: 1, gap: 4 },
   actionTitle: { color: '#f8fafc', fontWeight: '700' },
   actionDescription: { color: '#94a3b8', fontSize: 13 },
+  signOutButton: {
+    marginTop: 14,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(99,102,241,0.2)',
+  },
+  signOutButtonPressed: { opacity: 0.85 },
+  signOutLabel: { color: '#f8fafc', fontWeight: '700' },
   badge: {
     minWidth: 28,
     paddingHorizontal: 8,
@@ -393,6 +439,17 @@ const styles = StyleSheet.create({
   mobileScroll: { padding: 20, gap: 24, backgroundColor: '#0f172a' },
   mobileHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
   mobileProfileBubble: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#1f1f21', alignItems: 'center', justifyContent: 'center' },
+  mobileSignOutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#1c1c21',
+  },
+  mobileSignOutButtonPressed: { opacity: 0.8 },
+  mobileSignOutLabel: { color: '#f8fafc', fontWeight: '600' },
   mobileHeroCard: { backgroundColor: '#1c1c21', borderRadius: 28, padding: 20, gap: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   mobileHeroRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   mobileHeroDetails: { flex: 1 },
