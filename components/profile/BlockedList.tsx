@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View }
 
 import type { FollowEdge } from '../../types/follow';
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
+import { resolveAvatarSource } from '../../lib/avatar';
 import BlockButton from './BlockButton';
 
 type BlockedListProps = {
@@ -55,13 +56,10 @@ export function BlockedList({
           disabled={!onSelectUser}
         >
           <View style={styles.avatarWrapper}>
-            {item.photoURL ? (
-              <Image source={{ uri: item.photoURL }} style={styles.avatarImage} />
-            ) : (
-              <View style={styles.avatarFallback}>
-                <Ionicons name="person" size={20} color="#1f2937" />
-              </View>
-            )}
+            <Image
+              source={resolveAvatarSource(item.photoURL, item.avatarKey)}
+              style={styles.avatarImage}
+            />
           </View>
           <View style={styles.meta}>
             <Text style={styles.displayName}>{item.displayName}</Text>
@@ -130,11 +128,6 @@ const styles = StyleSheet.create({
   avatarImage: {
     width: '100%',
     height: '100%',
-  },
-  avatarFallback: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   meta: {
     flex: 1,
