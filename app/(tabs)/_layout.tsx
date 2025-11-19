@@ -1,6 +1,7 @@
 import { Link, Stack, Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
+  Alert,
   Image,
   Platform,
   Pressable,
@@ -106,6 +107,27 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
     } catch (error) {
       console.warn('Failed to sign out', error);
     }
+  };
+
+  const confirmSignOut = () => {
+    const execute = () => {
+      void handleSignOut();
+    };
+
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined') {
+        const confirmed = window.confirm('Are you sure you want to sign out?');
+        if (confirmed) execute();
+      } else {
+        execute();
+      }
+      return;
+    }
+
+    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Yes', style: 'destructive', onPress: execute },
+    ]);
   };
 
   const handleHomePress = () => {
@@ -281,7 +303,7 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
         <View style={styles.authLinks}>
           {user ? (
             <Pressable
-              onPress={handleSignOut}
+              onPress={confirmSignOut}
               style={[styles.signOutButton, { borderColor: palette.border }]}
             >
               <Text

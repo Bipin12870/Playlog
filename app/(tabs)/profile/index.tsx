@@ -4,6 +4,7 @@ import { signOut } from 'firebase/auth';
 import { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   ImageSourcePropType,
   Platform,
@@ -103,6 +104,27 @@ export default function ProfileHomeScreen() {
     }
   };
 
+  const confirmSignOut = useCallback(() => {
+    const execute = () => {
+      void handleSignOut();
+    };
+
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined') {
+        const confirmed = window.confirm('Are you sure you want to sign out?');
+        if (confirmed) execute();
+      } else {
+        execute();
+      }
+      return;
+    }
+
+    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Yes', style: 'destructive', onPress: execute },
+    ]);
+  }, []);
+
   const handleNavigate = (action: ProfileAction) => {
     router.push(`/(tabs)/profile/${action.key}`);
   };
@@ -158,7 +180,7 @@ export default function ProfileHomeScreen() {
         pendingRequests={pendingRequests}
         onNavigate={handleNavigate}
         onPressStat={handleStatPress}
-        onSignOut={handleSignOut}
+        onSignOut={confirmSignOut}
       />
     );
   }
