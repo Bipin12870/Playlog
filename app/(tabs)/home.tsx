@@ -329,12 +329,12 @@ export default function HomeScreen() {
         const offset = isAppend ? nextOffsetRef.current : 0;
         const data = await searchGames(normalized, { limit: PAGE_SIZE, offset });
         const nextGames = Array.isArray(data) ? data : [];
-        setGames((prev) => {
-          const merged = isAppend ? [...prev, ...nextGames] : nextGames;
-          cacheResults(normalized, merged);
-          gamesRef.current = merged;
-          return merged;
-        });
+
+        // No nested state updates
+        const merged = isAppend ? [...gamesRef.current, ...nextGames] : nextGames;
+        gamesRef.current = merged;
+        setGames(merged);
+        cacheResults(normalized, merged);
         setActiveQuery(normalized);
         const newOffset = offset + nextGames.length;
         nextOffsetRef.current = newOffset;
