@@ -42,10 +42,13 @@ const DEFAULT_STATS: ReviewStats = {
   averageRating: null,
 };
 
-const CONTENT_BLOCKED_ERROR = 'CONTENT_BLOCKED_BY_MODERATION';
+export const CONTENT_BLOCKED_ERROR = 'CONTENT_BLOCKED_BY_MODERATION';
 
-async function assertContentAllowed(body: string) {
-  const verdict = await moderateText(body);
+export async function assertContentAllowed(body: string) {
+  const trimmed = body.trim();
+  if (!trimmed) return;
+
+  const verdict = await moderateText(trimmed);
   if (!verdict.allowed) {
     throw new Error(CONTENT_BLOCKED_ERROR);
   }

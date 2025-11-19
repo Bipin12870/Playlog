@@ -12,6 +12,7 @@ import {
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
 import { useGameDetailsCache } from '../../lib/hooks/useGameDetailsCache';
 import {
+  CONTENT_BLOCKED_ERROR,
   MAX_REVIEWS_PER_USER,
   setGameFavorite,
   submitGameReview,
@@ -363,10 +364,9 @@ export default function GameDetailsScreen() {
           },
         });
       } catch (err) {
-        console.error(err);
         if (err instanceof Error) {
           switch (err.message) {
-            case 'CONTENT_BLOCKED_BY_MODERATION':
+            case CONTENT_BLOCKED_ERROR:
               throw new Error('Please remove offensive or abusive language before posting.');
             case 'REVIEW_LIMIT_REACHED':
               throw new Error('You have used all available review slots. Update an existing review instead.');
@@ -404,12 +404,11 @@ export default function GameDetailsScreen() {
       try {
         await submitReviewReply(gameId, reviewId, user, { body: trimmed });
       } catch (err) {
-        console.error(err);
         if (err instanceof Error) {
           switch (err.message) {
             case 'REVIEW_NOT_FOUND':
               throw new Error('This review is no longer available.');
-            case 'CONTENT_BLOCKED_BY_MODERATION':
+            case CONTENT_BLOCKED_ERROR:
               throw new Error('Please remove offensive or abusive language before posting.');
             case 'REPLY_BODY_REQUIRED':
               throw new Error('Reply text is required.');
@@ -443,14 +442,13 @@ export default function GameDetailsScreen() {
       try {
         await updateReviewReply(gameId, reviewId, replyId, user, { body: trimmed });
       } catch (err) {
-        console.error(err);
         if (err instanceof Error) {
           switch (err.message) {
             case 'REPLY_NOT_FOUND':
               throw new Error('This reply is no longer available.');
             case 'REPLY_FORBIDDEN':
               throw new Error('You can only edit your own replies.');
-            case 'CONTENT_BLOCKED_BY_MODERATION':
+            case CONTENT_BLOCKED_ERROR:
               throw new Error('Please remove offensive or abusive language before posting.');
             case 'REPLY_BODY_REQUIRED':
               throw new Error('Reply text is required.');
