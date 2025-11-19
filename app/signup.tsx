@@ -12,10 +12,10 @@ import { Link } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Feather, Ionicons } from '@expo/vector-icons';
 
-import { EmailSignup } from './signup/EmailSignup';
-import { GoogleSignup } from './signup/GoogleSignup';
-import { PhoneSignup } from './signup/PhoneSignup';
-import { signupStyles as styles } from './signup/styles';
+import { EmailSignup } from '../components/auth/signup/EmailSignup';
+import { GoogleSignup } from '../components/auth/signup/GoogleSignup';
+import { PhoneSignup } from '../components/auth/signup/PhoneSignup';
+import { signupStyles as styles } from '../components/auth/signup/styles';
 import { SubscriptionOfferModal } from '../components/SubscriptionOfferModal';
 
 WebBrowser.maybeCompleteAuthSession();

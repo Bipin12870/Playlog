@@ -4,10 +4,10 @@ import { Link } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Feather, Ionicons } from '@expo/vector-icons';
 
-import { EmailLogin } from './login/EmailLogin';
-import { GoogleLogin } from './login/GoogleLogin';
-import { PhoneLogin } from './login/PhoneLogin';
-import { loginStyles as styles } from './login/styles';
+import { EmailLogin } from '../components/auth/login/EmailLogin';
+import { GoogleLogin } from '../components/auth/login/GoogleLogin';
+import { PhoneLogin } from '../components/auth/login/PhoneLogin';
+import { loginStyles as styles } from '../components/auth/login/styles';
 import { SubscriptionOfferModal } from '../components/SubscriptionOfferModal';
 
 WebBrowser.maybeCompleteAuthSession();

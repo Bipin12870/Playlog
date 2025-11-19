@@ -10,8 +10,8 @@ import {
   signOut,
 } from 'firebase/auth';
 
-import { auth } from '../../lib/firebase';
-import { ensureUserProfile } from '../../lib/auth';
+import { auth } from '../../../lib/firebase';
+import { ensureUserProfile } from '../../../lib/auth';
 import { loginStyles as styles } from './styles';
 
 export function EmailLogin() {

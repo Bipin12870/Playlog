@@ -5,7 +5,7 @@ import { FirebaseError } from 'firebase/app';
 import { useRouter } from 'expo-router';
 import * as Google from 'expo-auth-session/providers/google';
 
-import { signInWithGoogleCredential } from '../../lib/auth';
+import { signInWithGoogleCredential } from '../../../lib/auth';
 import { loginStyles as styles } from './styles';
 
 const descriptionStyle = {

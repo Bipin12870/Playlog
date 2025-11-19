@@ -12,8 +12,8 @@ import {
 import { doc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
 
-import { ensureUserProfile } from '../../lib/auth';
-import { auth, db } from '../../lib/firebase';
+import { ensureUserProfile } from '../../../lib/auth';
+import { auth, db } from '../../../lib/firebase';
 import { loginStyles as styles } from './styles';
 
 declare global {

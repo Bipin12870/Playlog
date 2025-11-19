@@ -34,7 +34,7 @@ import {
   fetchTrendingGames,
   searchGames,
 } from '../../lib/igdb';
-import { useHomeScreen } from './useHomeScreen';
+import { useHomeScreen } from '../../lib/hooks/useHomeScreen';
 import { useGameSearch } from '../../lib/hooks/useGameSearch';
 import { useDiscoveryCache } from '../../lib/hooks/useDiscoveryCache';
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
