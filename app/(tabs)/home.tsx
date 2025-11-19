@@ -783,50 +783,52 @@ function NativeHome({
   const heroIsPoster = shouldUsePosterLayout(heroGame);
   const heroPosterWidth = Math.max(140, Math.min(sizes.heroH * 0.68, 220));
 
+  const header = (
+    <View style={nativeStyles.header}>
+      <Pressable
+        onPress={onLogoPress}
+        hitSlop={8}
+        style={({ pressed }) => [
+          nativeStyles.logoBox,
+          pressed && nativeStyles.logoBoxPressed,
+        ]}
+      >
+        <Image source={LOGO} style={nativeStyles.logoMark} resizeMode="contain" />
+      </Pressable>
+      <View style={nativeStyles.searchBox}>
+        <Ionicons name="search" size={16} color="#9ca3af" style={nativeStyles.searchIcon} />
+        <TextInput
+          {...searchInputProps}
+          style={nativeStyles.searchInput}
+          placeholderTextColor="#9ca3af"
+        />
+      </View>
+      <Pressable
+        onPress={onOpenCategoryDrawer}
+        style={[
+          nativeStyles.categoryButton,
+          filterControls.filtersActive && nativeStyles.categoryButtonActive,
+        ]}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel="Open category filters"
+      >
+        <Ionicons name="options-outline" size={18} color="#f8fafc" />
+      </Pressable>
+      <View style={nativeStyles.profileBox}>
+        <Text style={nativeStyles.profileText}>{currentUser ? 'Profile' : 'Guest'}</Text>
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView style={nativeStyles.container}>
       <StatusBar barStyle="light-content" />
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={nativeStyles.scrollContent}
-      >
-        <View style={nativeStyles.header}>
-          <Pressable
-            onPress={onLogoPress}
-            hitSlop={8}
-            style={({ pressed }) => [
-              nativeStyles.logoBox,
-              pressed && nativeStyles.logoBoxPressed,
-            ]}
-          >
-            <Image source={LOGO} style={nativeStyles.logoMark} resizeMode="contain" />
-          </Pressable>
-          <View style={nativeStyles.searchBox}>
-            <Ionicons name="search" size={16} color="#9ca3af" style={nativeStyles.searchIcon} />
-            <TextInput
-              {...searchInputProps}
-              style={nativeStyles.searchInput}
-              placeholderTextColor="#9ca3af"
-            />
-          </View>
-          <Pressable
-            onPress={onOpenCategoryDrawer}
-            style={[
-              nativeStyles.categoryButton,
-              filterControls.filtersActive && nativeStyles.categoryButtonActive,
-            ]}
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel="Open category filters"
-          >
-            <Ionicons name="options-outline" size={18} color="#f8fafc" />
-          </Pressable>
-          <View style={nativeStyles.profileBox}>
-            <Text style={nativeStyles.profileText}>{currentUser ? 'Profile' : 'Guest'}</Text>
-          </View>
-        </View>
 
-        {hasActiveSearch ? (
+      {hasActiveSearch ? (
+        // 🔹 SEARCH MODE: NO ScrollView around FlatList
+        <View style={{ flex: 1 }}>
+          {header}
           <View style={nativeStyles.searchResults}>
             {searchResultsProps.query ? (
               <Text style={nativeStyles.resultsHeading}>
@@ -834,100 +836,132 @@ function NativeHome({
               </Text>
             ) : null}
             <SearchMetaBar tone="dark" sortControls={sortControls} />
-            <SearchResults {...searchResultsProps} />
           </View>
-        ) : (
-          <>
-            <View style={nativeStyles.hero}>
-              <Animated.View style={[nativeStyles.heroAnimatedWrap, heroAnimatedStyle]}>
-                <Pressable
-                  style={[
-                    nativeStyles.heroBanner,
-                    heroIsPoster ? { minHeight: sizes.heroH } : { height: sizes.heroH },
-                    heroIsPoster && nativeStyles.heroBannerPoster,
-                  ]}
-                  onPress={heroGame ? () => onSelectGame(heroGame) : undefined}
-                  disabled={!heroGame}
-                >
-                  {heroGame && heroIsPoster ? (
-                    <View style={nativeStyles.heroPosterLayer}>
-                      <GameCard
-                        game={heroGame}
-                        containerStyle={[nativeStyles.heroPosterCard, { width: heroPosterWidth }]}
-                      />
-                    </View>
-                  ) : heroCover ? (
-                    <Image source={{ uri: heroCover }} style={nativeStyles.heroImage} />
-                  ) : (
-                    <View style={nativeStyles.heroPlaceholder}>
-                      <Ionicons name="arrow-forward-circle-outline" size={28} color="#d1d5db" />
-                    </View>
-                  )}
-                  <View
-                    style={[nativeStyles.heroOverlay, heroIsPoster && nativeStyles.heroOverlayPoster]}
-                  >
-                    <Text style={[nativeStyles.heroTag, heroIsPoster && nativeStyles.heroTagPoster]}>
-                      Spotlight
-                    </Text>
-                    <Text
-                      style={[nativeStyles.heroTitle, heroIsPoster && nativeStyles.heroTitlePoster]}
-                    >{
-                      heroGame?.name ?? 'Discover new games'
-                    }</Text>
-                    <Text
-                      style={[
-                        nativeStyles.heroSubtitle,
-                        heroIsPoster && nativeStyles.heroSubtitlePoster,
-                      ]}
-                    >
-                      {heroGame ? 'Tap to jump into details' : 'Fresh picks are on the way'}
-                    </Text>
-                  </View>
-                </Pressable>
-              </Animated.View>
-              <View style={nativeStyles.heroDots}>
-                {heroItems.map((_, idx) => (
-                  <View
-                    key={`hero-dot-${idx}`}
-                    style={[nativeStyles.heroDot, idx === heroIndex && nativeStyles.heroDotActive]}
-                  />
-                ))}
-              </View>
-            </View>
+          {/* SearchResults contains FlatList and is now the ONLY vertical scroller */}
+          <SearchResults {...searchResultsProps} />
+        </View>
+      ) : (
+        // 🔹 EXPLORE MODE: keep ScrollView (no FlatList here)
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={nativeStyles.scrollContent}
+        >
+          {header}
 
-            <View style={nativeStyles.sectionsContainer}>
-              {sections.map((section, index) => {
-                const afterIndex = index + 1;
-                const matchingSlots = HOME_AD_SLOTS.filter(
-                  (slot) => slot.afterSection === afterIndex,
-                );
-                return (
-                  <React.Fragment key={section.key}>
-                    <NativeSection
-                      section={section}
-                      placeholders={placeholders}
-                      itemWidth={sizes.ITEM_WIDTH}
-                      itemGap={sizes.ITEM_GAP}
-                      onSelectGame={onSelectGame}
+          <View style={nativeStyles.hero}>
+            <Animated.View style={[nativeStyles.heroAnimatedWrap, heroAnimatedStyle]}>
+              <Pressable
+                style={[
+                  nativeStyles.heroBanner,
+                  heroIsPoster ? { minHeight: sizes.heroH } : { height: sizes.heroH },
+                  heroIsPoster && nativeStyles.heroBannerPoster,
+                ]}
+                onPress={heroGame ? () => onSelectGame(heroGame) : undefined}
+                disabled={!heroGame}
+              >
+                {heroGame && heroIsPoster ? (
+                  <View style={nativeStyles.heroPosterLayer}>
+                    <GameCard
+                      game={heroGame}
+                      containerStyle={[
+                        nativeStyles.heroPosterCard,
+                        { width: heroPosterWidth },
+                      ]}
                     />
-                    {matchingSlots.map((slot) => (
-                      <NativeAdSlot key={`native-${slot.key}`} slot={slot} />
-                    ))}
-                  </React.Fragment>
-                );
-              })}
-              <DiscoveryStatus state={discoveryState} />
+                  </View>
+                ) : heroCover ? (
+                  <Image source={{ uri: heroCover }} style={nativeStyles.heroImage} />
+                ) : (
+                  <View style={nativeStyles.heroPlaceholder}>
+                    <Ionicons
+                      name="arrow-forward-circle-outline"
+                      size={28}
+                      color="#d1d5db"
+                    />
+                  </View>
+                )}
+                <View
+                  style={[
+                    nativeStyles.heroOverlay,
+                    heroIsPoster && nativeStyles.heroOverlayPoster,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      nativeStyles.heroTag,
+                      heroIsPoster && nativeStyles.heroTagPoster,
+                    ]}
+                  >
+                    Spotlight
+                  </Text>
+                  <Text
+                    style={[
+                      nativeStyles.heroTitle,
+                      heroIsPoster && nativeStyles.heroTitlePoster,
+                    ]}
+                  >
+                    {heroGame?.name ?? 'Discover new games'}
+                  </Text>
+                  <Text
+                    style={[
+                      nativeStyles.heroSubtitle,
+                      heroIsPoster && nativeStyles.heroSubtitlePoster,
+                    ]}
+                  >
+                    {heroGame
+                      ? 'Tap to jump into details'
+                      : 'Fresh picks are on the way'}
+                  </Text>
+                </View>
+              </Pressable>
+            </Animated.View>
+            <View style={nativeStyles.heroDots}>
+              {heroItems.map((_, idx) => (
+                <View
+                  key={`hero-dot-${idx}`}
+                  style={[
+                    nativeStyles.heroDot,
+                    idx === heroIndex && nativeStyles.heroDotActive,
+                  ]}
+                />
+              ))}
             </View>
-          </>
-        )}
-      </ScrollView>
+          </View>
+
+          <View style={nativeStyles.sectionsContainer}>
+            {sections.map((section, index) => {
+              const afterIndex = index + 1;
+              const matchingSlots = HOME_AD_SLOTS.filter(
+                (slot) => slot.afterSection === afterIndex,
+              );
+              return (
+                <React.Fragment key={section.key}>
+                  <NativeSection
+                    section={section}
+                    placeholders={placeholders}
+                    itemWidth={sizes.ITEM_WIDTH}
+                    itemGap={sizes.ITEM_GAP}
+                    onSelectGame={onSelectGame}
+                  />
+                  {matchingSlots.map((slot) => (
+                    <NativeAdSlot key={`native-${slot.key}`} slot={slot} />
+                  ))}
+                </React.Fragment>
+              );
+            })}
+            <DiscoveryStatus state={discoveryState} />
+          </View>
+        </ScrollView>
+      )}
 
       {showGate ? (
         <Modal visible transparent animationType="fade" statusBarTranslucent>
           <View style={nativeStyles.modalBackdrop}>
             <View style={nativeStyles.modalCard}>
               <Text style={nativeStyles.modalTitle}>You’re not signed in</Text>
-              <Text style={nativeStyles.modalSubtitle}>Log in or create an account to continue.</Text>
+              <Text style={nativeStyles.modalSubtitle}>
+                Log in or create an account to continue.
+              </Text>
               <View style={nativeStyles.modalRow}>
                 <Pressable
                   style={[nativeStyles.modalBtn, nativeStyles.modalPrimary]}
@@ -948,7 +982,10 @@ function NativeHome({
                   <Text style={nativeStyles.modalSecondaryText}>Sign up</Text>
                 </Pressable>
               </View>
-              <Pressable onPress={() => setHideGate(true)} style={nativeStyles.modalDismiss}>
+              <Pressable
+                onPress={() => setHideGate(true)}
+                style={nativeStyles.modalDismiss}
+              >
                 <Text style={nativeStyles.modalDismissText}>Not now</Text>
               </Pressable>
             </View>
