@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -21,6 +21,7 @@ import { useAuthUser } from '../../../lib/hooks/useAuthUser';
 import { useUserProfile } from '../../../lib/userProfile';
 import { useFollowRequests } from '../../../lib/hooks/useFollowRequests';
 import { getProfileVisibility } from '../../../lib/profileVisibility';
+import { resolveAvatarSource } from '../../../lib/avatar';
 
 type ProfileAction = {
   key: 'followers' | 'following' | 'blocked' | 'requests' | 'edit' | 'reviews';
@@ -38,11 +39,14 @@ const ACTIONS: ProfileAction[] = [
   { key: 'reviews', title: 'Reviews', description: 'Revisit and manage shared reviews.', icon: 'chatbubble-ellipses' },
 ];
 
-const PRESET_AVATAR_MAP: Record<string, ImageSourcePropType> = {
-  mario: require('../../../assets/mario.png'),
-  party: require('../../../assets/characters.png'),
-  runner: require('../../../assets/runners.png'),
-  glare: require('../../../assets/glare.png'),
+const STAT_KEYS: Array<ProfileAction['key']> = ['following', 'followers', 'blocked'];
+const STAT_LABELS: Record<ProfileAction['key'], string> = {
+  followers: 'Followers',
+  following: 'Following',
+  blocked: 'Blocked',
+  requests: 'Requests',
+  edit: 'Edit Profile',
+  reviews: 'Reviews',
 };
 
 function formatCount(value?: number | null) {
@@ -77,14 +81,18 @@ export default function ProfileHomeScreen() {
     return formatJoined(date);
   }, [profile?.createdAt]);
 
-  const heroAvatar: ImageSourcePropType | null = useMemo(() => {
-    if (!profile) return null;
-    if (profile.photoURL) return { uri: profile.photoURL };
-    if (profile.avatarKey && PRESET_AVATAR_MAP[profile.avatarKey]) {
-      return PRESET_AVATAR_MAP[profile.avatarKey];
-    }
-    return null;
-  }, [profile]);
+  const actionsByKey = useMemo(
+    () =>
+      ACTIONS.reduce<Record<ProfileAction['key'], ProfileAction>>((map, action) => {
+        map[action.key] = action;
+        return map;
+      }, {} as Record<ProfileAction['key'], ProfileAction>),
+    []
+  );
+
+  const heroAvatar = useMemo<ImageSourcePropType>(() => {
+    return resolveAvatarSource(profile?.photoURL, profile?.avatarKey);
+  }, [profile?.photoURL, profile?.avatarKey]);
 
   const stats = profile?.stats ?? {};
   const handleSignOut = async () => {
@@ -98,6 +106,16 @@ export default function ProfileHomeScreen() {
   const handleNavigate = (action: ProfileAction) => {
     router.push(`/(tabs)/profile/${action.key}`);
   };
+
+  const handleStatPress = useCallback(
+    (key: ProfileAction['key']) => {
+      const action = actionsByKey[key];
+      if (action) {
+        handleNavigate(action);
+      }
+    },
+    [actionsByKey]
+  );
 
   if (initializing || loading) {
     return (
@@ -139,6 +157,7 @@ export default function ProfileHomeScreen() {
         joinedLabel={joinedLabel}
         pendingRequests={pendingRequests}
         onNavigate={handleNavigate}
+        onPressStat={handleStatPress}
         onSignOut={handleSignOut}
       />
     );
@@ -149,11 +168,7 @@ export default function ProfileHomeScreen() {
       <View style={styles.heroCard}>
         <View style={styles.heroRow}>
           <View style={styles.avatarWrapper}>
-            {heroAvatar ? (
-              <Image source={heroAvatar} style={styles.avatarImage} />
-            ) : (
-              <Ionicons name="person" size={42} color="#1f2937" />
-            )}
+            <Image source={heroAvatar} style={styles.avatarImage} />
           </View>
           <View style={styles.heroDetails}>
             <Text style={styles.displayName}>{profile.displayName}</Text>
@@ -176,31 +191,22 @@ export default function ProfileHomeScreen() {
                   : 'Anyone on Playlog can see your favourites and reviews.'}
               </Text>
             </View>
-            <Pressable
-              onPress={handleSignOut}
-              style={({ pressed }) => [
-                styles.signOutButton,
-                pressed && styles.signOutButtonPressed,
-              ]}
-            >
-              <Ionicons name="log-out-outline" size={16} color="#f8fafc" />
-              <Text style={styles.signOutLabel}>Sign out</Text>
-            </Pressable>
           </View>
         </View>
         <View style={styles.statRow}>
-          <View style={styles.statBlock}>
-            <Text style={styles.statValue}>{formatCount(stats.following)}</Text>
-            <Text style={styles.statLabel}>Following</Text>
-          </View>
-          <View style={styles.statBlock}>
-            <Text style={styles.statValue}>{formatCount(stats.followers)}</Text>
-            <Text style={styles.statLabel}>Followers</Text>
-          </View>
-          <View style={styles.statBlock}>
-            <Text style={styles.statValue}>{formatCount(stats.blocked)}</Text>
-            <Text style={styles.statLabel}>Blocked</Text>
-          </View>
+          {STAT_KEYS.map((key) => (
+            <Pressable
+              key={key}
+              style={({ pressed }) => [
+                styles.statBlock,
+                pressed && styles.statBlockPressed,
+              ]}
+              onPress={() => handleStatPress(key)}
+            >
+              <Text style={styles.statValue}>{formatCount(stats[key])}</Text>
+              <Text style={styles.statLabel}>{STAT_LABELS[key]}</Text>
+            </Pressable>
+          ))}
         </View>
       </View>
 
@@ -245,15 +251,17 @@ function MobileProfile({
   joinedLabel,
   pendingRequests,
   onNavigate,
+  onPressStat,
   onSignOut,
 }: {
   profile: any;
-  heroAvatar: ImageSourcePropType | null;
+  heroAvatar: ImageSourcePropType;
   stats: any;
   visibility: ReturnType<typeof getProfileVisibility>;
   joinedLabel: string | null;
   pendingRequests: number;
   onNavigate: (action: ProfileAction) => void;
+  onPressStat: (key: ProfileAction['key']) => void;
   onSignOut: () => void;
 }) {
   return (
@@ -261,9 +269,6 @@ function MobileProfile({
       <StatusBar barStyle="light-content" />
       <ScrollView contentContainerStyle={styles.mobileScroll} showsVerticalScrollIndicator={false}>
         <View style={styles.mobileHeaderRow}>
-          <View style={styles.mobileProfileBubble}>
-            <Ionicons name="person" size={20} color="#f8fafc" />
-          </View>
           <Pressable
             onPress={onSignOut}
             style={({ pressed }) => [
@@ -272,7 +277,6 @@ function MobileProfile({
             ]}
             accessibilityRole="button"
           >
-            <Ionicons name="log-out-outline" size={16} color="#f8fafc" />
             <Text style={styles.mobileSignOutLabel}>Sign out</Text>
           </Pressable>
         </View>
@@ -280,7 +284,7 @@ function MobileProfile({
         <View style={styles.mobileHeroCard}>
           <View style={styles.mobileHeroRow}>
             <View style={styles.avatarWrapper}>
-              {heroAvatar ? <Image source={heroAvatar} style={styles.avatarImage} /> : <Ionicons name="person" size={42} color="#1f2937" />}
+              <Image source={heroAvatar} style={styles.avatarImage} />
             </View>
             <View style={styles.mobileHeroDetails}>
               <Text style={styles.displayName}>{profile.displayName}</Text>
@@ -289,9 +293,19 @@ function MobileProfile({
             </View>
           </View>
           <View style={styles.mobileStatRow}>
-            <MobileStat label="Following" value={formatCount(stats.following)} />
-            <MobileStat label="Followers" value={formatCount(stats.followers)} />
-            <MobileStat label="Blocked" value={formatCount(stats.blocked)} />
+            {STAT_KEYS.map((key) => (
+              <Pressable
+                key={`mobile-stat-${key}`}
+                onPress={() => onPressStat(key)}
+                style={({ pressed }) => [
+                  styles.mobileStatBlock,
+                  pressed && styles.mobileStatBlockPressed,
+                ]}
+              >
+                <Text style={styles.mobileStatValue}>{formatCount(stats[key])}</Text>
+                <Text style={styles.mobileStatLabel}>{STAT_LABELS[key]}</Text>
+              </Pressable>
+            ))}
           </View>
         </View>
 
@@ -314,15 +328,6 @@ function MobileProfile({
   );
 }
 
-function MobileStat({ label, value }: { label: string; value: number }) {
-  return (
-    <View style={styles.mobileStatBlock}>
-      <Text style={styles.mobileStatValue}>{value}</Text>
-      <Text style={styles.mobileStatLabel}>{label}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   page: { padding: 24, gap: 24 },
   heroCard: {
@@ -341,6 +346,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1f2937',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   avatarImage: { width: 72, height: 72, borderRadius: 24 },
   heroDetails: { flex: 1, gap: 6 },
@@ -361,6 +367,7 @@ const styles = StyleSheet.create({
   visibilityHint: { color: '#94a3b8', fontSize: 12 },
   statRow: { flexDirection: 'row', justifyContent: 'space-between' },
   statBlock: { flex: 1, alignItems: 'center' },
+  statBlockPressed: { opacity: 0.85 },
   statValue: { color: '#f8fafc', fontSize: 22, fontWeight: '800' },
   statLabel: { color: '#cbd5f5', fontSize: 13 },
   actionsCard: {
@@ -394,9 +401,7 @@ const styles = StyleSheet.create({
   signOutButton: {
     marginTop: 14,
     alignSelf: 'flex-start',
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
@@ -438,11 +443,9 @@ const styles = StyleSheet.create({
   mobileSafe: { flex: 1, backgroundColor: '#0f172a' },
   mobileScroll: { padding: 20, gap: 24, backgroundColor: '#0f172a' },
   mobileHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
-  mobileProfileBubble: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#1f1f21', alignItems: 'center', justifyContent: 'center' },
   mobileSignOutButton: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
@@ -457,6 +460,7 @@ const styles = StyleSheet.create({
   mobileJoined: { color: '#9ca3af', fontSize: 12, marginTop: 2 },
   mobileStatRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   mobileStatBlock: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 12, backgroundColor: '#26262b' },
+  mobileStatBlockPressed: { backgroundColor: '#2f2f36' },
   mobileStatValue: { color: '#f8fafc', fontSize: 18, fontWeight: '800' },
   mobileStatLabel: { color: '#cbd5f5', fontSize: 12 },
   mobileActionsBlock: { marginTop: 12, borderRadius: 24, backgroundColor: '#1c1c21', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
