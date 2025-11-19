@@ -21,6 +21,13 @@ type EmptyState = {
   copy: string;
 };
 
+type AdPlaceholderItem = {
+  kind: 'ad';
+  id: string;
+};
+
+type GridItem = GameSummary | AdPlaceholderItem | null;
+
 type SearchResultsProps = {
   games: GameSummary[];
   loading: boolean;
@@ -38,6 +45,7 @@ type SearchResultsProps = {
   onLoadMore?: () => void;
   hasMore?: boolean;
   loadingMore?: boolean;
+  adFrequency?: number | null;
 };
 
 export function SearchResults({
@@ -59,27 +67,54 @@ export function SearchResults({
   onLoadMore,
   hasMore = false,
   loadingMore = false,
+  adFrequency: adFrequencyProp = 6,
 }: SearchResultsProps) {
   const isCompact = cardVariant === 'compact';
   const isWeb = Platform.OS === 'web';
   const baseColumns = isWeb ? Math.max(columnCount, 6) : columnCount;
   const resolvedColumnCount = isCompact && baseColumns < 3 ? 3 : baseColumns;
 
-  const data = useMemo<(GameSummary | null)[]>(() => {
+  const data = useMemo<GridItem[]>(() => {
     if (!games.length) return [];
-    const remainder = games.length % resolvedColumnCount;
-    if (remainder === 0) return games;
-    const placeholders = Array.from({ length: resolvedColumnCount - remainder }, () => null);
-    return [...games, ...placeholders];
-  }, [games, resolvedColumnCount]);
+    const shouldInsertAds = typeof adFrequencyProp === 'number' && adFrequencyProp > 0;
 
-  const renderItem: ListRenderItem<GameSummary | null> = ({ item }) => {
+    const withAds: GridItem[] = [];
+    games.forEach((game, index) => {
+      withAds.push(game);
+      if (
+        shouldInsertAds &&
+        (index + 1) % adFrequencyProp === 0 &&
+        index < games.length - 1
+      ) {
+        withAds.push({ kind: 'ad', id: `ad-${index}` });
+      }
+    });
+
+    const remainder = withAds.length % resolvedColumnCount;
+    if (remainder === 0) return withAds;
+    const placeholders = Array.from({ length: resolvedColumnCount - remainder }, () => null);
+    return [...withAds, ...placeholders];
+  }, [games, resolvedColumnCount, adFrequencyProp]);
+
+  const renderItem: ListRenderItem<GridItem> = ({ item }) => {
     if (!item) {
       return (
         <View
           pointerEvents="none"
           style={[styles.card, isCompact && styles.compactCard, styles.placeholderCard, cardStyle]}
         />
+      );
+    }
+
+    if (item && typeof item === 'object' && 'kind' in item && item.kind === 'ad') {
+      return (
+        <View style={[styles.card, isCompact && styles.compactCard, cardStyle]}>
+          <View style={[styles.adCard, isCompact && styles.adCardCompact]}>
+            <Text style={styles.adLabel}>Sponsored</Text>
+            <Text style={styles.adTitle}>Ad placement</Text>
+            <Text style={styles.adCopy}>Reserve this space to promote your next release.</Text>
+          </View>
+        </View>
       );
     }
 
@@ -137,7 +172,13 @@ export function SearchResults({
           contentContainerStyle,
         ]}
         numColumns={resolvedColumnCount}
-        keyExtractor={(item, index) => (item ? item.id.toString() : `placeholder-${index}`)}
+        keyExtractor={(item, index) => {
+          if (!item) return `placeholder-${index}`;
+          if ('kind' in item && item.kind === 'ad') {
+            return item.id;
+          }
+          return item.id.toString();
+        }}
         columnWrapperStyle={
           resolvedColumnCount > 1
             ? [styles.gridRow, isCompact && styles.compactGridRow, gridRowStyle]
@@ -184,4 +225,27 @@ const styles = StyleSheet.create({
   loadMoreLabel: { color: '#f8fafc', fontWeight: '700' },
   loadMorePressed: { opacity: 0.9 },
   loadMoreDisabled: { opacity: 0.7 },
+  adCard: {
+    flex: 1,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#0b1220',
+    padding: 16,
+    gap: 6,
+    justifyContent: 'center',
+  },
+  adCardCompact: {
+    borderRadius: 16,
+    padding: 14,
+  },
+  adLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#a5b4fc',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  adTitle: { fontSize: 16, fontWeight: '700', color: '#f8fafc' },
+  adCopy: { fontSize: 13, color: '#cbd5f5' },
 });

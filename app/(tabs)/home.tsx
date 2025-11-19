@@ -48,6 +48,7 @@ import {
 
 const LOGO = require('../../assets/logo.png');
 const PAGE_SIZE = 12;
+const LIVE_SEARCH_DEBOUNCE_MS = 350;
 
 type HeroGame = GameSummary | null;
 type HeroAnimatedStyle = Animated.WithAnimatedValue<ViewStyle>;
@@ -132,6 +133,31 @@ const SORT_OPTIONS: FilterOption[] = [
 
 const CATEGORY_DRAWER_WIDTH = 360;
 
+type HomeAdSlotConfig = {
+  key: string;
+  afterSection: number;
+  title: string;
+  copy: string;
+  cta: string;
+};
+
+const HOME_AD_SLOTS: HomeAdSlotConfig[] = [
+  {
+    key: 'publisher-highlight',
+    afterSection: 1,
+    title: 'Boost your next launch',
+    copy: 'Secure premium placement across Playlog and spotlight your studio’s headline release.',
+    cta: 'Reserve placement',
+  },
+  {
+    key: 'community-event',
+    afterSection: 3,
+    title: 'Feature community events',
+    copy: 'Showcase tournaments, beta invites, or seasonal drops to players already exploring new games.',
+    cta: 'Talk to us',
+  },
+];
+
 export default function HomeScreen() {
   const router = useRouter();
   const { sizes, placeholders } = useHomeScreen();
@@ -189,6 +215,18 @@ export default function HomeScreen() {
 
   const [heroIndex, setHeroIndex] = useState(0);
   const heroAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const normalizedTerm = term.trim();
+    const normalizedSubmitted = submittedTerm.trim();
+    if (normalizedTerm === normalizedSubmitted) {
+      return;
+    }
+    const timeout = setTimeout(() => {
+      submit(normalizedTerm);
+    }, LIVE_SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timeout);
+  }, [term, submittedTerm, submit]);
 
   useEffect(() => {
     setHeroIndex(0);
@@ -858,16 +896,26 @@ function NativeHome({
             </View>
 
             <View style={nativeStyles.sectionsContainer}>
-              {sections.map((section) => (
-                <NativeSection
-                  key={section.key}
-                  section={section}
-                  placeholders={placeholders}
-                  itemWidth={sizes.ITEM_WIDTH}
-                  itemGap={sizes.ITEM_GAP}
-                  onSelectGame={onSelectGame}
-                />
-              ))}
+              {sections.map((section, index) => {
+                const afterIndex = index + 1;
+                const matchingSlots = HOME_AD_SLOTS.filter(
+                  (slot) => slot.afterSection === afterIndex,
+                );
+                return (
+                  <React.Fragment key={section.key}>
+                    <NativeSection
+                      section={section}
+                      placeholders={placeholders}
+                      itemWidth={sizes.ITEM_WIDTH}
+                      itemGap={sizes.ITEM_GAP}
+                      onSelectGame={onSelectGame}
+                    />
+                    {matchingSlots.map((slot) => (
+                      <NativeAdSlot key={`native-${slot.key}`} slot={slot} />
+                    ))}
+                  </React.Fragment>
+                );
+              })}
               <DiscoveryStatus state={discoveryState} />
             </View>
           </>
@@ -1027,21 +1075,36 @@ function WebHome({
             </View>
           ) : (
             <>
-              {sections.map((section) => (
-                <View key={section.key}>
-                  <SectionTitle title={section.title} tight={sizes.isSM} />
-                  <Carousel itemWidth={sizes.ITEM_WIDTH} itemGap={sizes.ITEM_GAP}>
-                    {resolveGames(section, placeholders).map((game, index) => (
-                      <WebGameCard
-                        key={game ? `${section.key}-${game.id}` : `${section.key}-placeholder-${index}`}
-                        width={sizes.ITEM_WIDTH}
-                        game={game}
-                        onPress={game ? () => onSelectGame(game) : undefined}
-                      />
+              {sections.map((section, index) => {
+                const afterIndex = index + 1;
+                const matchingSlots = HOME_AD_SLOTS.filter(
+                  (slot) => slot.afterSection === afterIndex,
+                );
+                return (
+                  <React.Fragment key={section.key}>
+                    <View>
+                      <SectionTitle title={section.title} tight={sizes.isSM} />
+                      <Carousel itemWidth={sizes.ITEM_WIDTH} itemGap={sizes.ITEM_GAP}>
+                        {resolveGames(section, placeholders).map((game, itemIndex) => (
+                          <WebGameCard
+                            key={
+                              game
+                                ? `${section.key}-${game.id}`
+                                : `${section.key}-placeholder-${itemIndex}`
+                            }
+                            width={sizes.ITEM_WIDTH}
+                            game={game}
+                            onPress={game ? () => onSelectGame(game) : undefined}
+                          />
+                        ))}
+                      </Carousel>
+                    </View>
+                    {matchingSlots.map((slot) => (
+                      <WebAdSlot key={`web-${slot.key}`} slot={slot} />
                     ))}
-                  </Carousel>
-                </View>
-              ))}
+                  </React.Fragment>
+                );
+              })}
               <DiscoveryStatus state={discoveryState} />
             </>
           )}
@@ -1191,6 +1254,28 @@ function NativeCardContent({
   );
 }
 
+function NativeAdSlot({ slot }: { slot: HomeAdSlotConfig }) {
+  return (
+    <View style={nativeStyles.adSlot}>
+      <View style={nativeStyles.adBadge}>
+        <Ionicons name="megaphone-outline" size={16} color="#fbbf24" />
+        <Text style={nativeStyles.adBadgeLabel}>Sponsored</Text>
+      </View>
+      <Text style={nativeStyles.adTitle}>{slot.title}</Text>
+      <Text style={nativeStyles.adCopy}>{slot.copy}</Text>
+      <Pressable
+        style={({ pressed }) => [
+          nativeStyles.adCtaButton,
+          pressed && nativeStyles.adCtaButtonPressed,
+        ]}
+        accessibilityRole="button"
+      >
+        <Text style={nativeStyles.adCtaText}>{slot.cta}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function WebGameCard({
   width,
   game,
@@ -1243,6 +1328,26 @@ function WebGameCard({
           <Ionicons name="logo-windows" size={16} color="#e0e7ff" />
         </View>
       </View>
+    </View>
+  );
+}
+
+function WebAdSlot({ slot }: { slot: HomeAdSlotConfig }) {
+  return (
+    <View style={webStyles.adSlot}>
+      <View style={webStyles.adContent}>
+        <View style={webStyles.adBadge}>
+          <Text style={webStyles.adBadgeLabel}>Sponsored</Text>
+        </View>
+        <Text style={webStyles.adTitle}>{slot.title}</Text>
+        <Text style={webStyles.adCopy}>{slot.copy}</Text>
+      </View>
+      <Pressable
+        style={({ pressed }) => [webStyles.adButton, pressed && webStyles.adButtonPressed]}
+        accessibilityRole="button"
+      >
+        <Text style={webStyles.adButtonText}>{slot.cta}</Text>
+      </Pressable>
     </View>
   );
 }
@@ -2073,6 +2178,37 @@ const nativeStyles = StyleSheet.create({
   rating: { color: '#ccc', fontSize: 12, marginVertical: 4 },
   ratingPlaceholder: { color: '#6b7280', fontSize: 12, marginVertical: 4 },
   platformRow: { flexDirection: 'row', gap: 10, marginBottom: 2 },
+  adSlot: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 18,
+    borderRadius: 20,
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.25)',
+    gap: 8,
+  },
+  adBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(251,191,36,0.12)',
+  },
+  adBadgeLabel: { color: '#fcd34d', fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
+  adTitle: { color: '#f8fafc', fontSize: 18, fontWeight: '800' },
+  adCopy: { color: '#cbd5f5', fontSize: 13 },
+  adCtaButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#4f46e5',
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+  },
+  adCtaButtonPressed: { opacity: 0.9 },
+  adCtaText: { color: '#f8fafc', fontWeight: '700' },
   searchResults: { paddingHorizontal: 16 },
   resultsHeading: {
     color: '#e5e7eb',
@@ -2180,6 +2316,37 @@ const webStyles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.08)',
   },
   cardWrap: { width: '100%' },
+  adSlot: {
+    marginTop: 24,
+    marginBottom: 16,
+    padding: 24,
+    borderRadius: 22,
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: 'rgba(99,102,241,0.25)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+  },
+  adContent: { flex: 1, gap: 8 },
+  adBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(147,197,253,0.18)',
+  },
+  adBadgeLabel: { color: '#bfdbfe', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  adTitle: { color: '#f8fafc', fontSize: 22, fontWeight: '900' },
+  adCopy: { color: '#cbd5f5', fontSize: 14 },
+  adButton: {
+    backgroundColor: '#4f46e5',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  adButtonPressed: { opacity: 0.9 },
+  adButtonText: { color: '#f8fafc', fontWeight: '700' },
   friendLabel: {
     alignSelf: 'flex-start',
     flexDirection: 'row',

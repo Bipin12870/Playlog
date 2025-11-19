@@ -124,6 +124,7 @@ export default function FavScreen() {
           contentContainerStyle={styles.resultsContent}
           cardStyle={styles.webCard}
           emptyState={emptyState}
+          adFrequency={4}
         />
       </View>
     );
@@ -162,6 +163,7 @@ export default function FavScreen() {
           emptyState={emptyState}
           headerComponent={mobileHeaderComponent}
           footerComponent={mobileFooterComponent}
+          adFrequency={4}
         />
       </View>
     </SafeAreaView>
