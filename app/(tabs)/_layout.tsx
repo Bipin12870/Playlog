@@ -11,7 +11,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import { signOut } from 'firebase/auth';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
 import { auth } from '../../lib/firebase';
@@ -26,6 +26,8 @@ import {
   requestCategoryDrawerOpen,
   subscribeToCategoryDrawerEvents,
 } from '../../lib/events/categoryDrawer';
+import { useSearchHistory, type SearchHistoryItem } from '../../lib/hooks/useSearchHistory';
+import { SearchHistoryDropdown } from '../../components/search/SearchHistoryDropdown';
 
 const LOGO = require('../../assets/logo.png');
 
@@ -53,7 +55,11 @@ type WebNavBarProps = {
 function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarProps) {
   const router = useRouter();
   const { term, setTerm, submit, resetSearch, setScope } = useGameSearch();
+  const { addEntry, filterByPrefix } = useSearchHistory();
   const [categoryActive, setCategoryActive] = useState(false);
+  const [historySuggestions, setHistorySuggestions] = useState<SearchHistoryItem[]>([]);
+  const [historyDropdownVisible, setHistoryDropdownVisible] = useState(false);
+  const historyBlurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scopeByRoute: Record<string, SearchScope> = {
     home: 'games',
@@ -86,6 +92,14 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
   const inputBackground = isDarkSurface ? '#1f2937' : '#ffffff';
   const signOutTextColor = isDarkSurface ? '#f1f5f9' : '#1f2937';
 
+  useEffect(() => {
+    return () => {
+      if (historyBlurTimeoutRef.current) {
+        clearTimeout(historyBlurTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleSignOut = async () => {
     try {
       await signOut(auth);
@@ -110,6 +124,74 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
       open();
     }
   };
+
+  const updateHistorySuggestions = useCallback(
+    (value: string) => {
+      const matches = filterByPrefix(value);
+      setHistorySuggestions(matches);
+      setHistoryDropdownVisible(matches.length > 0);
+    },
+    [filterByPrefix],
+  );
+
+  const handleChangeSearchTerm = useCallback(
+    (value: string) => {
+      setTerm(value);
+      updateHistorySuggestions(value);
+    },
+    [setTerm, updateHistorySuggestions],
+  );
+
+  const handleSearchFocus = useCallback(() => {
+    if (historyBlurTimeoutRef.current) {
+      clearTimeout(historyBlurTimeoutRef.current);
+      historyBlurTimeoutRef.current = null;
+    }
+    const matches = filterByPrefix(term);
+    setHistorySuggestions(matches);
+    setHistoryDropdownVisible(matches.length > 0);
+  }, [filterByPrefix, term]);
+
+  const handleSearchBlur = useCallback(() => {
+    if (historyBlurTimeoutRef.current) {
+      clearTimeout(historyBlurTimeoutRef.current);
+    }
+    historyBlurTimeoutRef.current = setTimeout(() => {
+      setHistoryDropdownVisible(false);
+    }, 120);
+  }, []);
+
+  const handleSubmitSearch = useCallback(
+    (value?: string) => {
+      const rawValue = typeof value === 'string' ? value : term;
+      const trimmed = rawValue.trim();
+      if (!trimmed) {
+        setHistoryDropdownVisible(false);
+        setHistorySuggestions([]);
+        return;
+      }
+      setTerm(trimmed);
+      submit(trimmed);
+      addEntry(trimmed);
+      setHistoryDropdownVisible(false);
+      setHistorySuggestions([]);
+    },
+    [addEntry, setTerm, submit, term],
+  );
+
+  const handleSelectHistoryTerm = useCallback(
+    (value: string) => {
+      handleSubmitSearch(value);
+    },
+    [handleSubmitSearch],
+  );
+
+  const handleOpenHistoryScreen = useCallback(() => {
+    setHistoryDropdownVisible(false);
+    setHistorySuggestions([]);
+    router.push('/search-history');
+  }, [router]);
+
   return (
     <View
       style={[
@@ -152,24 +234,36 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
       </View>
       <View style={styles.rightSection}>
         {showSearch ? (
-          <TextInput
-            placeholder={placeholder}
-            placeholderTextColor={palette.muted}
-            value={term}
-            onChangeText={setTerm}
-            returnKeyType="search"
-            onSubmitEditing={() => submit()}
-            autoCorrect={false}
-            autoCapitalize="none"
-            style={[
-              styles.searchInput,
-              {
-                borderColor: palette.border,
-                color: palette.text,
-                backgroundColor: inputBackground,
-              },
-            ]}
-          />
+          <View style={styles.searchArea}>
+            <TextInput
+              placeholder={placeholder}
+              placeholderTextColor={palette.muted}
+              value={term}
+              onChangeText={handleChangeSearchTerm}
+              returnKeyType="search"
+              onSubmitEditing={() => handleSubmitSearch()}
+              autoCorrect={false}
+              autoCapitalize="none"
+              onFocus={handleSearchFocus}
+              onBlur={handleSearchBlur}
+              style={[
+                styles.searchInput,
+                {
+                  borderColor: palette.border,
+                  color: palette.text,
+                  backgroundColor: inputBackground,
+                },
+              ]}
+            />
+            {historyDropdownVisible ? (
+              <SearchHistoryDropdown
+                style={styles.historyDropdown}
+                items={historySuggestions}
+                onSelect={handleSelectHistoryTerm}
+                onSeeAll={handleOpenHistoryScreen}
+              />
+            ) : null}
+          </View>
         ) : (
           <View style={styles.searchPlaceholder} />
         )}
@@ -414,10 +508,19 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    height: 36,
-    paddingHorizontal: 16,
+    minHeight: 46,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
     borderWidth: 1,
     borderRadius: 999,
+    fontSize: 16,
+  },
+  searchArea: {
+    flex: 1,
+    position: 'relative',
+  },
+  historyDropdown: {
+    zIndex: 30,
   },
   searchPlaceholder: {
     flex: 1,

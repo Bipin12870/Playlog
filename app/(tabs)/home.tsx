@@ -20,10 +20,11 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { GameCard } from '../../components/GameCard';
 import { SearchResults } from '../../components/home';
+import { SearchHistoryDropdown } from '../../components/search/SearchHistoryDropdown';
 import type { DiscoverySection } from '../../components/home/DiscoverySections';
 import {
   fetchCategoryGames,
@@ -36,6 +37,7 @@ import { useHomeScreen } from './useHomeScreen';
 import { useGameSearch } from '../../lib/hooks/useGameSearch';
 import { useDiscoveryCache } from '../../lib/hooks/useDiscoveryCache';
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
+import { useSearchHistory, type SearchHistoryItem } from '../../lib/hooks/useSearchHistory';
 import {
   useFriendFavoriteGames,
   type FriendFavoriteMeta,
@@ -180,6 +182,10 @@ export default function HomeScreen() {
     cacheResults,
     cacheReady,
   } = useGameSearch();
+  const { history, addEntry, filterByPrefix } = useSearchHistory();
+  const searchParams = useLocalSearchParams<{ historyTerm?: string | string[]; historyToken?: string | string[] }>();
+  const [historySuggestions, setHistorySuggestions] = useState<SearchHistoryItem[]>([]);
+  const [historyDropdownVisible, setHistoryDropdownVisible] = useState(false);
   const [activeQuery, setActiveQuery] = useState('');
   const [games, setGames] = useState<GameSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -189,7 +195,10 @@ export default function HomeScreen() {
   const gamesRef = useRef<GameSummary[]>([]);
   const cachedBufferRef = useRef<GameSummary[]>([]);
   const nextOffsetRef = useRef(0);
+  const historyBlurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastHistoryTokenRef = useRef<string | null>(null);
 
+  const recentHistory = useMemo(() => history.slice(0, 4), [history]);
   const [featuredGames, setFeaturedGames] = useState<GameSummary[]>([]);
   const [likedGames, setLikedGames] = useState<GameSummary[]>([]);
   const [recommendedGames, setRecommendedGames] = useState<GameSummary[]>([]);
@@ -250,6 +259,22 @@ export default function HomeScreen() {
       useNativeDriver: true,
     }).start();
   }, [heroIndex, heroItems, heroAnim]);
+
+
+  useEffect(() => {
+    return () => {
+      if (historyBlurTimeoutRef.current) {
+        clearTimeout(historyBlurTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!term.trim()) {
+      setHistorySuggestions([]);
+      setHistoryDropdownVisible(false);
+    }
+  }, [term]);
 
   const heroScale = useMemo(
     () =>
@@ -477,6 +502,7 @@ export default function HomeScreen() {
   }, [friendFavoriteGames, featuredGames, likedGames, recommendedGames]);
 
   const hasActiveSearch = Boolean(activeQuery);
+  const showRecentSearches = !hasActiveSearch && !term.trim() && recentHistory.length > 0;
   const filtersActive = useMemo(
     () => Boolean(filters.platform || filters.genre || filters.release !== 'any'),
     [filters]
@@ -562,15 +588,102 @@ export default function HomeScreen() {
     [handleResetFilters, resetSearch]
   );
 
+  const updateHistorySuggestions = useCallback(
+    (value: string) => {
+      const matches = filterByPrefix(value);
+      setHistorySuggestions(matches);
+      setHistoryDropdownVisible(matches.length > 0);
+    },
+    [filterByPrefix],
+  );
+
+  const handleChangeSearchTerm = useCallback(
+    (value: string) => {
+      setTerm(value);
+      updateHistorySuggestions(value);
+    },
+    [setTerm, updateHistorySuggestions],
+  );
+
+  const handleSearchFocus = useCallback(() => {
+    if (historyBlurTimeoutRef.current) {
+      clearTimeout(historyBlurTimeoutRef.current);
+      historyBlurTimeoutRef.current = null;
+    }
+    const matches = filterByPrefix(term);
+    setHistorySuggestions(matches);
+    setHistoryDropdownVisible(matches.length > 0);
+  }, [filterByPrefix, term]);
+
+  const handleSearchBlur = useCallback(() => {
+    if (historyBlurTimeoutRef.current) {
+      clearTimeout(historyBlurTimeoutRef.current);
+    }
+    historyBlurTimeoutRef.current = setTimeout(() => {
+      setHistoryDropdownVisible(false);
+    }, 120);
+  }, []);
+
+  const handleSubmitSearch = useCallback(
+    (value?: string) => {
+      const rawValue = typeof value === 'string' ? value : term;
+      const trimmed = rawValue.trim();
+      if (!trimmed) {
+        setHistoryDropdownVisible(false);
+        setHistorySuggestions([]);
+        return;
+      }
+      setTerm(trimmed);
+      submit(trimmed);
+      addEntry(trimmed);
+      setHistoryDropdownVisible(false);
+      setHistorySuggestions([]);
+    },
+    [addEntry, setTerm, submit, term],
+  );
+
+  const handleSelectHistoryTerm = useCallback(
+    (value: string) => {
+      handleSubmitSearch(value);
+    },
+    [handleSubmitSearch],
+  );
+
+  const handleOpenHistoryScreen = useCallback(() => {
+    setHistoryDropdownVisible(false);
+    setHistorySuggestions([]);
+    router.push('/search-history');
+  }, [router]);
+
+  useEffect(() => {
+    const paramTerm = Array.isArray(searchParams.historyTerm)
+      ? searchParams.historyTerm[0]
+      : searchParams.historyTerm;
+    const paramToken = Array.isArray(searchParams.historyToken)
+      ? searchParams.historyToken[0]
+      : searchParams.historyToken;
+    if (!paramTerm || !paramToken) {
+      return;
+    }
+    if (lastHistoryTokenRef.current === paramToken) {
+      return;
+    }
+    lastHistoryTokenRef.current = paramToken;
+    handleSubmitSearch(paramTerm);
+    router.setParams({ historyTerm: undefined, historyToken: undefined });
+  }, [handleSubmitSearch, router, searchParams.historyTerm, searchParams.historyToken]);
+
   const searchInputProps: TextInputProps = {
     placeholder: 'Search games',
     placeholderTextColor: '#9ca3af',
     value: term,
-    onChangeText: setTerm,
+    onChangeText: handleChangeSearchTerm,
     returnKeyType: 'search',
-    onSubmitEditing: () => submit(),
+    onSubmitEditing: () => handleSubmitSearch(),
     autoCorrect: false,
     autoCapitalize: 'none',
+    onFocus: handleSearchFocus,
+    onBlur: handleSearchBlur,
   };
 
   const cardVariant = (isWeb ? 'default' : 'compact') as 'default' | 'compact';
@@ -675,6 +788,9 @@ export default function HomeScreen() {
           heroAnimatedStyle={heroAnimatedStyle}
           filterControls={filterControls}
           sortControls={sortControls}
+          showRecentSearches={showRecentSearches}
+          recentHistory={recentHistory}
+          onSelectHistoryTerm={handleSelectHistoryTerm}
         />
         {categoryDrawer}
       </>
@@ -695,6 +811,12 @@ export default function HomeScreen() {
         searchResultsProps={searchResultsProps}
         discoveryState={discoveryState}
         searchInputProps={searchInputProps}
+        historySuggestions={historySuggestions}
+        showHistoryDropdown={historyDropdownVisible}
+        onSelectHistoryTerm={handleSelectHistoryTerm}
+        onOpenHistoryScreen={handleOpenHistoryScreen}
+        showRecentSearches={showRecentSearches}
+        recentHistory={recentHistory}
         onSelectGame={handleViewDetails}
         router={router}
         heroItems={heroItems}
@@ -754,6 +876,12 @@ type NativeHomeProps = HomeSectionProps & {
   onOpenCategoryDrawer: () => void;
   currentUser: ReturnType<typeof useAuthUser>['user'];
   authInitializing: boolean;
+  historySuggestions: SearchHistoryItem[];
+  showHistoryDropdown: boolean;
+  onSelectHistoryTerm: (term: string) => void;
+  onOpenHistoryScreen: () => void;
+  recentHistory: SearchHistoryItem[];
+  showRecentSearches: boolean;
 };
 
 function NativeHome({
@@ -764,6 +892,10 @@ function NativeHome({
   searchResultsProps,
   discoveryState,
   searchInputProps,
+  historySuggestions,
+  showHistoryDropdown,
+  onSelectHistoryTerm,
+  onOpenHistoryScreen,
   onSelectGame,
   router,
   heroItems,
@@ -775,6 +907,8 @@ function NativeHome({
   onOpenCategoryDrawer,
   currentUser,
   authInitializing,
+  recentHistory,
+  showRecentSearches,
 }: NativeHomeProps) {
   const [hideGate, setHideGate] = useState(false);
   const showGate = !authInitializing && !currentUser && !hideGate;
@@ -795,13 +929,23 @@ function NativeHome({
       >
         <Image source={LOGO} style={nativeStyles.logoMark} resizeMode="contain" />
       </Pressable>
-      <View style={nativeStyles.searchBox}>
-        <Ionicons name="search" size={16} color="#9ca3af" style={nativeStyles.searchIcon} />
-        <TextInput
-          {...searchInputProps}
-          style={nativeStyles.searchInput}
-          placeholderTextColor="#9ca3af"
-        />
+      <View style={nativeStyles.searchArea}>
+        <View style={nativeStyles.searchBox}>
+          <Ionicons name="search" size={16} color="#9ca3af" style={nativeStyles.searchIcon} />
+          <TextInput
+            {...searchInputProps}
+            style={nativeStyles.searchInput}
+            placeholderTextColor="#9ca3af"
+          />
+        </View>
+        {showHistoryDropdown ? (
+          <SearchHistoryDropdown
+            style={nativeStyles.historyDropdown}
+            items={historySuggestions}
+            onSelect={onSelectHistoryTerm}
+            onSeeAll={onOpenHistoryScreen}
+          />
+        ) : null}
       </View>
       <Pressable
         onPress={onOpenCategoryDrawer}
@@ -996,7 +1140,11 @@ function NativeHome({
   );
 }
 
-type WebHomeProps = HomeSectionProps;
+type WebHomeProps = HomeSectionProps & {
+  recentHistory: SearchHistoryItem[];
+  showRecentSearches: boolean;
+  onSelectHistoryTerm: (term: string) => void;
+};
 
 function WebHome({
   sizes,
@@ -1010,6 +1158,9 @@ function WebHome({
   heroIndex,
   heroAnimatedStyle,
   sortControls,
+  recentHistory,
+  showRecentSearches,
+  onSelectHistoryTerm,
 }: WebHomeProps) {
   const heroGame = heroItems[heroIndex] ?? null;
   const heroCover = resolveHeroUri(heroGame);
@@ -2098,6 +2249,10 @@ const nativeStyles = StyleSheet.create({
   logoBox: { backgroundColor: '#2e2e2e', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 },
   logoBoxPressed: { opacity: 0.8 },
   logoMark: { width: 60, height: 24 },
+  searchArea: {
+    flex: 1,
+    position: 'relative',
+  },
   searchBox: {
     flex: 1,
     backgroundColor: '#1f1f1f',
@@ -2105,6 +2260,9 @@ const nativeStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
+  },
+  historyDropdown: {
+    zIndex: 20,
   },
   searchIcon: { marginRight: 6 },
   searchInput: { color: '#fff', flex: 1, fontSize: 14, paddingVertical: 6 },

@@ -15,6 +15,7 @@ export default function RootLayout() {
         >
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="game/[id]" />
+          <Stack.Screen name="search-history" />
         </Stack>
       </DiscoveryCacheProvider>
     </GameDetailsCacheProvider>
