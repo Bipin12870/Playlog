@@ -19,6 +19,7 @@ export default function PublicProfileLayout() {
         <Stack.Screen name="[uid]/following" options={{ title: 'Following' }} />
         <Stack.Screen name="[uid]/favourites" options={{ title: 'Favourites' }} />
         <Stack.Screen name="[uid]/reviews" options={{ title: 'Reviews' }} />
+        <Stack.Screen name="[uid]/blocked" options={{ title: 'Blocked Users' }} />
       </Stack>
     </GameFavoritesProvider>
   );
