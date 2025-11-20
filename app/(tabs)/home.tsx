@@ -226,7 +226,6 @@ export default function HomeScreen() {
     cacheReady: discoveryCacheReady,
     getCachedDiscovery,
     cacheDiscovery,
-    clearDiscoveryCache,
   } = useDiscoveryCache();
 
   const baseColumnCount = getColumnCount(sizes.contentW);
@@ -491,18 +490,6 @@ export default function HomeScreen() {
   }, [submittedTerm, loadExplore, discoveryCacheReady]);
 
   const friendFavoriteGames = friendFavorites.games;
-
-  // Invalidate discovery cache when the signed-in user changes so personalized
-  // recommendations refresh instead of reusing cached random results.
-  useEffect(() => {
-    clearDiscoveryCache();
-    setFeaturedGames([]);
-    setLikedGames([]);
-    setRecommendedGames([]);
-    if (!submittedTerm.trim()) {
-      loadExplore();
-    }
-  }, [clearDiscoveryCache, loadExplore, submittedTerm, currentUser?.uid]);
 
   const sections = useMemo<DiscoverySection[]>(() => {
     const rows: DiscoverySection[] = [
