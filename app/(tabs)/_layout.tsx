@@ -29,6 +29,8 @@ import {
 } from '../../lib/events/categoryDrawer';
 import { useSearchHistory, type SearchHistoryItem } from '../../lib/hooks/useSearchHistory';
 import { SearchHistoryDropdown } from '../../components/search/SearchHistoryDropdown';
+import { FollowAlertProvider, useFollowAlertsContext } from '../../lib/hooks/useFollowAlerts';
+import { useUserProfile } from '../../lib/userProfile';
 
 const LOGO = require('../../assets/logo.png');
 let pendingLogoGlow = false;
@@ -63,7 +65,9 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
   const [historySuggestions, setHistorySuggestions] = useState<SearchHistoryItem[]>([]);
   const [historyDropdownVisible, setHistoryDropdownVisible] = useState(false);
   const historyBlurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const followAlerts = useFollowAlertsContext();
   const logoGlowTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
 
   const scopeByRoute: Record<string, SearchScope> = {
     home: 'games',
@@ -267,6 +271,7 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
           {NAV_ITEMS.map(({ name, label }, index) => {
             const isActive = name === activeRoute;
             const showRequestBadge = name === 'profile' && pendingRequests > 0;
+            const showAlertDot = name === 'profile' && followAlerts.hasAnyAlerts;
             return (
               <View key={name} style={styles.linkWrapper}>
                 <Link
@@ -286,7 +291,14 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
                 >
                   {label}
                 </Link>
-                {showRequestBadge ? <View style={styles.navBadge} /> : null}
+                {showRequestBadge || showAlertDot ? (
+                  <View
+                    style={[
+                      styles.navBadge,
+                      showRequestBadge ? styles.navBadgePending : styles.navBadgeAlert,
+                    ]}
+                  />
+                ) : null}
               </View>
             );
           })}
@@ -378,18 +390,11 @@ type NativeTabsProps = {
   navBackground: string;
   navBorder: string;
   pageBackground: string;
-  profileBadge?: string;
 };
 
-function NativeTabs({
-  accent,
-  navMuted,
-  navBackground,
-  navBorder,
-  pageBackground,
-  profileBadge,
-}: NativeTabsProps) {
+function NativeTabs({ accent, navMuted, navBackground, navBorder, pageBackground }: NativeTabsProps) {
   const { resetSearch, setScope } = useGameSearch();
+  const followAlerts = useFollowAlertsContext();
 
   const handleHomeTabPress = useCallback(() => {
     setScope('games');
@@ -423,7 +428,13 @@ function NativeTabs({
               icon = 'person';
               break;
           }
-          return <Ionicons name={icon} size={size} color={color} />;
+          const showAlertDot = route.name === 'profile' && followAlerts.hasAnyAlerts;
+          return (
+            <View style={styles.tabIconWrapper}>
+              <Ionicons name={icon} size={size} color={color} />
+              {showAlertDot ? <View style={styles.tabAlertDot} /> : null}
+            </View>
+          );
         },
       })}
     >
@@ -442,7 +453,12 @@ function NativeTabs({
         name="profile"
         options={{
           title: 'Profile',
-          tabBarBadge: profileBadge,
+          tabBarBadge:
+            followAlerts.pendingRequests > 0
+              ? followAlerts.pendingRequests > 99
+                ? '99+'
+                : String(followAlerts.pendingRequests)
+              : undefined,
         }}
       />
     </Tabs>
@@ -455,8 +471,10 @@ export default function TabsLayout() {
   const { user } = useAuthUser();
   const followRequests = useFollowRequests(user?.uid ?? null);
   const pendingRequests = followRequests.requests.length;
-  const profileBadge =
-    pendingRequests > 0 ? (pendingRequests > 99 ? '99+' : String(pendingRequests)) : undefined;
+  const { profile } = useUserProfile(user?.uid ?? null);
+  const stats = profile?.stats ?? null;
+  const followersCount = stats?.followers ?? 0;
+  const followingCount = stats?.following ?? 0;
   const pageBackground = '#0f172a';
   const navBackground = pageBackground;
   const navBorder = '#1e293b';
@@ -470,8 +488,8 @@ export default function TabsLayout() {
     isDark: true,
   };
 
-  if (Platform.OS === 'web') {
-    return (
+  const content =
+    Platform.OS === 'web' ? (
       <GameFavoritesProvider>
         <GameSearchProvider>
           <Stack
@@ -494,22 +512,30 @@ export default function TabsLayout() {
           </Stack>
         </GameSearchProvider>
       </GameFavoritesProvider>
+    ) : (
+      <GameFavoritesProvider>
+        <GameSearchProvider>
+          <NativeTabs
+            accent={accent}
+            navMuted={navMuted}
+            navBackground={navBackground}
+            navBorder={navBorder}
+            pageBackground={pageBackground}
+          />
+        </GameSearchProvider>
+      </GameFavoritesProvider>
     );
-  }
 
   return (
-    <GameFavoritesProvider>
-      <GameSearchProvider>
-        <NativeTabs
-          accent={accent}
-          navMuted={navMuted}
-          navBackground={navBackground}
-          navBorder={navBorder}
-          pageBackground={pageBackground}
-          profileBadge={profileBadge}
-        />
-      </GameSearchProvider>
-    </GameFavoritesProvider>
+    <FollowAlertProvider
+      uid={user?.uid ?? null}
+      followersCount={followersCount}
+      followingCount={followingCount}
+      pendingRequests={pendingRequests}
+      ready={Boolean(profile)}
+    >
+      {content}
+    </FollowAlertProvider>
   );
 }
 
@@ -564,7 +590,12 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#f97316',
+  },
+  navBadgePending: {
+    backgroundColor: '#f87171',
+  },
+  navBadgeAlert: {
+    backgroundColor: '#facc15',
   },
   searchInput: {
     flex: 1,
@@ -620,5 +651,15 @@ const styles = StyleSheet.create({
   signOutLabel: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  tabIconWrapper: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
+  tabAlertDot: {
+    position: 'absolute',
+    top: -2,
+    right: -6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#facc15',
   },
 });

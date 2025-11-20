@@ -23,6 +23,7 @@ import { useUserProfile } from '../../../lib/userProfile';
 import { useFollowRequests } from '../../../lib/hooks/useFollowRequests';
 import { getProfileVisibility } from '../../../lib/profileVisibility';
 import { resolveAvatarSource } from '../../../lib/avatar';
+import { useFollowAlertsContext } from '../../../lib/hooks/useFollowAlerts';
 
 type ProfileAction = {
   key:
@@ -42,21 +43,74 @@ type ProfileAction = {
 };
 
 const ACTIONS: ProfileAction[] = [
-  { key: 'followers', title: 'Followers', description: 'See everyone keeping up with your activity.', icon: 'people', section: 'Social' },
-  { key: 'following', title: 'Following', description: 'Manage the players and friends you follow.', icon: 'person-add', section: 'Social' },
-  { key: 'requests', title: 'Follow requests', description: 'Approve or decline new followers.', icon: 'mail', section: 'Social' },
-  { key: 'blocked', title: 'Blocked users', description: 'Review and manage your blocked list.', icon: 'ban', section: 'Social' },
-  { key: 'edit', title: 'Edit Profile', description: 'Update your display name, avatar, and bio.', icon: 'create', section: 'Profile' },
-  { key: 'reviews', title: 'Reviews', description: 'Revisit and manage shared reviews.', icon: 'chatbubble-ellipses', section: 'Content' },
-  { key: 'visibility', title: 'Visibility settings', description: 'Control who can follow, message, or see your activity.', icon: 'eye', section: 'Privacy & Safety' },
-  { key: 'delete', title: 'Delete account', description: 'Permanently remove your account.', icon: 'trash', section: 'Account', variant: 'destructive' },
+  {
+    key: 'followers',
+    title: 'Followers',
+    description: 'See everyone keeping up with your activity.',
+    icon: 'people',
+    section: 'Social',
+  },
+  {
+    key: 'following',
+    title: 'Following',
+    description: 'Manage the players and friends you follow.',
+    icon: 'person-add',
+    section: 'Social',
+  },
+  {
+    key: 'requests',
+    title: 'Follow requests',
+    description: 'Approve or decline new followers.',
+    icon: 'mail',
+    section: 'Social',
+  },
+  {
+    key: 'blocked',
+    title: 'Blocked users',
+    description: 'Review and manage your blocked list.',
+    icon: 'ban',
+    section: 'Social',
+  },
+  {
+    key: 'edit',
+    title: 'Edit Profile',
+    description: 'Update your display name, avatar, and bio.',
+    icon: 'create',
+    section: 'Profile',
+  },
+  {
+    key: 'reviews',
+    title: 'Reviews',
+    description: 'Revisit and manage shared reviews.',
+    icon: 'chatbubble-ellipses',
+    section: 'Content',
+  },
+  {
+    key: 'visibility',
+    title: 'Visibility settings',
+    description: 'Control who can follow, message, or see your activity.',
+    icon: 'eye',
+    section: 'Privacy & Safety',
+  },
+  {
+    key: 'delete',
+    title: 'Delete account',
+    description: 'Permanently remove your account.',
+    icon: 'trash',
+    section: 'Account',
+    variant: 'destructive',
+  },
 ];
 
 const ACTION_SECTIONS: Array<{ key: string; title: ProfileAction['section']; actions: ProfileAction[] }> = [
   { key: 'social', title: 'Social', actions: ACTIONS.filter((action) => action.section === 'Social') },
   { key: 'profile', title: 'Profile', actions: ACTIONS.filter((action) => action.section === 'Profile') },
   { key: 'content', title: 'Content', actions: ACTIONS.filter((action) => action.section === 'Content') },
-  { key: 'privacy', title: 'Privacy & Safety', actions: ACTIONS.filter((action) => action.section === 'Privacy & Safety') },
+  {
+    key: 'privacy',
+    title: 'Privacy & Safety',
+    actions: ACTIONS.filter((action) => action.section === 'Privacy & Safety'),
+  },
   { key: 'account', title: 'Account', actions: ACTIONS.filter((action) => action.section === 'Account') },
 ];
 
@@ -89,7 +143,11 @@ function formatCount(value?: number | null) {
 
 function formatJoined(dateValue?: Date | null) {
   if (!dateValue) return null;
-  return dateValue.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  return dateValue.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 export default function ProfileHomeScreen() {
@@ -99,6 +157,7 @@ export default function ProfileHomeScreen() {
   const { profile, loading, error } = useUserProfile(uid);
   const followRequests = useFollowRequests(uid);
   const pendingRequests = followRequests.requests.length;
+  const followAlerts = useFollowAlertsContext();
   const visibility = getProfileVisibility(profile ?? undefined);
   const isMobile = Platform.OS !== 'web';
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(
@@ -124,7 +183,7 @@ export default function ProfileHomeScreen() {
         map[action.key] = action;
         return map;
       }, {} as Record<ProfileAction['key'], ProfileAction>),
-    []
+    [],
   );
 
   const heroAvatar = useMemo<ImageSourcePropType>(() => {
@@ -132,6 +191,7 @@ export default function ProfileHomeScreen() {
   }, [profile?.photoURL, profile?.avatarKey]);
 
   const stats = profile?.stats ?? {};
+
   const handleSignOut = async () => {
     try {
       await signOut(auth);
@@ -176,7 +236,7 @@ export default function ProfileHomeScreen() {
         handleNavigate(action);
       }
     },
-    [actionsByKey]
+    [actionsByKey],
   );
 
   if (initializing || loading) {
@@ -194,14 +254,21 @@ export default function ProfileHomeScreen() {
         <Ionicons name="person-circle-outline" size={64} color="#94a3b8" />
         <Text style={styles.emptyTitle}>Sign in to manage your profile</Text>
         <Text style={styles.emptyCopy}>
-          Log in to customise your Playlog presence. Update your display name, avatar, and bio once you’re signed in.
+          Log in to customise your Playlog presence. Update your display name, avatar, and bio
+          once you’re signed in.
         </Text>
         {error ? <Text style={styles.errorText}>{error.message}</Text> : null}
         <View style={styles.emptyActionRow}>
-          <Pressable style={[styles.emptyBtn, styles.emptyPrimary]} onPress={() => router.push('/login')}>
+          <Pressable
+            style={[styles.emptyBtn, styles.emptyPrimary]}
+            onPress={() => router.push('/login')}
+          >
             <Text style={styles.emptyPrimaryText}>Log in</Text>
           </Pressable>
-          <Pressable style={[styles.emptyBtn, styles.emptySecondary]} onPress={() => router.push('/signup')}>
+          <Pressable
+            style={[styles.emptyBtn, styles.emptySecondary]}
+            onPress={() => router.push('/signup')}
+          >
             <Text style={styles.emptySecondaryText}>Sign up</Text>
           </Pressable>
         </View>
@@ -258,19 +325,27 @@ export default function ProfileHomeScreen() {
           </View>
         </View>
         <View style={styles.statRow}>
-          {STAT_KEYS.map((key) => (
-            <Pressable
-              key={key}
-              style={({ pressed }) => [
-                styles.statBlock,
-                pressed && styles.statBlockPressed,
-              ]}
-              onPress={() => handleStatPress(key)}
-            >
-              <Text style={styles.statValue}>{formatCount(stats[key])}</Text>
-              <Text style={styles.statLabel}>{STAT_LABELS[key]}</Text>
-            </Pressable>
-          ))}
+          {STAT_KEYS.map((key) => {
+            const showFollowerAlert =
+              key === 'followers' && followAlerts.hasFollowerAlerts;
+            const showFollowingAlert =
+              key === 'following' && followAlerts.hasFollowingAlerts;
+            const showAlert = showFollowerAlert || showFollowingAlert;
+            return (
+              <Pressable
+                key={key}
+                style={({ pressed }) => [
+                  styles.statBlock,
+                  pressed && styles.statBlockPressed,
+                ]}
+                onPress={() => handleStatPress(key)}
+              >
+                {showAlert ? <View style={styles.statAlertDot} /> : null}
+                <Text style={styles.statValue}>{formatCount(stats[key])}</Text>
+                <Text style={styles.statLabel}>{STAT_LABELS[key]}</Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
 
@@ -300,7 +375,8 @@ export default function ProfileHomeScreen() {
             {openSections[section.key] ? (
               <View style={styles.actionList}>
                 {section.actions.map((action) => {
-                  const highlightColor = action.variant === 'destructive' ? '#ef4444' : '#6366f1';
+                  const highlightColor =
+                    action.variant === 'destructive' ? '#ef4444' : '#6366f1';
                   const pressedBg =
                     action.variant === 'destructive'
                       ? 'rgba(239,68,68,0.08)'
@@ -308,19 +384,32 @@ export default function ProfileHomeScreen() {
                   return (
                     <Pressable
                       key={action.key}
-                      style={({ pressed }) => [styles.actionRow, pressed && { backgroundColor: pressedBg }]}
+                      style={({ pressed }) => [
+                        styles.actionRow,
+                        pressed && { backgroundColor: pressedBg },
+                      ]}
                       onPress={() => handleNavigate(action)}
                     >
                       <View
                         style={[
                           styles.actionIconWrap,
-                          action.variant === 'destructive' && { backgroundColor: 'rgba(239,68,68,0.12)' },
+                          action.variant === 'destructive' && {
+                            backgroundColor: 'rgba(239,68,68,0.12)',
+                          },
                         ]}
                       >
                         <Ionicons name={action.icon} size={20} color={highlightColor} />
                       </View>
                       <View style={styles.actionCopy}>
-                        <Text style={styles.actionTitle}>{action.title}</Text>
+                        <View style={styles.actionTitleRow}>
+                          <Text style={styles.actionTitle}>{action.title}</Text>
+                          {action.key === 'followers' && followAlerts.hasFollowerAlerts ? (
+                            <View style={styles.inlineAlertDot} />
+                          ) : null}
+                          {action.key === 'following' && followAlerts.hasFollowingAlerts ? (
+                            <View style={styles.inlineAlertDot} />
+                          ) : null}
+                        </View>
                         <Text style={styles.actionDescription}>{action.description}</Text>
                       </View>
                       {action.key === 'requests' && pendingRequests > 0 ? (
@@ -366,10 +455,15 @@ function MobileProfile({
   openSections: Record<string, boolean>;
   onToggleSection: (key: string) => void;
 }) {
+  const followAlerts = useFollowAlertsContext();
+
   return (
     <SafeAreaView style={styles.mobileSafe}>
       <StatusBar barStyle="light-content" />
-      <ScrollView contentContainerStyle={styles.mobileScroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.mobileScroll}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.mobileHeaderRow}>
           <Pressable
             onPress={onSignOut}
@@ -391,23 +485,33 @@ function MobileProfile({
             <View style={styles.mobileHeroDetails}>
               <Text style={styles.displayName}>{profile.displayName}</Text>
               {profile.bio ? <Text style={styles.mobileBio}>{profile.bio}</Text> : null}
-              {joinedLabel ? <Text style={styles.mobileJoined}>Joined {joinedLabel}</Text> : null}
+              {joinedLabel ? (
+                <Text style={styles.mobileJoined}>Joined {joinedLabel}</Text>
+              ) : null}
             </View>
           </View>
           <View style={styles.mobileStatRow}>
-            {STAT_KEYS.map((key) => (
-              <Pressable
-                key={`mobile-stat-${key}`}
-                onPress={() => onPressStat(key)}
-                style={({ pressed }) => [
-                  styles.mobileStatBlock,
-                  pressed && styles.mobileStatBlockPressed,
-                ]}
-              >
-                <Text style={styles.mobileStatValue}>{formatCount(stats[key])}</Text>
-                <Text style={styles.mobileStatLabel}>{STAT_LABELS[key]}</Text>
-              </Pressable>
-            ))}
+            {STAT_KEYS.map((key) => {
+              const showFollowerAlert =
+                key === 'followers' && followAlerts.hasFollowerAlerts;
+              const showFollowingAlert =
+                key === 'following' && followAlerts.hasFollowingAlerts;
+              const showAlert = showFollowerAlert || showFollowingAlert;
+              return (
+                <Pressable
+                  key={`mobile-stat-${key}`}
+                  onPress={() => onPressStat(key)}
+                  style={({ pressed }) => [
+                    styles.mobileStatBlock,
+                    pressed && styles.mobileStatBlockPressed,
+                  ]}
+                >
+                  {showAlert ? <View style={styles.statAlertDot} /> : null}
+                  <Text style={styles.mobileStatValue}>{formatCount(stats[key])}</Text>
+                  <Text style={styles.mobileStatLabel}>{STAT_LABELS[key]}</Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
@@ -439,7 +543,8 @@ function MobileProfile({
               </Pressable>
               {openSections[section.key]
                 ? section.actions.map((action) => {
-                    const highlightColor = action.variant === 'destructive' ? '#f87171' : '#f8fafc';
+                    const highlightColor =
+                      action.variant === 'destructive' ? '#f87171' : '#f8fafc';
                     return (
                       <Pressable
                         key={`mobile-${action.key}`}
@@ -447,14 +552,22 @@ function MobileProfile({
                         onPress={() => onNavigate(action)}
                       >
                         <Ionicons name={action.icon} size={18} color={highlightColor} />
-                        <Text
-                          style={[
-                            styles.mobileActionLabel,
-                            action.variant === 'destructive' && { color: '#f87171' },
-                          ]}
-                        >
-                          {action.title}
-                        </Text>
+                        <View style={styles.mobileActionLabelWrap}>
+                          <Text
+                            style={[
+                              styles.mobileActionLabel,
+                              action.variant === 'destructive' && { color: '#f87171' },
+                            ]}
+                          >
+                            {action.title}
+                          </Text>
+                          {action.key === 'followers' && followAlerts.hasFollowerAlerts ? (
+                            <View style={styles.inlineAlertDot} />
+                          ) : null}
+                          {action.key === 'following' && followAlerts.hasFollowingAlerts ? (
+                            <View style={styles.inlineAlertDot} />
+                          ) : null}
+                        </View>
                         {action.key === 'requests' && pendingRequests > 0 ? (
                           <View style={styles.badge}>
                             <Text style={styles.badgeLabel}>{pendingRequests}</Text>
@@ -511,7 +624,7 @@ const styles = StyleSheet.create({
   visibilityLabel: { color: '#f8fafc', fontSize: 12, fontWeight: '600' },
   visibilityHint: { color: '#94a3b8', fontSize: 12 },
   statRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  statBlock: { flex: 1, alignItems: 'center' },
+  statBlock: { flex: 1, alignItems: 'center', position: 'relative' },
   statBlockPressed: { opacity: 0.85 },
   statValue: { color: '#f8fafc', fontSize: 22, fontWeight: '800' },
   statLabel: { color: '#cbd5f5', fontSize: 13 },
@@ -560,6 +673,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionCopy: { flex: 1, gap: 4 },
+  actionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   actionTitle: { color: '#f8fafc', fontWeight: '700' },
   actionDescription: { color: '#94a3b8', fontSize: 13 },
   signOutButton: {
@@ -582,13 +696,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   badgeLabel: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  statAlertDot: {
+    position: 'absolute',
+    top: 6,
+    right: 22,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#facc15',
+  },
+  inlineAlertDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#facc15',
+  },
+  loadingState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
   loadingText: { color: '#475569' },
-  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    gap: 12,
+  },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
   emptyCopy: { color: '#4b5563', textAlign: 'center' },
   errorText: { color: '#ef4444', marginTop: 8 },
-  emptyActionRow: { flexDirection: 'row', gap: 12, width: '100%', marginTop: 16 },
+  emptyActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    marginTop: 16,
+  },
   emptyBtn: {
     flex: 1,
     paddingVertical: 12,
@@ -606,7 +751,11 @@ const styles = StyleSheet.create({
   emptySecondaryText: { color: '#0f172a', fontWeight: '700' },
   mobileSafe: { flex: 1, backgroundColor: '#0f172a' },
   mobileScroll: { padding: 20, gap: 24, backgroundColor: '#0f172a' },
-  mobileHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
+  mobileHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
   mobileSignOutButton: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -617,17 +766,45 @@ const styles = StyleSheet.create({
   },
   mobileSignOutButtonPressed: { opacity: 0.8 },
   mobileSignOutLabel: { color: '#f8fafc', fontWeight: '600' },
-  mobileHeroCard: { backgroundColor: '#1c1c21', borderRadius: 28, padding: 20, gap: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  mobileHeroRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  mobileHeroCard: {
+    backgroundColor: '#1c1c21',
+    borderRadius: 28,
+    padding: 20,
+    gap: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  mobileHeroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
   mobileHeroDetails: { flex: 1 },
   mobileBio: { color: '#cbd5f5', fontSize: 13, marginTop: 4 },
   mobileJoined: { color: '#9ca3af', fontSize: 12, marginTop: 2 },
-  mobileStatRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  mobileStatBlock: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 12, backgroundColor: '#26262b' },
+  mobileStatRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  mobileStatBlock: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#26262b',
+    position: 'relative',
+  },
   mobileStatBlockPressed: { backgroundColor: '#2f2f36' },
   mobileStatValue: { color: '#f8fafc', fontSize: 18, fontWeight: '800' },
   mobileStatLabel: { color: '#cbd5f5', fontSize: 12 },
-  mobileActionsBlock: { marginTop: 12, borderRadius: 24, backgroundColor: '#1c1c21', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  mobileActionsBlock: {
+    marginTop: 12,
+    borderRadius: 24,
+    backgroundColor: '#1c1c21',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
   mobileSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -637,7 +814,11 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
   },
   mobileSectionHeaderPressed: { opacity: 0.85 },
-  mobileSectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  mobileSectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   mobileSectionIcon: {
     width: 26,
     height: 26,
@@ -646,7 +827,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  mobileSectionTitle: { color: '#e5e7eb', fontSize: 13, fontWeight: '700' },
-  mobileActionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.08)', gap: 12 },
-  mobileActionLabel: { flex: 1, color: '#f8fafc', fontWeight: '600' },
+  mobileSectionTitle: {
+    color: '#e5e7eb',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  mobileActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+    gap: 12,
+  },
+  mobileActionLabelWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  mobileActionLabel: { color: '#f8fafc', fontWeight: '600' },
 });
