@@ -2104,21 +2104,21 @@ function DiscoveryStatus({ state }: { state: DiscoveryState }) {
   return null;
 }
 
-function resolveCoverUri(raw?: string | null) {
+function resolveCoverUri(raw?: string | null, mode: CoverSizeMode = 'default') {
   if (!raw) return undefined;
-  const normalized = normalizeCoverSize(raw);
+  const normalized = normalizeCoverSize(raw, mode);
   return normalized.startsWith('http') ? normalized : `https:${normalized}`;
 }
 
 function resolveHeroUri(game?: GameSummary | null) {
   if (!game) return undefined;
   if (game.mediaUrl) {
-    const media = normalizeCoverSize(game.mediaUrl);
+    const media = normalizeCoverSize(game.mediaUrl, 'hero');
     if (media.startsWith('http')) return media;
     if (media.startsWith('//')) return `https:${media}`;
     return media;
   }
-  return resolveCoverUri(game.cover?.url ?? null);
+  return resolveCoverUri(game.cover?.url ?? null, 'hero');
 }
 
 function shouldUsePosterLayout(game?: GameSummary | null) {
@@ -2133,13 +2133,25 @@ function shouldUsePosterLayout(game?: GameSummary | null) {
   return false;
 }
 
-function normalizeCoverSize(raw: string) {
+type CoverSizeMode = 'default' | 'hero';
+
+function normalizeCoverSize(raw: string, mode: CoverSizeMode = 'default') {
   if (!raw.includes('t_')) return raw;
-  return raw.replace(/t_thumb|t_cover_small|t_cover_big|t_screenshot_med|t_screenshot_big/g, (match) => {
+  const targetScreenshot = mode === 'hero' ? 't_1080p' : 't_screenshot_huge';
+  const targetCover = mode === 'hero' ? 't_original' : 't_cover_big_2x';
+  return raw.replace(/t_[^/]+/g, (match) => {
     if (match.startsWith('t_screenshot')) {
-      return 't_screenshot_huge';
+      return targetScreenshot;
     }
-    return 't_cover_big_2x';
+    if (
+      match.startsWith('t_cover') ||
+      match === 't_thumb' ||
+      match === 't_720p' ||
+      match === 't_1080p'
+    ) {
+      return targetCover;
+    }
+    return match;
   });
 }
 
