@@ -33,6 +33,7 @@ import { FollowAlertProvider, useFollowAlertsContext } from '../../lib/hooks/use
 import { useUserProfile } from '../../lib/userProfile';
 
 const LOGO = require('../../assets/logo.png');
+let pendingLogoGlow = false;
 
 const NAV_ITEMS = [
   { name: 'home', label: 'Home' },
@@ -60,10 +61,13 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
   const { term, setTerm, submit, resetSearch, setScope } = useGameSearch();
   const { addEntry, filterByPrefix } = useSearchHistory();
   const [categoryActive, setCategoryActive] = useState(false);
+  const [logoHighlight, setLogoHighlight] = useState(false);
   const [historySuggestions, setHistorySuggestions] = useState<SearchHistoryItem[]>([]);
   const [historyDropdownVisible, setHistoryDropdownVisible] = useState(false);
   const historyBlurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const followAlerts = useFollowAlertsContext();
+  const logoGlowTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
 
   const scopeByRoute: Record<string, SearchScope> = {
     home: 'games',
@@ -101,6 +105,9 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
       if (historyBlurTimeoutRef.current) {
         clearTimeout(historyBlurTimeoutRef.current);
       }
+      if (logoGlowTimeoutRef.current) {
+        clearTimeout(logoGlowTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -134,12 +141,28 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
   };
 
   const handleHomePress = () => {
+    const shouldGlow = activeRoute !== 'home';
+    if (shouldGlow) {
+      pendingLogoGlow = true;
+    }
     setScope('games');
     resetSearch();
     if (activeRoute !== 'home') {
       router.push('/(tabs)/home');
     }
   };
+  useEffect(() => {
+    if (activeRoute === 'home' && pendingLogoGlow) {
+      pendingLogoGlow = false;
+      setLogoHighlight(true);
+      if (logoGlowTimeoutRef.current) {
+        clearTimeout(logoGlowTimeoutRef.current);
+      }
+      logoGlowTimeoutRef.current = setTimeout(() => {
+        setLogoHighlight(false);
+      }, 900);
+    }
+  }, [activeRoute]);
   const handleCategoryOpen = () => {
     const open = () => requestCategoryDrawerOpen();
     if (activeRoute !== 'home') {
@@ -225,7 +248,23 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
       ]}
     >
       <View style={styles.leftSection}>
-        <Pressable onPress={handleHomePress} style={styles.logoButton} hitSlop={8}>
+        <Pressable
+          onPress={handleHomePress}
+          style={({ pressed }) => [
+            styles.logoButton,
+            logoHighlight && {
+              borderWidth: 2,
+              borderColor: palette.accent,
+              backgroundColor: `${palette.accent}22`,
+              shadowColor: palette.accent,
+              shadowOpacity: 0.4,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 0 },
+            },
+            pressed && { opacity: 0.9 },
+          ]}
+          hitSlop={8}
+        >
           <Image source={LOGO} style={styles.logo} resizeMode="contain" />
         </Pressable>
         <View style={styles.links}>

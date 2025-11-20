@@ -2306,9 +2306,9 @@ const nativeStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f172a' },
   scrollContent: { paddingBottom: 80 },
   header: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 8 },
-  logoBox: { backgroundColor: '#2e2e2e', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 },
-  logoBoxPressed: { opacity: 0.8 },
-  logoMark: { width: 60, height: 24 },
+  logoBox: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  logoBoxPressed: { opacity: 0.85 },
+  logoMark: { width: 38, height: 38, borderRadius: 19 },
   searchArea: {
     flex: 1,
     position: 'relative',

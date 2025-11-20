@@ -116,9 +116,11 @@ export default function PublicProfileScreen() {
   }, [profile?.createdAt]);
 
   const stats = profile?.stats ?? {};
+  const followerCount = canView ? followers.edges.length : formatCount(stats.followers);
+  const followingCount = canView ? following.edges.length : formatCount(stats.following);
   const statItems = [
-    { key: 'following', label: 'Following', value: formatCount(stats.following) },
-    { key: 'followers', label: 'Followers', value: formatCount(stats.followers) },
+    { key: 'following', label: 'Following', value: followingCount },
+    { key: 'followers', label: 'Followers', value: followerCount },
     { key: 'blocked', label: 'Blocked', value: formatCount(stats.blocked) },
   ];
   const visibilityIcon = visibility === 'private' ? 'lock-closed' : 'globe';
@@ -131,6 +133,24 @@ export default function PublicProfileScreen() {
   const handleNavigate = (action: ProfileAction) => {
     if (!targetUid) return;
     router.push(`/profile/${targetUid}/${action.key}`);
+  };
+  const handleStatPress = (key: 'followers' | 'following' | 'blocked') => {
+    if (!targetUid) return;
+    if (key === 'followers') {
+      router.push(`/profile/${targetUid}/followers`);
+      return;
+    }
+    if (key === 'following') {
+      router.push(`/profile/${targetUid}/following`);
+      return;
+    }
+    if (key === 'blocked' && isSelf) {
+      router.push(`/profile/${targetUid}/blocked`);
+      return;
+    }
+    if (key === 'blocked' && !isSelf) {
+      router.push(`/profile/${targetUid}/blocked`);
+    }
   };
 
   if (initializing || loading) {
@@ -224,10 +244,19 @@ export default function PublicProfileScreen() {
         </View>
         <View style={styles.statGrid}>
           {statItems.map((stat) => (
-            <View key={stat.key} style={styles.statCard}>
+            <Pressable
+              key={stat.key}
+              style={({ pressed }) => [
+                styles.statCard,
+                pressed && styles.statCardPressed,
+              ]}
+              disabled={!['followers', 'following', 'blocked'].includes(stat.key)}
+              hitSlop={6}
+              onPress={() => handleStatPress(stat.key as 'followers' | 'following' | 'blocked')}
+            >
               <Text style={styles.statValue}>{stat.value}</Text>
               <Text style={styles.statLabel}>{stat.label}</Text>
-            </View>
+            </Pressable>
           ))}
         </View>
         <Text style={styles.visibilityHint}>{visibilityHint}</Text>
@@ -272,21 +301,7 @@ export default function PublicProfileScreen() {
         </View>
       )}
 
-      {canView ? (
-        <View style={styles.quickGlanceCard}>
-          <Text style={styles.quickGlanceTitle}>At a glance</Text>
-          <View style={styles.quickGlanceRow}>
-            <View style={styles.quickGlanceItem}>
-              <Text style={styles.quickGlanceValue}>{followers.edges.length}</Text>
-              <Text style={styles.quickGlanceLabel}>Followers</Text>
-            </View>
-            <View style={styles.quickGlanceItem}>
-              <Text style={styles.quickGlanceValue}>{following.edges.length}</Text>
-              <Text style={styles.quickGlanceLabel}>Following</Text>
-            </View>
-          </View>
-        </View>
-      ) : null}
+      {canView ? null : null}
     </ScrollView>
   );
 }
@@ -387,6 +402,12 @@ const styles = StyleSheet.create({
     gap: 4,
     borderWidth: 1,
     borderColor: 'rgba(99,102,241,0.15)',
+  },
+  statCardPressed: {
+    backgroundColor: 'rgba(99,102,241,0.12)',
+  },
+  statCardDisabled: {
+    opacity: 0.65,
   },
   statValue: {
     fontSize: 20,

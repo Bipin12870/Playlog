@@ -7,7 +7,7 @@ const PRESET_AVATAR_MAP: Record<string, ImageSourcePropType> = {
   glare: require('../assets/glare.png'),
 };
 
-const DEFAULT_AVATAR: ImageSourcePropType = require('../assets/logo.png');
+const DEFAULT_AVATAR: ImageSourcePropType = require('../assets/icon.png');
 
 export function resolveAvatarSource(
   photoURL?: string | null,
