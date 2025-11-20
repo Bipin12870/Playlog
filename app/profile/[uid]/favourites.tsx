@@ -33,9 +33,12 @@ export default function PublicFavouritesScreen() {
   const { user, initializing } = useAuthUser();
   const viewerUid = user?.uid ?? null;
   const { width } = useWindowDimensions();
-  const rawColumnCount = useMemo(() => getColumnCount(width), [width]);
-  const columnCount = Platform.OS === 'web' ? 6 : Math.max(rawColumnCount, 3);
-  const isSingleColumn = rawColumnCount === 1;
+  const isWeb = Platform.OS === 'web';
+  const isMobile = !isWeb;
+  const baseColumnCount = useMemo(() => getColumnCount(width), [width]);
+  const mobileColumnCount = width >= 640 ? 2 : 1;
+  const rawColumnCount = isMobile ? mobileColumnCount : baseColumnCount;
+  const columnCount = isWeb ? 6 : Math.max(rawColumnCount, 3);
 
   const { profile, loading: profileLoading, error } = useUserProfile(targetUid);
   const { isFollowing, hasPendingRequest } = useFollowState({
@@ -111,9 +114,9 @@ export default function PublicFavouritesScreen() {
         error={favorites.error?.message}
         columnCount={columnCount}
         onSelect={handleSelect}
-        contentContainerStyle={isSingleColumn ? styles.singleColumnContent : undefined}
-        gridRowStyle={isSingleColumn ? styles.singleColumnRow : undefined}
-        cardStyle={isSingleColumn ? styles.singleColumnCard : undefined}
+        contentContainerStyle={isWeb ? undefined : styles.mobileResultsContent}
+        gridRowStyle={isWeb ? undefined : styles.mobileGridRow}
+        cardStyle={isWeb ? undefined : styles.mobileCard}
         emptyState={{
           title: 'No favourites yet',
           copy: `${profile.displayName} has not favourited any games.`,
@@ -173,16 +176,19 @@ const styles = StyleSheet.create({
     color: '#cbd5f5',
     textAlign: 'center',
   },
-  singleColumnContent: {
-    alignItems: 'center',
+  mobileResultsContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 120,
   },
-  singleColumnRow: {
-    gap: 0,
-    paddingBottom: 20,
+  mobileGridRow: {
+    gap: 16,
+    paddingBottom: 18,
   },
-  singleColumnCard: {
-    flex: 0,
-    maxWidth: 420,
-    width: '100%',
+  mobileCard: {
+    backgroundColor: '#1e1e22',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 0,
   },
 });
