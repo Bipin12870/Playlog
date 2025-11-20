@@ -134,6 +134,24 @@ export default function PublicProfileScreen() {
     if (!targetUid) return;
     router.push(`/profile/${targetUid}/${action.key}`);
   };
+  const handleStatPress = (key: 'followers' | 'following' | 'blocked') => {
+    if (!targetUid) return;
+    if (key === 'followers') {
+      router.push(`/profile/${targetUid}/followers`);
+      return;
+    }
+    if (key === 'following') {
+      router.push(`/profile/${targetUid}/following`);
+      return;
+    }
+    if (key === 'blocked' && isSelf) {
+      router.push(`/profile/${targetUid}/blocked`);
+      return;
+    }
+    if (key === 'blocked' && !isSelf) {
+      router.push(`/profile/${targetUid}/blocked`);
+    }
+  };
 
   if (initializing || loading) {
     return (
@@ -226,10 +244,19 @@ export default function PublicProfileScreen() {
         </View>
         <View style={styles.statGrid}>
           {statItems.map((stat) => (
-            <View key={stat.key} style={styles.statCard}>
+            <Pressable
+              key={stat.key}
+              style={({ pressed }) => [
+                styles.statCard,
+                pressed && styles.statCardPressed,
+              ]}
+              disabled={!['followers', 'following', 'blocked'].includes(stat.key)}
+              hitSlop={6}
+              onPress={() => handleStatPress(stat.key as 'followers' | 'following' | 'blocked')}
+            >
               <Text style={styles.statValue}>{stat.value}</Text>
               <Text style={styles.statLabel}>{stat.label}</Text>
-            </View>
+            </Pressable>
           ))}
         </View>
         <Text style={styles.visibilityHint}>{visibilityHint}</Text>
@@ -375,6 +402,12 @@ const styles = StyleSheet.create({
     gap: 4,
     borderWidth: 1,
     borderColor: 'rgba(99,102,241,0.15)',
+  },
+  statCardPressed: {
+    backgroundColor: 'rgba(99,102,241,0.12)',
+  },
+  statCardDisabled: {
+    opacity: 0.65,
   },
   statValue: {
     fontSize: 20,

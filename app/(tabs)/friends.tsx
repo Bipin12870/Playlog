@@ -127,6 +127,7 @@ export default function FriendsScreen() {
                   onAuthRequired={handleAuthRequired}
                   onSelectUser={handleSelectUser}
                   theme="dark"
+                  showBlockAction
                 />
               </View>
             ) : (
@@ -171,6 +172,7 @@ export default function FriendsScreen() {
               onAuthRequired={handleAuthRequired}
               onSelectUser={handleSelectUser}
               theme="dark"
+              showBlockAction
             />
           </View>
         )}
