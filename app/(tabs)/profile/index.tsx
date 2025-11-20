@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
   ImageSourcePropType,
+  Linking,
   Platform,
   Pressable,
   SafeAreaView,
@@ -23,6 +24,8 @@ import { useUserProfile } from '../../../lib/userProfile';
 import { useFollowRequests } from '../../../lib/hooks/useFollowRequests';
 import { getProfileVisibility } from '../../../lib/profileVisibility';
 import { resolveAvatarSource } from '../../../lib/avatar';
+import { SubscriptionOfferModal } from '../../../components/SubscriptionOfferModal';
+import { billingPlans, planCatalog, createCheckoutSession, type PlanId } from '../../../lib/billing';
 
 type ProfileAction = {
   key: 'followers' | 'following' | 'blocked' | 'requests' | 'edit' | 'reviews';
@@ -71,6 +74,46 @@ export default function ProfileHomeScreen() {
   const pendingRequests = followRequests.requests.length;
   const visibility = getProfileVisibility(profile ?? undefined);
   const isMobile = Platform.OS !== 'web';
+  const [subscriptionModalVisible, setSubscriptionModalVisible] = useState(false);
+  const [billingLoadingPlanId, setBillingLoadingPlanId] = useState<PlanId | null>(null);
+  const [billingError, setBillingError] = useState<string | null>(null);
+
+  const planId =
+    profile?.planId ??
+    profile?.currentPlanId ??
+    (profile?.premium ? 'PREMIUM' : 'FREE');
+  const currentPlan = useMemo(() => planCatalog.find((plan) => plan.id === planId), [planId]);
+  const expirationLabel = useMemo(() => {
+    if (!profile?.currentPeriodEnd) {
+      return null;
+    }
+    return new Date(profile.currentPeriodEnd).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  }, [profile?.currentPeriodEnd]);
+
+  const planTitle = currentPlan?.title ?? (profile?.premium ? 'Premium access' : 'Free tier');
+  const isPremium = Boolean(profile?.premium);
+
+  const handleSelectPlan = useCallback(async (planId: PlanId) => {
+    setBillingError(null);
+    setBillingLoadingPlanId(planId);
+    try {
+      const session = await createCheckoutSession(planId);
+      setSubscriptionModalVisible(false);
+      // Webhooks will update the user profile; app screens should refresh data if needed.
+      void Linking.openURL(session.url);
+    } catch (error) {
+      console.error('Failed to create checkout session', error);
+      setBillingError(
+        error instanceof Error ? error.message : 'Unable to start the subscription flow.',
+      );
+    } finally {
+      setBillingLoadingPlanId(null);
+    }
+  }, []);
 
   const joinedLabel = useMemo(() => {
     if (!profile?.createdAt) return null;
@@ -171,99 +214,169 @@ export default function ProfileHomeScreen() {
 
   if (isMobile) {
     return (
-      <MobileProfile
-        profile={profile}
-        heroAvatar={heroAvatar}
-        stats={stats}
-        visibility={visibility}
-        joinedLabel={joinedLabel}
-        pendingRequests={pendingRequests}
-        onNavigate={handleNavigate}
-        onPressStat={handleStatPress}
-        onSignOut={confirmSignOut}
-      />
+      <>
+        <SubscriptionOfferModal
+          visible={subscriptionModalVisible}
+          onClose={() => setSubscriptionModalVisible(false)}
+          onSelectPlan={handleSelectPlan}
+          loadingPlanId={billingLoadingPlanId}
+          errorMessage={billingError}
+          premium={isPremium}
+        />
+        <MobileProfile
+          profile={profile}
+          heroAvatar={heroAvatar}
+          stats={stats}
+          visibility={visibility}
+          joinedLabel={joinedLabel}
+          pendingRequests={pendingRequests}
+          isPremium={isPremium}
+          planTitle={planTitle}
+          subscriptionStatus={profile?.subscriptionStatus ?? null}
+          expirationLabel={expirationLabel}
+          billingError={billingError}
+          onManagePlan={() => setSubscriptionModalVisible(true)}
+          onNavigate={handleNavigate}
+          onPressStat={handleStatPress}
+          onSignOut={confirmSignOut}
+        />
+      </>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
-      <View style={styles.heroCard}>
-        <View style={styles.heroRow}>
-          <View style={styles.avatarWrapper}>
-            <Image source={heroAvatar} style={styles.avatarImage} />
-          </View>
-          <View style={styles.heroDetails}>
-            <Text style={styles.displayName}>{profile.displayName}</Text>
-            {profile.bio ? <Text style={styles.bioText}>{profile.bio}</Text> : null}
-            {joinedLabel ? <Text style={styles.joinedText}>Joined {joinedLabel}</Text> : null}
-            <View style={styles.visibilityRow}>
-              <View style={styles.visibilityBadge}>
-                <Ionicons
-                  name={visibility === 'private' ? 'lock-closed' : 'globe'}
-                  size={14}
-                  color={visibility === 'private' ? '#f97316' : '#22c55e'}
-                />
-                <Text style={styles.visibilityLabel}>
-                  {visibility === 'private' ? 'Private profile' : 'Public profile'}
+    <>
+      <SubscriptionOfferModal
+        visible={subscriptionModalVisible}
+        onClose={() => setSubscriptionModalVisible(false)}
+        onSelectPlan={handleSelectPlan}
+        loadingPlanId={billingLoadingPlanId}
+        errorMessage={billingError}
+        premium={isPremium}
+      />
+      <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
+        <View style={styles.heroCard}>
+          <View style={styles.heroRow}>
+            <View style={styles.avatarWrapper}>
+              <Image source={heroAvatar} style={styles.avatarImage} />
+            </View>
+            <View style={styles.heroDetails}>
+              <Text style={styles.displayName}>{profile.displayName}</Text>
+              {profile.bio ? <Text style={styles.bioText}>{profile.bio}</Text> : null}
+              {joinedLabel ? <Text style={styles.joinedText}>Joined {joinedLabel}</Text> : null}
+              <View style={styles.visibilityRow}>
+                <View style={styles.visibilityBadge}>
+                  <Ionicons
+                    name={visibility === 'private' ? 'lock-closed' : 'globe'}
+                    size={14}
+                    color={visibility === 'private' ? '#f97316' : '#22c55e'}
+                  />
+                  <Text style={styles.visibilityLabel}>
+                    {visibility === 'private' ? 'Private profile' : 'Public profile'}
+                  </Text>
+                </View>
+                <Text style={styles.visibilityHint}>
+                  {visibility === 'private'
+                    ? 'Only approved followers can see your favourites and reviews.'
+                    : 'Anyone on Playlog can see your favourites and reviews.'}
                 </Text>
               </View>
-              <Text style={styles.visibilityHint}>
-                {visibility === 'private'
-                  ? 'Only approved followers can see your favourites and reviews.'
-                  : 'Anyone on Playlog can see your favourites and reviews.'}
-              </Text>
+              <View style={styles.subscriptionRow}>
+                <View style={styles.subscriptionInfo}>
+                  <Text style={styles.subscriptionLabel}>
+                    {profile?.premium ? 'Premium access' : 'Free tier'}
+                  </Text>
+                  <Text style={styles.subscriptionStatus}>
+                    {profile?.subscriptionStatus ? `${profile.subscriptionStatus} · ` : ''}
+                    {planTitle}
+                  </Text>
+                  {expirationLabel ? (
+                    <Text style={styles.subscriptionHint}>Valid through {expirationLabel}</Text>
+                  ) : null}
+                </View>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.subscriptionButton,
+                    pressed && styles.subscriptionButtonPressed,
+                  ]}
+                  onPress={() => setSubscriptionModalVisible(true)}
+                >
+                  <Text style={styles.subscriptionButtonLabel}>
+                    {profile?.premium ? 'Manage plan' : 'Choose plan'}
+                  </Text>
+                </Pressable>
+              </View>
+              {billingError ? <Text style={styles.billingError}>{billingError}</Text> : null}
             </View>
           </View>
+          <View style={styles.statRow}>
+            {STAT_KEYS.map((key) => (
+              <Pressable
+                key={key}
+                style={({ pressed }) => [
+                  styles.statBlock,
+                  pressed && styles.statBlockPressed,
+                ]}
+                onPress={() => handleStatPress(key)}
+              >
+                <Text style={styles.statValue}>{formatCount(stats[key])}</Text>
+                <Text style={styles.statLabel}>{STAT_LABELS[key]}</Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
-        <View style={styles.statRow}>
-          {STAT_KEYS.map((key) => (
-            <Pressable
-              key={key}
-              style={({ pressed }) => [
-                styles.statBlock,
-                pressed && styles.statBlockPressed,
-              ]}
-              onPress={() => handleStatPress(key)}
-            >
-              <Text style={styles.statValue}>{formatCount(stats[key])}</Text>
-              <Text style={styles.statLabel}>{STAT_LABELS[key]}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
 
-      <View style={styles.actionsCard}>
-        <Text style={styles.actionsTitle}>Manage your profile</Text>
-        <View style={styles.actionList}>
-          {ACTIONS.map((action) => (
-            <Pressable
-              key={action.key}
-              style={({ pressed }) => [
-                styles.actionRow,
-                pressed && { backgroundColor: 'rgba(99,102,241,0.08)' },
-              ]}
-              onPress={() => handleNavigate(action)}
-            >
-              <View style={styles.actionIconWrap}>
-                <Ionicons name={action.icon} size={20} color="#6366f1" />
-              </View>
-              <View style={styles.actionCopy}>
-                <Text style={styles.actionTitle}>{action.title}</Text>
-                <Text style={styles.actionDescription}>{action.description}</Text>
-              </View>
-              {action.key === 'requests' && pendingRequests > 0 ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeLabel}>{pendingRequests}</Text>
+        <View style={styles.actionsCard}>
+          <Text style={styles.actionsTitle}>Manage your profile</Text>
+          <View style={styles.actionList}>
+            {ACTIONS.map((action) => (
+              <Pressable
+                key={action.key}
+                style={({ pressed }) => [
+                  styles.actionRow,
+                  pressed && { backgroundColor: 'rgba(99,102,241,0.08)' },
+                ]}
+                onPress={() => handleNavigate(action)}
+              >
+                <View style={styles.actionIconWrap}>
+                  <Ionicons name={action.icon} size={20} color="#6366f1" />
                 </View>
-              ) : null}
-              <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
-            </Pressable>
-          ))}
+                <View style={styles.actionCopy}>
+                  <Text style={styles.actionTitle}>{action.title}</Text>
+                  <Text style={styles.actionDescription}>{action.description}</Text>
+                </View>
+                {action.key === 'requests' && pendingRequests > 0 ? (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeLabel}>{pendingRequests}</Text>
+                  </View>
+                ) : null}
+                <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
+              </Pressable>
+            ))}
+          </View>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </>
   );
 }
+
+type MobileProfileProps = {
+  profile: any;
+  heroAvatar: ImageSourcePropType;
+  stats: any;
+  visibility: ReturnType<typeof getProfileVisibility>;
+  joinedLabel: string | null;
+  pendingRequests: number;
+  onNavigate: (action: ProfileAction) => void;
+  onPressStat: (key: ProfileAction['key']) => void;
+  onSignOut: () => void;
+  isPremium: boolean;
+  planTitle: string;
+  subscriptionStatus: string | null;
+  expirationLabel: string | null;
+  billingError: string | null;
+  onManagePlan: () => void;
+};
 
 function MobileProfile({
   profile,
@@ -275,17 +388,13 @@ function MobileProfile({
   onNavigate,
   onPressStat,
   onSignOut,
-}: {
-  profile: any;
-  heroAvatar: ImageSourcePropType;
-  stats: any;
-  visibility: ReturnType<typeof getProfileVisibility>;
-  joinedLabel: string | null;
-  pendingRequests: number;
-  onNavigate: (action: ProfileAction) => void;
-  onPressStat: (key: ProfileAction['key']) => void;
-  onSignOut: () => void;
-}) {
+  isPremium,
+  planTitle,
+  subscriptionStatus,
+  expirationLabel,
+  billingError,
+  onManagePlan,
+}: MobileProfileProps) {
   return (
     <SafeAreaView style={styles.mobileSafe}>
       <StatusBar barStyle="light-content" />
@@ -329,6 +438,29 @@ function MobileProfile({
               </Pressable>
             ))}
           </View>
+        </View>
+
+        <View style={styles.mobileSubscriptionCard}>
+          <Text style={styles.mobileSubscriptionLabel}>{isPremium ? 'Premium' : 'Free tier'}</Text>
+          <Text style={styles.mobileSubscriptionPlan}>{planTitle}</Text>
+          <Text style={styles.mobileSubscriptionStatus}>
+            {subscriptionStatus ?? 'Active membership'}
+          </Text>
+          {expirationLabel ? (
+            <Text style={styles.mobileSubscriptionHint}>Valid through {expirationLabel}</Text>
+          ) : null}
+          <Pressable
+            style={({ pressed }) => [
+              styles.mobileSubscriptionButton,
+              pressed && styles.mobileSubscriptionButtonPressed,
+            ]}
+            onPress={onManagePlan}
+          >
+            <Text style={styles.mobileSubscriptionButtonLabel}>
+              {isPremium ? 'Manage plan' : 'Choose plan'}
+            </Text>
+          </Pressable>
+          {billingError ? <Text style={styles.billingError}>{billingError}</Text> : null}
         </View>
 
         <View style={styles.mobileActionsBlock}>
@@ -387,6 +519,33 @@ const styles = StyleSheet.create({
   },
   visibilityLabel: { color: '#f8fafc', fontSize: 12, fontWeight: '600' },
   visibilityHint: { color: '#94a3b8', fontSize: 12 },
+  subscriptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 12,
+  },
+  subscriptionInfo: { flex: 1, gap: 4 },
+  subscriptionLabel: { color: '#cbd5f5', fontSize: 12, fontWeight: '600' },
+  subscriptionStatus: { color: '#f8fafc', fontSize: 14, fontWeight: '700' },
+  subscriptionHint: { color: '#94a3b8', fontSize: 12 },
+  subscriptionButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    backgroundColor: '#6366f1',
+  },
+  subscriptionButtonPressed: {
+    opacity: 0.9,
+  },
+  subscriptionButtonLabel: {
+    color: '#f8fafc',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  billingError: { color: '#fca5a5', fontSize: 13, marginTop: 4 },
   statRow: { flexDirection: 'row', justifyContent: 'space-between' },
   statBlock: { flex: 1, alignItems: 'center' },
   statBlockPressed: { opacity: 0.85 },
@@ -480,6 +639,31 @@ const styles = StyleSheet.create({
   mobileHeroDetails: { flex: 1 },
   mobileBio: { color: '#cbd5f5', fontSize: 13, marginTop: 4 },
   mobileJoined: { color: '#9ca3af', fontSize: 12, marginTop: 2 },
+  mobileSubscriptionCard: {
+    backgroundColor: '#111827',
+    borderRadius: 20,
+    padding: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    gap: 8,
+  },
+  mobileSubscriptionLabel: { color: '#cbd5f5', fontSize: 12, fontWeight: '600' },
+  mobileSubscriptionPlan: { color: '#f8fafc', fontSize: 18, fontWeight: '700' },
+  mobileSubscriptionStatus: { color: '#cbd5f5', fontSize: 13 },
+  mobileSubscriptionHint: { color: '#9ca3af', fontSize: 12 },
+  mobileSubscriptionButton: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#6366f1',
+  },
+  mobileSubscriptionButtonPressed: {
+    opacity: 0.9,
+  },
+  mobileSubscriptionButtonLabel: { color: '#f8fafc', fontWeight: '700', letterSpacing: 0.5 },
   mobileStatRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   mobileStatBlock: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 12, backgroundColor: '#26262b' },
   mobileStatBlockPressed: { backgroundColor: '#2f2f36' },

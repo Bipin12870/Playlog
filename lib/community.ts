@@ -18,6 +18,10 @@ import type { GameDetailsData, GameReview, GameReviewReply } from '../types/game
 
 export const MAX_REVIEWS_PER_USER = 10;
 
+type SubmitReviewOptions = {
+  skipReviewLimit?: boolean;
+};
+
 type ReviewInput = {
   rating: number;
   body: string;
@@ -219,7 +223,12 @@ export function subscribeToGameReviewStats(
   );
 }
 
-export async function submitGameReview(gameId: number, user: User, input: ReviewInput) {
+export async function submitGameReview(
+  gameId: number,
+  user: User,
+  input: ReviewInput,
+  options?: SubmitReviewOptions,
+) {
   const rating = Number(input.rating);
   if (!Number.isFinite(rating) || rating < 0 || rating > 10) {
     throw new Error('INVALID_RATING_RANGE');
@@ -256,8 +265,9 @@ export async function submitGameReview(gameId: number, user: User, input: Review
     const userStatsData = userStatsSnap.exists() ? userStatsSnap.data() : {};
     const userReviewCount =
       typeof userStatsData.reviewCount === 'number' ? userStatsData.reviewCount : 0;
+    const enforceReviewLimit = !options?.skipReviewLimit;
 
-    if (!reviewSnap.exists() && userReviewCount >= MAX_REVIEWS_PER_USER) {
+    if (enforceReviewLimit && !reviewSnap.exists() && userReviewCount >= MAX_REVIEWS_PER_USER) {
       throw new Error('REVIEW_LIMIT_REACHED');
     }
 

@@ -7,25 +7,37 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:web": "expo export --platform web"
+    "build:web": "expo export --platform web",
+    "billing:dev": "TS_NODE_PROJECT=tsconfig.server.json ts-node server/src/index.ts",
+    "build:server": "tsc -p tsconfig.server.json",
+    "start:server": "node server/dist/index.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "^2.2.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
     "expo": "~54.0.9",
     "expo-auth-session": "~7.0.8",
     "expo-linear-gradient": "~13.0.2",
     "expo-router": "~6.0.7",
     "expo-status-bar": "~3.0.8",
     "expo-web-browser": "~15.0.7",
+    "express": "^5.1.0",
     "firebase": "^12.3.0",
+    "firebase-admin": "^13.6.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.4",
-    "react-native-web": "^0.21.0"
+    "react-native-web": "^0.21.0",
+    "stripe": "^20.0.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.5",
+    "@types/node": "^24.10.1",
     "@types/react": "~19.1.0",
+    "ts-node": "^10.9.2",
     "typescript": "~5.9.2"
   },
   "private": true

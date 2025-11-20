@@ -11,6 +11,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 
 import { auth, db } from './firebase';
+import type { PlanId } from '../shared/plans';
 
 export type ProfileStats = {
   following?: number;
@@ -31,6 +32,13 @@ export type UserProfile = {
   stats?: ProfileStats | null;
   createdAt?: Timestamp | null;
   updatedAt?: Timestamp | null;
+  premium?: boolean | null;
+  subscriptionStatus?: string | null;
+  currentPlanId?: PlanId | null;
+  planId?: PlanId | null;
+  stripeCustomerId?: string | null;
+  stripeSubscriptionId?: string | null;
+  currentPeriodEnd?: number | null;
 };
 
 type UpdateUserProfileInput = {

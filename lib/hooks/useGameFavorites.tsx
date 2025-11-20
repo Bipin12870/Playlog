@@ -8,7 +8,6 @@ import {
   useMemo,
   useState,
 } from 'react';
-import type { IdTokenResult, User } from 'firebase/auth';
 import {
   collection,
   deleteDoc,
@@ -23,6 +22,7 @@ import {
 import type { GameSummary } from '../../types/game';
 import { db } from '../firebase';
 import { useAuthUser } from './useAuthUser';
+import { useUserProfile } from '../userProfile';
 
 const MAX_FREE_FAVOURITES = 10;
 
@@ -43,6 +43,12 @@ export function GameFavoritesProvider({ children }: { children: ReactNode }) {
   const [favourites, setFavourites] = useState<GameSummary[]>([]);
   const [hasUnlimitedFavorites, setHasUnlimitedFavorites] = useState(false);
   const { user } = useAuthUser();
+  const { profile } = useUserProfile(user?.uid ?? null);
+  const isPremium = Boolean(
+    profile?.planId === 'PREMIUM' ||
+      profile?.currentPlanId === 'PREMIUM' ||
+      profile?.premium === true,
+  );
 
   const parseFavouritesSnapshot = useCallback((snapshot: QuerySnapshot<DocumentData>) => {
     return snapshot.docs
@@ -78,43 +84,8 @@ export function GameFavoritesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function resolveSubscription(nextUser: typeof user) {
-      if (!nextUser) {
-        if (isMounted) {
-          setHasUnlimitedFavorites(false);
-        }
-        return;
-      }
-
-      try {
-        const token: IdTokenResult = await nextUser.getIdTokenResult();
-        const claims = token?.claims ?? {};
-        const subscriptionActive =
-          claims.subscriptionActive === true ||
-          claims.subscription === 'active' ||
-          claims.plan === 'premium' ||
-          claims.plan === 'pro' ||
-          claims.tier === 'unlimited';
-
-        if (isMounted) {
-          setHasUnlimitedFavorites(Boolean(subscriptionActive));
-        }
-      } catch (error) {
-        console.warn('Failed to load subscription info', error);
-        if (isMounted) {
-          setHasUnlimitedFavorites(false);
-        }
-      }
-    }
-
-    resolveSubscription(user);
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user]);
+    setHasUnlimitedFavorites(isPremium);
+  }, [isPremium]);
 
   useEffect(() => {
     if (!user) {
@@ -187,6 +158,13 @@ export function GameFavoritesProvider({ children }: { children: ReactNode }) {
 
       const favouriteRef = doc(db, 'users', user.uid, 'favorites', game.id.toString());
       const exists = isFavourite(game.id);
+      if (!isPremium && !exists && favourites.length >= MAX_FREE_FAVOURITES) {
+        Alert.alert(
+          'Upgrade to premium',
+          'Free accounts can save up to 10 favourites. Upgrade to premium to unlock unlimited slots.',
+        );
+        return;
+      }
 
       if (exists) {
         setFavourites((prev) => prev.filter((item) => item.id !== game.id));

@@ -446,7 +446,7 @@ export function GameDetails({
       : 0;
 
   const reviewLimitRemaining = useMemo(() => {
-    if (typeof reviewLimit !== 'number' || Number.isNaN(reviewLimit)) return null;
+    if (!Number.isFinite(reviewLimit)) return null;
     return Math.max(0, reviewLimit - personalReviewCount);
   }, [reviewLimit, personalReviewCount]);
 
@@ -778,6 +778,14 @@ export function GameDetails({
     setFormError(null);
     setFormSuccess(null);
 
+    if (reviewLimitReached) {
+      Alert.alert(
+        'Upgrade to premium',
+        'Free accounts can share up to 10 reviews. Upgrade to premium to unlock unlimited submissions.',
+      );
+      return;
+    }
+
     if (ratingInput === null || !Number.isFinite(ratingInput) || ratingInput < 0 || ratingInput > 10) {
       setFormError('Please select a rating between 0 and 10.');
       return;
@@ -804,7 +812,8 @@ export function GameDetails({
     onToggleFavorite();
   }, [onToggleFavorite]);
 
-  const reviewCtaDisabled = !canSubmitReview || reviewSubmitting || ratingInput === null;
+  const reviewCtaDisabled =
+    !canSubmitReview || reviewSubmitting || ratingInput === null || reviewLimitReached;
   const trailerUrl = game.trailerUrl ?? null;
   const hasTrailer = Boolean(trailerUrl);
 

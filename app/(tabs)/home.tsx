@@ -170,6 +170,11 @@ export default function HomeScreen() {
   const isWeb = Platform.OS === 'web';
   const { user: currentUser, initializing: authInitializing } = useAuthUser();
   const { profile: userProfile } = useUserProfile(currentUser?.uid ?? null);
+  const isPremium = Boolean(
+    userProfile?.planId === 'PREMIUM' ||
+      userProfile?.currentPlanId === 'PREMIUM' ||
+      userProfile?.premium === true,
+  );
   const headerAvatar = useMemo(
     () =>
       resolveAvatarSource(
@@ -504,12 +509,14 @@ export default function HomeScreen() {
       });
     }
 
-    rows.push({
-      key: 'recommended',
-      title: 'AI Recommended Games',
-      subtitle: 'Fresh picks from our discovery engine.',
-      games: recommendedGames,
-    });
+    if (isPremium) {
+      rows.push({
+        key: 'recommended',
+        title: 'AI Recommended Games',
+        subtitle: 'Fresh picks from our discovery engine.',
+        games: recommendedGames,
+      });
+    }
 
     return rows;
   }, [friendFavoriteGames, featuredGames, likedGames, recommendedGames]);
