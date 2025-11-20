@@ -35,6 +35,22 @@ export default function ProfileStackLayout() {
         name="reviews"
         options={{ title: 'Your Reviews' }}
       />
+      <Stack.Screen
+        name="mute"
+        options={{ title: 'Mute Lists' }}
+      />
+      <Stack.Screen
+        name="visibility"
+        options={{ title: 'Visibility Settings' }}
+      />
+      <Stack.Screen
+        name="data-export"
+        options={{ title: 'Data Export' }}
+      />
+      <Stack.Screen
+        name="delete"
+        options={{ title: 'Delete Account' }}
+      />
     </Stack>
   );
 }

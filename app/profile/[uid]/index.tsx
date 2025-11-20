@@ -116,9 +116,11 @@ export default function PublicProfileScreen() {
   }, [profile?.createdAt]);
 
   const stats = profile?.stats ?? {};
+  const followerCount = canView ? followers.edges.length : formatCount(stats.followers);
+  const followingCount = canView ? following.edges.length : formatCount(stats.following);
   const statItems = [
-    { key: 'following', label: 'Following', value: formatCount(stats.following) },
-    { key: 'followers', label: 'Followers', value: formatCount(stats.followers) },
+    { key: 'following', label: 'Following', value: followingCount },
+    { key: 'followers', label: 'Followers', value: followerCount },
     { key: 'blocked', label: 'Blocked', value: formatCount(stats.blocked) },
   ];
   const visibilityIcon = visibility === 'private' ? 'lock-closed' : 'globe';
@@ -272,21 +274,7 @@ export default function PublicProfileScreen() {
         </View>
       )}
 
-      {canView ? (
-        <View style={styles.quickGlanceCard}>
-          <Text style={styles.quickGlanceTitle}>At a glance</Text>
-          <View style={styles.quickGlanceRow}>
-            <View style={styles.quickGlanceItem}>
-              <Text style={styles.quickGlanceValue}>{followers.edges.length}</Text>
-              <Text style={styles.quickGlanceLabel}>Followers</Text>
-            </View>
-            <View style={styles.quickGlanceItem}>
-              <Text style={styles.quickGlanceValue}>{following.edges.length}</Text>
-              <Text style={styles.quickGlanceLabel}>Following</Text>
-            </View>
-          </View>
-        </View>
-      ) : null}
+      {canView ? null : null}
     </ScrollView>
   );
 }
