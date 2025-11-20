@@ -17,6 +17,7 @@ import { FollowList } from '../../components/profile';
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
 import { useGameSearch } from '../../lib/hooks/useGameSearch';
 import { useUserSearch } from '../../lib/hooks/useUserSearch';
+import { useBlockRelationships } from '../../lib/hooks/useBlockRelationships';
 import type { FollowEdge } from '../../types/follow';
 
 const PAGE_BG = '#0f172a';
@@ -28,6 +29,7 @@ export default function FriendsScreen() {
   const router = useRouter();
   const { user } = useAuthUser();
   const { submittedTerm, submissionId, setScope } = useGameSearch();
+  const blockRelationships = useBlockRelationships(user?.uid ?? null);
   const isWeb = Platform.OS === 'web';
   const [activeQuery, setActiveQuery] = useState('');
   const [mobileTerm, setMobileTerm] = useState('');
@@ -50,6 +52,7 @@ export default function FriendsScreen() {
   const search = useUserSearch(hasQuery ? trimmedQuery : '', {
     excludeUid: user?.uid ?? null,
     debounceMs: 0,
+    excludeUids: blockRelationships.combinedBlockedIds,
   });
 
   const edges: FollowEdge[] = useMemo(

@@ -24,6 +24,7 @@ import {
   subscribeToGameReviews,
   subscribeToUserReviewStats,
 } from '../../lib/community';
+import { useBlockRelationships } from '../../lib/hooks/useBlockRelationships';
 
 type IgdbCompany = {
   developer?: boolean;
@@ -55,6 +56,7 @@ export default function GameDetailsScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
   const { user } = useAuthUser();
+  const blockRelationships = useBlockRelationships(user?.uid ?? null);
   const { cacheReady, getCachedDetails, cacheGameDetails } = useGameDetailsCache();
 
   const isIdArray = Array.isArray(id);
@@ -293,9 +295,40 @@ export default function GameDetailsScreen() {
     return unsubscribe;
   }, [user?.uid]);
 
+  const filteredReviews = useMemo(() => {
+    if (!reviews.length) {
+      return [];
+    }
+    const viewerUid = user?.uid ?? null;
+    const blockedSet = new Set(blockRelationships.blockedIds);
+    const blockedBySet = new Set(blockRelationships.blockedByIds);
+
+    const shouldHideAuthor = (authorId?: string | null) => {
+      if (!authorId) return false;
+      if (viewerUid && authorId === viewerUid) {
+        return false;
+      }
+      return blockedSet.has(authorId) || blockedBySet.has(authorId);
+    };
+
+    return reviews
+      .filter((review) => !shouldHideAuthor(review.userId))
+      .map((review) => {
+        const replies = Array.isArray(review.replies) ? review.replies : [];
+        const filteredReplies = replies.filter((reply) => !shouldHideAuthor(reply.userId));
+        if (filteredReplies.length === replies.length) {
+          return review;
+        }
+        return {
+          ...review,
+          replies: filteredReplies,
+        };
+      });
+  }, [reviews, blockRelationships.blockedIds, blockRelationships.blockedByIds, user?.uid]);
+
   const userReview = useMemo(
-    () => reviews.find((review) => review.userId === user?.uid) ?? null,
-    [reviews, user?.uid],
+    () => filteredReviews.find((review) => review.userId === user?.uid) ?? null,
+    [filteredReviews, user?.uid],
   );
 
   const personalReviewLimitReached =
@@ -532,7 +565,7 @@ export default function GameDetailsScreen() {
           isAuthenticated={Boolean(user)}
           onSignIn={handleSignIn}
           onSignUp={handleSignUp}
-          reviews={reviews}
+          reviews={filteredReviews}
           reviewsLoading={reviewsLoading}
           reviewError={reviewError}
           communityAverage={communityAverage}

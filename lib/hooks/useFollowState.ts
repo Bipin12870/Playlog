@@ -11,6 +11,8 @@ type UseFollowStateArgs = {
 
 export function useFollowState({ currentUid, targetUid }: UseFollowStateArgs) {
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [isBlockedBy, setIsBlockedBy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | FirestoreError | null>(null);
   const [processing, setProcessing] = useState(false);
@@ -55,6 +57,8 @@ export function useFollowState({ currentUid, targetUid }: UseFollowStateArgs) {
   useEffect(() => {
     if (!currentUid || !targetUid || currentUid === targetUid) {
       setHasPendingRequest(false);
+      setIsBlocked(false);
+      setIsBlockedBy(false);
       return;
     }
 
@@ -73,6 +77,46 @@ export function useFollowState({ currentUid, targetUid }: UseFollowStateArgs) {
       },
       () => {
         setHasPendingRequest(false);
+      },
+    );
+
+    return unsubscribe;
+  }, [currentUid, targetUid]);
+
+  useEffect(() => {
+    if (!currentUid || !targetUid || currentUid === targetUid) {
+      setIsBlocked(false);
+      return;
+    }
+
+    const blockRef = doc(db, 'userRelationships', currentUid, 'blocked', targetUid);
+    const unsubscribe = onSnapshot(
+      blockRef,
+      (snapshot) => {
+        setIsBlocked(snapshot.exists());
+      },
+      () => {
+        setIsBlocked(false);
+      },
+    );
+
+    return unsubscribe;
+  }, [currentUid, targetUid]);
+
+  useEffect(() => {
+    if (!currentUid || !targetUid || currentUid === targetUid) {
+      setIsBlockedBy(false);
+      return;
+    }
+
+    const blockedByRef = doc(db, 'userRelationships', currentUid, 'blockedBy', targetUid);
+    const unsubscribe = onSnapshot(
+      blockedByRef,
+      (snapshot) => {
+        setIsBlockedBy(snapshot.exists());
+      },
+      () => {
+        setIsBlockedBy(false);
       },
     );
 
@@ -143,6 +187,8 @@ export function useFollowState({ currentUid, targetUid }: UseFollowStateArgs) {
   return useMemo(
     () => ({
       isFollowing,
+      isBlocked,
+      isBlockedBy,
       hasPendingRequest,
       loading,
       error,
@@ -150,6 +196,8 @@ export function useFollowState({ currentUid, targetUid }: UseFollowStateArgs) {
       canFollow:
         !!targetUid &&
         !!(currentUid ?? auth.currentUser?.uid) &&
+        !isBlocked &&
+        !isBlockedBy &&
         targetUid !== (currentUid ?? auth.currentUser?.uid),
       follow,
       unfollow,
@@ -159,6 +207,8 @@ export function useFollowState({ currentUid, targetUid }: UseFollowStateArgs) {
     [
       isFollowing,
       hasPendingRequest,
+      isBlocked,
+      isBlockedBy,
       loading,
       error,
       processing,

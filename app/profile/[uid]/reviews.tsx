@@ -11,6 +11,7 @@ import {
 import { canViewerAccessProfile } from '../../../lib/profileVisibility';
 import { useAuthUser } from '../../../lib/hooks/useAuthUser';
 import { useFollowState } from '../../../lib/hooks/useFollowState';
+import { useBlockRelationships } from '../../../lib/hooks/useBlockRelationships';
 import { useUserReviews } from '../../../lib/userReviews';
 import { useUserProfile } from '../../../lib/userProfile';
 import type { UserReviewSummary } from '../../../types/game';
@@ -40,9 +41,14 @@ export default function PublicReviewsScreen() {
     currentUid: viewerUid,
     targetUid,
   });
+  const blockRelationships = useBlockRelationships(viewerUid);
+  const viewerBlockedTarget = targetUid ? blockRelationships.isBlocking(targetUid) : false;
+  const viewerIsBlockedByTarget = targetUid ? blockRelationships.isBlockedBy(targetUid) : false;
 
   const canView = canViewerAccessProfile(viewerUid, profile ?? undefined, {
     isFollower: isFollowing,
+    hasBlocked: viewerBlockedTarget,
+    isBlockedBy: viewerIsBlockedByTarget,
   });
   const {
     reviews,
@@ -64,6 +70,20 @@ export default function PublicReviewsScreen() {
         <Ionicons name="alert-circle-outline" size={40} color="#94a3b8" />
         <Text style={styles.emptyTitle}>Profile unavailable</Text>
         {profileError ? <Text style={styles.emptyCopy}>{profileError.message}</Text> : null}
+      </View>
+    );
+  }
+
+  if (viewerBlockedTarget || viewerIsBlockedByTarget) {
+    return (
+      <View style={styles.privateState}>
+        <Ionicons name="ban" size={36} color="#f9fafb" />
+        <Text style={styles.privateTitle}>User not available</Text>
+        <Text style={styles.privateCopy}>
+          {viewerBlockedTarget
+            ? 'You have blocked this player. Unblock them to read their reviews.'
+            : 'This player has blocked you. Their reviews are hidden.'}
+        </Text>
       </View>
     );
   }

@@ -6,6 +6,7 @@ import type { FollowUserSummary } from '../../types/follow';
 type UseUserSearchOptions = {
   limit?: number;
   excludeUid?: string | null;
+  excludeUids?: string[];
   minimumLength?: number;
   debounceMs?: number;
 };
@@ -26,10 +27,16 @@ export function useUserSearch(
   const [error, setError] = useState<Error | null>(null);
   const activeRequest = useRef<number>(0);
 
-  const { limit, minimumLength, debounceMs, excludeUid } = {
-    ...DEFAULT_OPTIONS,
-    ...options,
+  const mergedOptions = {
+    limit: options?.limit ?? DEFAULT_OPTIONS.limit,
+    minimumLength: options?.minimumLength ?? DEFAULT_OPTIONS.minimumLength,
+    debounceMs: options?.debounceMs ?? DEFAULT_OPTIONS.debounceMs,
+    excludeUid: options?.excludeUid ?? null,
+    excludeUids: Array.isArray(options?.excludeUids) ? options.excludeUids : [],
   };
+
+  const { limit, minimumLength, debounceMs, excludeUid, excludeUids } = mergedOptions;
+  const excludeUidsKey = excludeUids.join(',');
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -51,6 +58,7 @@ export function useUserSearch(
         const data = await searchUsersByUsername(trimmed, {
           limit,
           excludeUid: excludeUid ?? undefined,
+          excludeUids,
         });
         if (cancelled || activeRequest.current !== requestId) {
           return;
@@ -75,7 +83,7 @@ export function useUserSearch(
       cancelled = true;
       clearTimeout(handle);
     };
-  }, [query, limit, minimumLength, debounceMs, excludeUid]);
+  }, [query, limit, minimumLength, debounceMs, excludeUid, excludeUidsKey]);
 
   return useMemo(
     () => ({
