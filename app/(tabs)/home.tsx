@@ -35,6 +35,7 @@ import {
   fetchTrendingGames,
   searchGames,
 } from '../../lib/igdb';
+import { fetchRecommendedGames } from '../../lib/recommendations';
 import { useHomeScreen } from '../../lib/hooks/useHomeScreen';
 import { useGameSearch } from '../../lib/hooks/useGameSearch';
 import { useDiscoveryCache } from '../../lib/hooks/useDiscoveryCache';
@@ -411,25 +412,36 @@ export default function HomeScreen() {
 
     setExploreLoading(true);
     try {
-      const [featured, trending, surprise] = await Promise.allSettled([
+      const [featured, trending, personalized] = await Promise.allSettled([
         fetchFeaturedGames(),
         fetchTrendingGames(),
-        fetchRandomGames(),
+        currentUser?.uid ? fetchRecommendedGames(currentUser.uid, 12) : fetchRandomGames(),
       ]);
 
       const nextFeatured =
         featured.status === 'fulfilled' && Array.isArray(featured.value) ? featured.value : [];
       const nextTrending =
         trending.status === 'fulfilled' && Array.isArray(trending.value) ? trending.value : [];
-      const nextSurprise =
-        surprise.status === 'fulfilled' && Array.isArray(surprise.value) ? surprise.value : [];
+      let nextRecommended =
+        personalized.status === 'fulfilled' && Array.isArray(personalized.value)
+          ? personalized.value
+          : [];
+
+      if (!nextRecommended.length) {
+        try {
+          const fallback = await fetchRandomGames();
+          nextRecommended = Array.isArray(fallback) ? fallback : [];
+        } catch (fallbackError) {
+          console.warn('Failed to load fallback recommended games', fallbackError);
+        }
+      }
 
       setFeaturedGames(nextFeatured);
       setLikedGames(nextTrending);
-      setRecommendedGames(nextSurprise);
-      cacheDiscovery({ featured: nextFeatured, liked: nextTrending, recommended: nextSurprise });
+      setRecommendedGames(nextRecommended);
+      cacheDiscovery({ featured: nextFeatured, liked: nextTrending, recommended: nextRecommended });
 
-      const hadFailure = [featured, trending, surprise].some(
+      const hadFailure = [featured, trending, personalized].some(
         (result) => result.status === 'rejected',
       );
       setExploreError(hadFailure ? 'Some discovery rows failed to load. Try refreshing.' : null);
@@ -439,7 +451,7 @@ export default function HomeScreen() {
     } finally {
       setExploreLoading(false);
     }
-  }, [cacheDiscovery, discoveryCacheReady, getCachedDiscovery]);
+  }, [cacheDiscovery, discoveryCacheReady, getCachedDiscovery, currentUser?.uid]);
 
   useEffect(() => {
     const trimmed = submittedTerm.trim();
