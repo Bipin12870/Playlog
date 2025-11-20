@@ -57,11 +57,8 @@ export default function GameDetailsScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
   const { user } = useAuthUser();
-<<<<<<< HEAD
   const { profile } = useUserProfile(user?.uid ?? null);
-=======
   const blockRelationships = useBlockRelationships(user?.uid ?? null);
->>>>>>> main
   const { cacheReady, getCachedDetails, cacheGameDetails } = useGameDetailsCache();
 
   const isIdArray = Array.isArray(id);

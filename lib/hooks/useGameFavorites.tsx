@@ -22,11 +22,11 @@ import {
 import type { GameSummary } from '../../types/game';
 import { db } from '../firebase';
 import { useAuthUser } from './useAuthUser';
-<<<<<<< HEAD
+
 import { useUserProfile } from '../userProfile';
-=======
+
 import { mapFavoriteDocument } from './useUserFavorites';
->>>>>>> main
+
 
 const MAX_FREE_FAVOURITES = 10;
 

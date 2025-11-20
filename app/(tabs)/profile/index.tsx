@@ -25,7 +25,7 @@ import { useFollowRequests } from '../../../lib/hooks/useFollowRequests';
 import { getProfileVisibility } from '../../../lib/profileVisibility';
 import { resolveAvatarSource } from '../../../lib/avatar';
 import { SubscriptionOfferModal } from '../../../components/SubscriptionOfferModal';
-import { billingPlans, planCatalog, createCheckoutSession, type PlanId } from '../../../lib/billing';
+import { planCatalog, createCheckoutSession, type PlanId } from '../../../lib/billing';
 
 type ProfileAction = {
   key:
@@ -45,22 +45,95 @@ type ProfileAction = {
 };
 
 const ACTIONS: ProfileAction[] = [
-  { key: 'followers', title: 'Followers', description: 'See everyone keeping up with your activity.', icon: 'people', section: 'Social' },
-  { key: 'following', title: 'Following', description: 'Manage the players and friends you follow.', icon: 'person-add', section: 'Social' },
-  { key: 'requests', title: 'Follow requests', description: 'Approve or decline new followers.', icon: 'mail', section: 'Social' },
-  { key: 'blocked', title: 'Blocked users', description: 'Review and manage your blocked list.', icon: 'ban', section: 'Social' },
-  { key: 'edit', title: 'Edit Profile', description: 'Update your display name, avatar, and bio.', icon: 'create', section: 'Profile' },
-  { key: 'reviews', title: 'Reviews', description: 'Revisit and manage shared reviews.', icon: 'chatbubble-ellipses', section: 'Content' },
-  { key: 'visibility', title: 'Visibility settings', description: 'Control who can follow, message, or see your activity.', icon: 'eye', section: 'Privacy & Safety' },
-  { key: 'delete', title: 'Delete account', description: 'Permanently remove your account.', icon: 'trash', section: 'Account', variant: 'destructive' },
+  {
+    key: 'followers',
+    title: 'Followers',
+    description: 'See everyone keeping up with your activity.',
+    icon: 'people',
+    section: 'Social',
+  },
+  {
+    key: 'following',
+    title: 'Following',
+    description: 'Manage the players and friends you follow.',
+    icon: 'person-add',
+    section: 'Social',
+  },
+  {
+    key: 'requests',
+    title: 'Follow requests',
+    description: 'Approve or decline new followers.',
+    icon: 'mail',
+    section: 'Social',
+  },
+  {
+    key: 'blocked',
+    title: 'Blocked users',
+    description: 'Review and manage your blocked list.',
+    icon: 'ban',
+    section: 'Social',
+  },
+  {
+    key: 'edit',
+    title: 'Edit Profile',
+    description: 'Update your display name, avatar, and bio.',
+    icon: 'create',
+    section: 'Profile',
+  },
+  {
+    key: 'reviews',
+    title: 'Reviews',
+    description: 'Revisit and manage shared reviews.',
+    icon: 'chatbubble-ellipses',
+    section: 'Content',
+  },
+  {
+    key: 'visibility',
+    title: 'Visibility settings',
+    description: 'Control who can follow, message, or see your activity.',
+    icon: 'eye',
+    section: 'Privacy & Safety',
+  },
+  {
+    key: 'delete',
+    title: 'Delete account',
+    description: 'Permanently remove your account.',
+    icon: 'trash',
+    section: 'Account',
+    variant: 'destructive',
+  },
 ];
 
-const ACTION_SECTIONS: Array<{ key: string; title: ProfileAction['section']; actions: ProfileAction[] }> = [
-  { key: 'social', title: 'Social', actions: ACTIONS.filter((action) => action.section === 'Social') },
-  { key: 'profile', title: 'Profile', actions: ACTIONS.filter((action) => action.section === 'Profile') },
-  { key: 'content', title: 'Content', actions: ACTIONS.filter((action) => action.section === 'Content') },
-  { key: 'privacy', title: 'Privacy & Safety', actions: ACTIONS.filter((action) => action.section === 'Privacy & Safety') },
-  { key: 'account', title: 'Account', actions: ACTIONS.filter((action) => action.section === 'Account') },
+const ACTION_SECTIONS: Array<{
+  key: string;
+  title: ProfileAction['section'];
+  actions: ProfileAction[];
+}> = [
+  {
+    key: 'social',
+    title: 'Social',
+    actions: ACTIONS.filter((action) => action.section === 'Social'),
+  },
+  {
+    key: 'profile',
+    title: 'Profile',
+    actions: ACTIONS.filter((action) => action.section === 'Profile'),
+  },
+  {
+    key: 'content',
+    title: 'Content',
+    actions: ACTIONS.filter((action) => action.section === 'Content'),
+  },
+  {
+    key: 'privacy',
+    title: 'Privacy & Safety',
+    actions: ACTIONS.filter((action) => action.section === 'Privacy & Safety'),
+  },
+  {
+    key: 'account',
+    title: 'Account',
+    actions: ACTIONS.filter((action) => action.section === 'Account'),
+  },
 ];
 
 const SECTION_ICON: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
@@ -71,16 +144,13 @@ const SECTION_ICON: Record<string, { icon: keyof typeof Ionicons.glyphMap; color
   account: { icon: 'settings', color: '#f472b6' },
 };
 
-const STAT_KEYS: Array<ProfileAction['key']> = ['following', 'followers', 'blocked'];
-const STAT_LABELS: Record<ProfileAction['key'], string> = {
+const STAT_KEYS = ['following', 'followers', 'blocked'] as const;
+type StatKey = (typeof STAT_KEYS)[number];
+
+const STAT_LABELS: Record<StatKey, string> = {
   followers: 'Followers',
   following: 'Following',
   blocked: 'Blocked',
-  requests: 'Requests',
-  edit: 'Edit Profile',
-  reviews: 'Reviews',
-  visibility: 'Visibility',
-  delete: 'Delete',
 };
 
 function formatCount(value?: number | null) {
@@ -92,7 +162,11 @@ function formatCount(value?: number | null) {
 
 function formatJoined(dateValue?: Date | null) {
   if (!dateValue) return null;
-  return dateValue.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  return dateValue.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 export default function ProfileHomeScreen() {
@@ -104,6 +178,19 @@ export default function ProfileHomeScreen() {
   const pendingRequests = followRequests.requests.length;
   const visibility = getProfileVisibility(profile ?? undefined);
   const isMobile = Platform.OS !== 'web';
+
+  const [subscriptionModalVisible, setSubscriptionModalVisible] = useState(false);
+  const [billingLoadingPlanId, setBillingLoadingPlanId] = useState<PlanId | null>(null);
+  const [billingError, setBillingError] = useState<string | null>(null);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    social: true,
+    profile: true,
+    content: true,
+    privacy: true,
+    account: true,
+  });
+
+  const isPremium = !!profile?.premium;
 
   const joinedLabel = useMemo(() => {
     if (!profile?.createdAt) return null;
@@ -121,19 +208,64 @@ export default function ProfileHomeScreen() {
         map[action.key] = action;
         return map;
       }, {} as Record<ProfileAction['key'], ProfileAction>),
-    []
+    [],
   );
 
   const heroAvatar = useMemo<ImageSourcePropType>(() => {
     return resolveAvatarSource(profile?.photoURL, profile?.avatarKey);
   }, [profile?.photoURL, profile?.avatarKey]);
 
-  const stats = profile?.stats ?? {};
+  // stats is often a loose object; treat as generic record
+  const stats = (profile?.stats ?? {}) as Record<string, number>;
+
+  const planInfo = useMemo(() => {
+    const currentPlanId: PlanId = profile?.planId ?? (isPremium ? 'PREMIUM' : 'FREE');
+  
+    // planCatalog is a Record<PlanId, PlanDetail>, so index by key
+    const currentPlan = planCatalog[currentPlanId];
+    const planTitle = currentPlan?.title ?? (currentPlanId === 'PREMIUM' ? 'Premium' : 'Free');
+  
+    const rawStatus: string | null = profile?.subscriptionStatus ?? null;
+    const rawEnd: any = profile?.currentPeriodEnd ?? null;
+  
+    let expirationLabel: string | null = null;
+    if (rawEnd) {
+      let end: Date | null = null;
+  
+      if (rawEnd && typeof rawEnd.toDate === 'function') {
+        // Firestore Timestamp
+        end = rawEnd.toDate();
+      } else if (rawEnd instanceof Date) {
+        end = rawEnd;
+      } else if (typeof rawEnd === 'number' || typeof rawEnd === 'string') {
+        const d = new Date(rawEnd);
+        end = Number.isNaN(d.getTime()) ? null : d;
+      }
+  
+      if (end) {
+        expirationLabel = end.toLocaleDateString(undefined, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        });
+      }
+    }
+  
+    return {
+      currentPlanId,
+      planTitle,
+      subscriptionStatus: rawStatus,
+      expirationLabel,
+    };
+  }, [profile?.planId, profile?.subscriptionStatus, profile?.currentPeriodEnd, isPremium]);
+
+  const { planTitle, subscriptionStatus, expirationLabel } = planInfo;
+
   const handleSignOut = async () => {
     try {
       await signOut(auth);
-    } catch (error) {
-      console.warn('Failed to sign out', error);
+    } catch (err) {
+      console.warn('Failed to sign out', err);
     }
   };
 
@@ -159,6 +291,7 @@ export default function ProfileHomeScreen() {
   }, []);
 
   const handleNavigate = (action: ProfileAction) => {
+    // all profile settings are under /(tabs)/profile/*
     router.push(`/(tabs)/profile/${action.key}`);
   };
 
@@ -167,14 +300,48 @@ export default function ProfileHomeScreen() {
   }, []);
 
   const handleStatPress = useCallback(
-    (key: ProfileAction['key']) => {
+    (key: StatKey) => {
       const action = actionsByKey[key];
       if (action) {
         handleNavigate(action);
       }
     },
-    [actionsByKey]
+    [actionsByKey],
   );
+
+  const handleSelectPlan = useCallback(
+    async (planId: PlanId) => {
+      try {
+        setBillingError(null);
+        setBillingLoadingPlanId(planId);
+
+        // FREE is non-billable; just close the modal.
+        if (planId === 'FREE') {
+          setSubscriptionModalVisible(false);
+          setBillingLoadingPlanId(null);
+          return;
+        }
+
+        const session = await createCheckoutSession(planId);
+
+        if (session && typeof session === 'object' && 'url' in session && session.url) {
+          await Linking.openURL(session.url as string);
+        } else {
+          setBillingError('Unable to start checkout session.');
+        }
+      } catch (err) {
+        console.error('Failed to create checkout session', err);
+        setBillingError('Something went wrong starting checkout.');
+      } finally {
+        setBillingLoadingPlanId(null);
+      }
+    },
+    [],
+  );
+
+  const onManagePlan = useCallback(() => {
+    setSubscriptionModalVisible(true);
+  }, []);
 
   if (initializing || loading) {
     return (
@@ -191,14 +358,21 @@ export default function ProfileHomeScreen() {
         <Ionicons name="person-circle-outline" size={64} color="#94a3b8" />
         <Text style={styles.emptyTitle}>Sign in to manage your profile</Text>
         <Text style={styles.emptyCopy}>
-          Log in to customise your Playlog presence. Update your display name, avatar, and bio once you’re signed in.
+          Log in to customise your Playlog presence. Update your display name, avatar, and bio
+          once you’re signed in.
         </Text>
         {error ? <Text style={styles.errorText}>{error.message}</Text> : null}
         <View style={styles.emptyActionRow}>
-          <Pressable style={[styles.emptyBtn, styles.emptyPrimary]} onPress={() => router.push('/login')}>
+          <Pressable
+            style={[styles.emptyBtn, styles.emptyPrimary]}
+            onPress={() => router.push('/login')}
+          >
             <Text style={styles.emptyPrimaryText}>Log in</Text>
           </Pressable>
-          <Pressable style={[styles.emptyBtn, styles.emptySecondary]} onPress={() => router.push('/signup')}>
+          <Pressable
+            style={[styles.emptyBtn, styles.emptySecondary]}
+            onPress={() => router.push('/signup')}
+          >
             <Text style={styles.emptySecondaryText}>Sign up</Text>
           </Pressable>
         </View>
@@ -218,6 +392,14 @@ export default function ProfileHomeScreen() {
         onNavigate={handleNavigate}
         onPressStat={handleStatPress}
         onSignOut={confirmSignOut}
+        isPremium={isPremium}
+        planTitle={planTitle}
+        subscriptionStatus={subscriptionStatus}
+        expirationLabel={expirationLabel}
+        billingError={billingError}
+        onManagePlan={onManagePlan}
+        openSections={openSections}
+        onToggleSection={toggleSection}
       />
     );
   }
@@ -277,7 +459,7 @@ export default function ProfileHomeScreen() {
                     styles.subscriptionButton,
                     pressed && styles.subscriptionButtonPressed,
                   ]}
-                  onPress={() => setSubscriptionModalVisible(true)}
+                  onPress={onManagePlan}
                 >
                   <Text style={styles.subscriptionButtonLabel}>
                     {profile?.premium ? 'Manage plan' : 'Choose plan'}
@@ -304,48 +486,59 @@ export default function ProfileHomeScreen() {
           </View>
         </View>
 
-      <View style={styles.actionsCard}>
-        <Text style={styles.actionsTitle}>Manage your profile</Text>
-        <View style={styles.actionList}>
-          {ACTIONS.map((action) => (
-            <Pressable
-              key={action.key}
-              style={({ pressed }) => [
-                styles.actionRow,
-                pressed && { backgroundColor: 'rgba(99,102,241,0.08)' },
-              ]}
-              onPress={() => handleNavigate(action)}
-            >
-              <View style={styles.actionIconWrap}>
-                <Ionicons name={action.icon} size={20} color="#6366f1" />
-              </View>
-              <View style={styles.actionCopy}>
-                <Text style={styles.actionTitle}>{action.title}</Text>
-                <Text style={styles.actionDescription}>{action.description}</Text>
-              </View>
-              {action.key === 'requests' && pendingRequests > 0 ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeLabel}>{pendingRequests}</Text>
+        <View style={styles.actionsCard}>
+          <Text style={styles.actionsTitle}>Manage your profile</Text>
+          <View style={styles.actionList}>
+            {ACTIONS.map((action) => (
+              <Pressable
+                key={action.key}
+                style={({ pressed }) => [
+                  styles.actionRow,
+                  pressed && { backgroundColor: 'rgba(99,102,241,0.08)' },
+                ]}
+                onPress={() => handleNavigate(action)}
+              >
+                <View style={styles.actionIconWrap}>
+                  <Ionicons name={action.icon} size={20} color="#6366f1" />
                 </View>
-              ) : null}
-              <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
-            </Pressable>
-          ))}
+                <View style={styles.actionCopy}>
+                  <Text style={styles.actionTitle}>{action.title}</Text>
+                  <Text style={styles.actionDescription}>{action.description}</Text>
+                </View>
+                {action.key === 'requests' && pendingRequests > 0 ? (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeLabel}>{pendingRequests}</Text>
+                  </View>
+                ) : null}
+                <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
+              </Pressable>
+            ))}
+          </View>
         </View>
-      </View>
-    </ScrollView>
+
+        <Pressable
+          onPress={confirmSignOut}
+          style={({ pressed }) => [
+            styles.signOutButton,
+            pressed && styles.signOutButtonPressed,
+          ]}
+        >
+          <Text style={styles.signOutLabel}>Sign out</Text>
+        </Pressable>
+      </ScrollView>
+    </>
   );
 }
 
 type MobileProfileProps = {
   profile: any;
   heroAvatar: ImageSourcePropType;
-  stats: any;
+  stats: Record<string, number>;
   visibility: ReturnType<typeof getProfileVisibility>;
   joinedLabel: string | null;
   pendingRequests: number;
   onNavigate: (action: ProfileAction) => void;
-  onPressStat: (key: ProfileAction['key']) => void;
+  onPressStat: (key: StatKey) => void;
   onSignOut: () => void;
   isPremium: boolean;
   planTitle: string;
@@ -353,29 +546,29 @@ type MobileProfileProps = {
   expirationLabel: string | null;
   billingError: string | null;
   onManagePlan: () => void;
+  openSections: Record<string, boolean>;
+  onToggleSection: (key: string) => void;
 };
 
 function MobileProfile({
   profile,
   heroAvatar,
   stats,
-  visibility,
+  visibility, // currently unused, but might be used later
   joinedLabel,
   pendingRequests,
   onNavigate,
   onPressStat,
   onSignOut,
-}: {
-  profile: any;
-  heroAvatar: ImageSourcePropType;
-  stats: any;
-  visibility: ReturnType<typeof getProfileVisibility>;
-  joinedLabel: string | null;
-  pendingRequests: number;
-  onNavigate: (action: ProfileAction) => void;
-  onPressStat: (key: ProfileAction['key']) => void;
-  onSignOut: () => void;
-}) {
+  isPremium,
+  planTitle,
+  subscriptionStatus,
+  expirationLabel,
+  billingError,
+  onManagePlan,
+  openSections,
+  onToggleSection,
+}: MobileProfileProps) {
   return (
     <SafeAreaView style={styles.mobileSafe}>
       <StatusBar barStyle="light-content" />
@@ -472,7 +665,8 @@ function MobileProfile({
               </Pressable>
               {openSections[section.key]
                 ? section.actions.map((action) => {
-                    const highlightColor = action.variant === 'destructive' ? '#f87171' : '#f8fafc';
+                    const highlightColor =
+                      action.variant === 'destructive' ? '#f87171' : '#f8fafc';
                     return (
                       <Pressable
                         key={`mobile-${action.key}`}
@@ -584,6 +778,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   actionsTitle: { color: '#f8fafc', fontSize: 16, fontWeight: '700' },
+  actionsCard: {
+    borderRadius: 18,
+    backgroundColor: '#0b1120',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -644,11 +847,22 @@ const styles = StyleSheet.create({
   badgeLabel: { color: '#fff', fontSize: 12, fontWeight: '700' },
   loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { color: '#475569' },
-  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    gap: 12,
+  },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
   emptyCopy: { color: '#4b5563', textAlign: 'center' },
   errorText: { color: '#ef4444', marginTop: 8 },
-  emptyActionRow: { flexDirection: 'row', gap: 12, width: '100%', marginTop: 16 },
+  emptyActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    marginTop: 16,
+  },
   emptyBtn: {
     flex: 1,
     paddingVertical: 12,
@@ -664,9 +878,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   emptySecondaryText: { color: '#0f172a', fontWeight: '700' },
+
+  // Mobile styles
   mobileSafe: { flex: 1, backgroundColor: '#0f172a' },
   mobileScroll: { padding: 20, gap: 24, backgroundColor: '#0f172a' },
-  mobileHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
+  mobileHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
   mobileSignOutButton: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -677,7 +897,14 @@ const styles = StyleSheet.create({
   },
   mobileSignOutButtonPressed: { opacity: 0.8 },
   mobileSignOutLabel: { color: '#f8fafc', fontWeight: '600' },
-  mobileHeroCard: { backgroundColor: '#1c1c21', borderRadius: 28, padding: 20, gap: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  mobileHeroCard: {
+    backgroundColor: '#1c1c21',
+    borderRadius: 28,
+    padding: 20,
+    gap: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
   mobileHeroRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   mobileHeroDetails: { flex: 1 },
   mobileBio: { color: '#cbd5f5', fontSize: 13, marginTop: 4 },
@@ -706,13 +933,33 @@ const styles = StyleSheet.create({
   mobileSubscriptionButtonPressed: {
     opacity: 0.9,
   },
-  mobileSubscriptionButtonLabel: { color: '#f8fafc', fontWeight: '700', letterSpacing: 0.5 },
-  mobileStatRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  mobileStatBlock: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 12, backgroundColor: '#26262b' },
+  mobileSubscriptionButtonLabel: {
+    color: '#f8fafc',
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  mobileStatRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  mobileStatBlock: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#26262b',
+  },
   mobileStatBlockPressed: { backgroundColor: '#2f2f36' },
   mobileStatValue: { color: '#f8fafc', fontSize: 18, fontWeight: '800' },
   mobileStatLabel: { color: '#cbd5f5', fontSize: 12 },
-  mobileActionsBlock: { marginTop: 12, borderRadius: 24, backgroundColor: '#1c1c21', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  mobileActionsBlock: {
+    marginTop: 12,
+    borderRadius: 24,
+    backgroundColor: '#1c1c21',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
   mobileSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -732,6 +979,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   mobileSectionTitle: { color: '#e5e7eb', fontSize: 13, fontWeight: '700' },
-  mobileActionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.08)', gap: 12 },
+  mobileActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+    gap: 12,
+  },
   mobileActionLabel: { flex: 1, color: '#f8fafc', fontWeight: '600' },
 });

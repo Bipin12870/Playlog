@@ -16,7 +16,13 @@ if (!STRIPE_PUBLISHABLE_KEY) {
 export const stripePublishableKey = STRIPE_PUBLISHABLE_KEY;
 
 export const billingPlans: ReadonlyArray<PlanDetail> = PLAN_DETAILS.filter((plan) => plan.isSubscription);
-export const planCatalog: ReadonlyArray<PlanDetail> = PLAN_DETAILS;
+export const planCatalog: Readonly<Record<PlanId, PlanDetail>> = PLAN_DETAILS.reduce(
+  (map, plan) => {
+    map[plan.id] = plan;
+    return map;
+  },
+  {} as Record<PlanId, PlanDetail>,
+);
 
 export async function createCheckoutSession(planId: PlanId): Promise<CheckoutSession> {
   if (!BASE_URL) {
