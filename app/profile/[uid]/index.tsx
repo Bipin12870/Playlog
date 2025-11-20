@@ -17,6 +17,7 @@ import { useAuthUser } from '../../../lib/hooks/useAuthUser';
 import { useFollowers, useFollowing } from '../../../lib/hooks/useFollowList';
 import { canViewerAccessProfile, getProfileVisibility } from '../../../lib/profileVisibility';
 import { useFollowState } from '../../../lib/hooks/useFollowState';
+import { useBlockRelationships } from '../../../lib/hooks/useBlockRelationships';
 import { useUserProfile } from '../../../lib/userProfile';
 
 type ProfileAction = {
@@ -78,6 +79,7 @@ export default function PublicProfileScreen() {
   const targetUid = params.uid ?? null;
   const { user: viewer, initializing } = useAuthUser();
   const viewerUid = viewer?.uid ?? null;
+  const blockRelationships = useBlockRelationships(viewerUid);
 
   const { profile, loading, error } = useUserProfile(targetUid);
   const visibility = getProfileVisibility(profile ?? undefined);
@@ -85,8 +87,12 @@ export default function PublicProfileScreen() {
     currentUid: viewerUid,
     targetUid,
   });
+  const viewerBlockedTarget = targetUid ? blockRelationships.isBlocking(targetUid) : false;
+  const viewerIsBlockedByTarget = targetUid ? blockRelationships.isBlockedBy(targetUid) : false;
   const canView = canViewerAccessProfile(viewerUid, profile ?? undefined, {
     isFollower: isFollowing,
+    hasBlocked: viewerBlockedTarget,
+    isBlockedBy: viewerIsBlockedByTarget,
   });
   const followers = useFollowers(canView ? targetUid : null);
   const following = useFollowing(canView ? targetUid : null);
@@ -110,9 +116,11 @@ export default function PublicProfileScreen() {
   }, [profile?.createdAt]);
 
   const stats = profile?.stats ?? {};
+  const followerCount = canView ? followers.edges.length : formatCount(stats.followers);
+  const followingCount = canView ? following.edges.length : formatCount(stats.following);
   const statItems = [
-    { key: 'following', label: 'Following', value: formatCount(stats.following) },
-    { key: 'followers', label: 'Followers', value: formatCount(stats.followers) },
+    { key: 'following', label: 'Following', value: followingCount },
+    { key: 'followers', label: 'Followers', value: followerCount },
     { key: 'blocked', label: 'Blocked', value: formatCount(stats.blocked) },
   ];
   const visibilityIcon = visibility === 'private' ? 'lock-closed' : 'globe';
@@ -125,6 +133,24 @@ export default function PublicProfileScreen() {
   const handleNavigate = (action: ProfileAction) => {
     if (!targetUid) return;
     router.push(`/profile/${targetUid}/${action.key}`);
+  };
+  const handleStatPress = (key: 'followers' | 'following' | 'blocked') => {
+    if (!targetUid) return;
+    if (key === 'followers') {
+      router.push(`/profile/${targetUid}/followers`);
+      return;
+    }
+    if (key === 'following') {
+      router.push(`/profile/${targetUid}/following`);
+      return;
+    }
+    if (key === 'blocked' && isSelf) {
+      router.push(`/profile/${targetUid}/blocked`);
+      return;
+    }
+    if (key === 'blocked' && !isSelf) {
+      router.push(`/profile/${targetUid}/blocked`);
+    }
   };
 
   if (initializing || loading) {
@@ -142,6 +168,27 @@ export default function PublicProfileScreen() {
         <Ionicons name="person-circle-outline" size={64} color="#94a3b8" />
         <Text style={styles.emptyTitle}>Profile not found</Text>
         {error ? <Text style={styles.errorText}>{error.message}</Text> : null}
+      </View>
+    );
+  }
+
+  if (viewerBlockedTarget || viewerIsBlockedByTarget) {
+    const blockedCopy = viewerBlockedTarget
+      ? 'You have blocked this player. Unblock them to view their profile again.'
+      : 'This player has blocked you. Their profile is not available.';
+    return (
+      <View style={styles.emptyState}>
+        <Ionicons name="ban" size={64} color="#94a3b8" />
+        <Text style={styles.emptyTitle}>User not available</Text>
+        <Text style={styles.blockedCopy}>{blockedCopy}</Text>
+        {viewerBlockedTarget ? (
+          <BlockButton
+            targetUid={targetUid}
+            currentUid={viewerUid}
+            onAuthRequired={() => router.push('/login')}
+            style={styles.blockedAction}
+          />
+        ) : null}
       </View>
     );
   }
@@ -197,10 +244,19 @@ export default function PublicProfileScreen() {
         </View>
         <View style={styles.statGrid}>
           {statItems.map((stat) => (
-            <View key={stat.key} style={styles.statCard}>
+            <Pressable
+              key={stat.key}
+              style={({ pressed }) => [
+                styles.statCard,
+                pressed && styles.statCardPressed,
+              ]}
+              disabled={!['followers', 'following', 'blocked'].includes(stat.key)}
+              hitSlop={6}
+              onPress={() => handleStatPress(stat.key as 'followers' | 'following' | 'blocked')}
+            >
               <Text style={styles.statValue}>{stat.value}</Text>
               <Text style={styles.statLabel}>{stat.label}</Text>
-            </View>
+            </Pressable>
           ))}
         </View>
         <Text style={styles.visibilityHint}>{visibilityHint}</Text>
@@ -245,21 +301,7 @@ export default function PublicProfileScreen() {
         </View>
       )}
 
-      {canView ? (
-        <View style={styles.quickGlanceCard}>
-          <Text style={styles.quickGlanceTitle}>At a glance</Text>
-          <View style={styles.quickGlanceRow}>
-            <View style={styles.quickGlanceItem}>
-              <Text style={styles.quickGlanceValue}>{followers.edges.length}</Text>
-              <Text style={styles.quickGlanceLabel}>Followers</Text>
-            </View>
-            <View style={styles.quickGlanceItem}>
-              <Text style={styles.quickGlanceValue}>{following.edges.length}</Text>
-              <Text style={styles.quickGlanceLabel}>Following</Text>
-            </View>
-          </View>
-        </View>
-      ) : null}
+      {canView ? null : null}
     </ScrollView>
   );
 }
@@ -360,6 +402,12 @@ const styles = StyleSheet.create({
     gap: 4,
     borderWidth: 1,
     borderColor: 'rgba(99,102,241,0.15)',
+  },
+  statCardPressed: {
+    backgroundColor: 'rgba(99,102,241,0.12)',
+  },
+  statCardDisabled: {
+    opacity: 0.65,
   },
   statValue: {
     fontSize: 20,
@@ -496,6 +544,14 @@ const styles = StyleSheet.create({
     color: '#f9fafb',
     fontSize: 20,
     fontWeight: '700',
+  },
+  blockedCopy: {
+    color: '#cbd5f5',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  blockedAction: {
+    marginTop: 8,
   },
   errorText: {
     color: '#fca5a5',

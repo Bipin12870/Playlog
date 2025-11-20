@@ -7,14 +7,23 @@ export function getProfileVisibility(profile?: Pick<UserProfile, 'profileVisibil
   return profile.profileVisibility === 'private' ? 'private' : 'public';
 }
 
+type ViewerAccessOptions = {
+  isFollower?: boolean | null | undefined;
+  hasBlocked?: boolean | null | undefined;
+  isBlockedBy?: boolean | null | undefined;
+};
+
 export function canViewerAccessProfile(
   viewerUid: string | null | undefined,
   profile: UserProfile | null | undefined,
-  options?: { isFollower?: boolean | null | undefined },
+  options?: ViewerAccessOptions,
 ): boolean {
   if (!profile) return false;
   if (viewerUid && profile.uid === viewerUid) {
     return true;
+  }
+  if (options?.hasBlocked || options?.isBlockedBy) {
+    return false;
   }
   if (options?.isFollower) {
     return true;

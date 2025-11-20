@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
 import {
+  Alert,
   ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
   View,
+  Platform,
   type StyleProp,
   type TextStyle,
   type ViewStyle,
@@ -75,10 +77,32 @@ export function BlockButton({
       return;
     }
 
+    const shouldConfirmBlock = () => {
+      const message =
+        'Are you sure you want to block this user? They will not be able to view your profile, interact with you, or comment on your posts.';
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined') {
+          return window.confirm(message);
+        }
+        return true;
+      }
+      Alert.alert('Block this user?', message, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Block', style: 'destructive', onPress: () => void block() },
+      ]);
+      return false;
+    };
+
     if (mode === 'unblock' || isBlocked) {
       void unblock();
     } else {
-      void block();
+      if (Platform.OS === 'web') {
+        if (shouldConfirmBlock()) {
+          void block();
+        }
+      } else {
+        shouldConfirmBlock();
+      }
     }
   };
 

@@ -11,6 +11,7 @@ type UseBlockStateArgs = {
 
 export function useBlockState({ currentUid, targetUid }: UseBlockStateArgs) {
   const [isBlocked, setIsBlocked] = useState(false);
+  const [isBlockedBy, setIsBlockedBy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | FirestoreError | null>(null);
   const [processing, setProcessing] = useState(false);
@@ -38,6 +39,26 @@ export function useBlockState({ currentUid, targetUid }: UseBlockStateArgs) {
         setIsBlocked(false);
         setLoading(false);
         setError(snapshotError);
+      },
+    );
+
+    return unsubscribe;
+  }, [currentUid, targetUid]);
+
+  useEffect(() => {
+    if (!currentUid || !targetUid || currentUid === targetUid) {
+      setIsBlockedBy(false);
+      return;
+    }
+
+    const blockedByRef = doc(db, 'userRelationships', currentUid, 'blockedBy', targetUid);
+    const unsubscribe = onSnapshot(
+      blockedByRef,
+      (snapshot) => {
+        setIsBlockedBy(snapshot.exists());
+      },
+      () => {
+        setIsBlockedBy(false);
       },
     );
 
@@ -79,6 +100,7 @@ export function useBlockState({ currentUid, targetUid }: UseBlockStateArgs) {
   return useMemo(
     () => ({
       isBlocked,
+      isBlockedBy,
       loading,
       processing,
       error,
@@ -89,6 +111,6 @@ export function useBlockState({ currentUid, targetUid }: UseBlockStateArgs) {
       block,
       unblock,
     }),
-    [isBlocked, loading, processing, error, targetUid, currentUid, block, unblock],
+    [isBlocked, isBlockedBy, loading, processing, error, targetUid, currentUid, block, unblock],
   );
 }

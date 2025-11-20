@@ -22,7 +22,11 @@ import {
 import type { GameSummary } from '../../types/game';
 import { db } from '../firebase';
 import { useAuthUser } from './useAuthUser';
+<<<<<<< HEAD
 import { useUserProfile } from '../userProfile';
+=======
+import { mapFavoriteDocument } from './useUserFavorites';
+>>>>>>> main
 
 const MAX_FREE_FAVOURITES = 10;
 
@@ -53,26 +57,15 @@ export function GameFavoritesProvider({ children }: { children: ReactNode }) {
   const parseFavouritesSnapshot = useCallback((snapshot: QuerySnapshot<DocumentData>) => {
     return snapshot.docs
       .map((docSnap) => {
-        const data = docSnap.data() as Partial<GameSummary> & {
-          savedAt?: { toMillis?: () => number };
-        };
+        const favorite = mapFavoriteDocument(docSnap.data(), docSnap.id);
 
-        if (typeof data?.id !== 'number' || typeof data?.name !== 'string') {
+        if (!favorite) {
           return null;
         }
 
-        const savedAt = typeof data.savedAt?.toMillis === 'function' ? data.savedAt.toMillis() : 0;
-
-        const game: GameSummary = {
-          id: data.id,
-          name: data.name,
-          summary: typeof data.summary === 'string' ? data.summary : undefined,
-          rating: typeof data.rating === 'number' ? data.rating : undefined,
-          cover: typeof data.cover === 'object' && data.cover !== null ? data.cover : undefined,
-          platforms: Array.isArray(data.platforms) ? data.platforms : undefined,
-          first_release_date:
-            typeof data.first_release_date === 'number' ? data.first_release_date : undefined,
-        };
+        const { savedAt: savedAtString, ...game } = favorite;
+        const parsedSavedAt = savedAtString ? Date.parse(savedAtString) : 0;
+        const savedAt = Number.isFinite(parsedSavedAt) ? parsedSavedAt : 0;
 
         return { savedAt, game };
       })
@@ -207,6 +200,7 @@ export function GameFavoritesProvider({ children }: { children: ReactNode }) {
         id: game.id,
         name: game.name,
         savedAt: serverTimestamp(),
+        addedAt: serverTimestamp(),
       };
 
       if (typeof game.summary === 'string') {

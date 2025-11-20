@@ -35,6 +35,7 @@ import {
   fetchTrendingGames,
   searchGames,
 } from '../../lib/igdb';
+import { fetchRecommendedGames } from '../../lib/recommendations';
 import { useHomeScreen } from '../../lib/hooks/useHomeScreen';
 import { useGameSearch } from '../../lib/hooks/useGameSearch';
 import { useDiscoveryCache } from '../../lib/hooks/useDiscoveryCache';
@@ -416,25 +417,36 @@ export default function HomeScreen() {
 
     setExploreLoading(true);
     try {
-      const [featured, trending, surprise] = await Promise.allSettled([
+      const [featured, trending, personalized] = await Promise.allSettled([
         fetchFeaturedGames(),
         fetchTrendingGames(),
-        fetchRandomGames(),
+        currentUser?.uid ? fetchRecommendedGames(currentUser.uid, 12) : fetchRandomGames(),
       ]);
 
       const nextFeatured =
         featured.status === 'fulfilled' && Array.isArray(featured.value) ? featured.value : [];
       const nextTrending =
         trending.status === 'fulfilled' && Array.isArray(trending.value) ? trending.value : [];
-      const nextSurprise =
-        surprise.status === 'fulfilled' && Array.isArray(surprise.value) ? surprise.value : [];
+      let nextRecommended =
+        personalized.status === 'fulfilled' && Array.isArray(personalized.value)
+          ? personalized.value
+          : [];
+
+      if (!nextRecommended.length) {
+        try {
+          const fallback = await fetchRandomGames();
+          nextRecommended = Array.isArray(fallback) ? fallback : [];
+        } catch (fallbackError) {
+          console.warn('Failed to load fallback recommended games', fallbackError);
+        }
+      }
 
       setFeaturedGames(nextFeatured);
       setLikedGames(nextTrending);
-      setRecommendedGames(nextSurprise);
-      cacheDiscovery({ featured: nextFeatured, liked: nextTrending, recommended: nextSurprise });
+      setRecommendedGames(nextRecommended);
+      cacheDiscovery({ featured: nextFeatured, liked: nextTrending, recommended: nextRecommended });
 
-      const hadFailure = [featured, trending, surprise].some(
+      const hadFailure = [featured, trending, personalized].some(
         (result) => result.status === 'rejected',
       );
       setExploreError(hadFailure ? 'Some discovery rows failed to load. Try refreshing.' : null);
@@ -444,7 +456,7 @@ export default function HomeScreen() {
     } finally {
       setExploreLoading(false);
     }
-  }, [cacheDiscovery, discoveryCacheReady, getCachedDiscovery]);
+  }, [cacheDiscovery, discoveryCacheReady, getCachedDiscovery, currentUser?.uid]);
 
   useEffect(() => {
     const trimmed = submittedTerm.trim();
@@ -976,15 +988,23 @@ function NativeHome({
       </View>
       <Pressable
         onPress={onOpenCategoryDrawer}
-        style={[
+        style={({ pressed }) => [
           nativeStyles.categoryButton,
           filterControls.filtersActive && nativeStyles.categoryButtonActive,
+          pressed && nativeStyles.categoryButtonPressed,
         ]}
         hitSlop={10}
         accessibilityRole="button"
         accessibilityLabel="Open category filters"
       >
-        <Ionicons name="options-outline" size={18} color="#f8fafc" />
+        <Ionicons
+          name="options-outline"
+          size={18}
+          color="#f8fafc"
+          style={nativeStyles.categoryButtonIcon}
+        />
+        <Text style={nativeStyles.categoryButtonLabel}>Filters</Text>
+        {filterControls.filtersActive ? <View style={nativeStyles.categoryButtonDot} /> : null}
       </Pressable>
       <Pressable
         onPress={() => router.push('/(tabs)/profile')}
@@ -1899,7 +1919,7 @@ function CategoryDrawer({ visible, onClose, onSelectCategory, filterControls }: 
             </Pressable>
           </View>
           <View style={drawerStyles.menuBody}>
-            <View style={[searchMenuStyles.parentColumn, drawerStyles.menuColumn]}>
+            <View style={searchMenuStyles.parentTabs}>
               {parentItems.map((item) => {
                 const isActive = activeCategory === item.key;
                 const hasSelection =
@@ -1911,11 +1931,11 @@ function CategoryDrawer({ visible, onClose, onSelectCategory, filterControls }: 
                     key={item.key}
                     onPress={() => setActiveCategory(item.key as 'platform' | 'genre' | 'release')}
                     style={[
-                      searchMenuStyles.parentItem,
-                      isActive && searchMenuStyles.parentItemActive,
+                      searchMenuStyles.parentTab,
+                      isActive && searchMenuStyles.parentTabActive,
                     ]}
                   >
-                    <View style={searchMenuStyles.parentRow}>
+                    <View style={searchMenuStyles.parentTabHeader}>
                       <Text
                         style={[
                           searchMenuStyles.parentLabel,
@@ -1924,14 +1944,14 @@ function CategoryDrawer({ visible, onClose, onSelectCategory, filterControls }: 
                       >
                         {item.label}
                       </Text>
-                      {hasSelection ? <Text style={searchMenuStyles.badge}>Selected</Text> : null}
+                      {hasSelection ? <View style={searchMenuStyles.badgeDot} /> : null}
                     </View>
                     <Text style={searchMenuStyles.parentDescription}>{item.description}</Text>
                   </Pressable>
                 );
               })}
             </View>
-            <View style={[searchMenuStyles.childColumn, drawerStyles.menuColumn]}>
+            <View style={searchMenuStyles.childSection}>
               <View style={searchMenuStyles.childHeader}>
                 <Text style={searchMenuStyles.childTitle}>
                   {activeCategory === 'platform'
@@ -1940,10 +1960,14 @@ function CategoryDrawer({ visible, onClose, onSelectCategory, filterControls }: 
                     ? 'Select a genre'
                     : 'Select a release window'}
                 </Text>
+                <Pressable onPress={handleClear} hitSlop={8}>
+                  <Text style={searchMenuStyles.clearLink}>Clear</Text>
+                </Pressable>
               </View>
               <ScrollView
                 style={searchMenuStyles.childScroll}
                 contentContainerStyle={searchMenuStyles.childScrollContent}
+                showsVerticalScrollIndicator={false}
               >
                 {childOptions.map((option) => {
                   const isSelected =
@@ -1972,9 +1996,6 @@ function CategoryDrawer({ visible, onClose, onSelectCategory, filterControls }: 
                     </Pressable>
                   );
                 })}
-                <Pressable onPress={handleClear} style={searchMenuStyles.clearInline} hitSlop={8}>
-                  <Text style={searchMenuStyles.clearLink}>Clear</Text>
-                </Pressable>
               </ScrollView>
             </View>
           </View>
@@ -2304,9 +2325,9 @@ const nativeStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f172a' },
   scrollContent: { paddingBottom: 80 },
   header: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 8 },
-  logoBox: { backgroundColor: '#2e2e2e', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 },
-  logoBoxPressed: { opacity: 0.8 },
-  logoMark: { width: 60, height: 24 },
+  logoBox: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  logoBoxPressed: { opacity: 0.85 },
+  logoMark: { width: 38, height: 38, borderRadius: 19 },
   searchArea: {
     flex: 1,
     position: 'relative',
@@ -2325,20 +2346,40 @@ const nativeStyles = StyleSheet.create({
   searchIcon: { marginRight: 6 },
   searchInput: { color: '#fff', flex: 1, fontSize: 14, paddingVertical: 6 },
   categoryButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    height: 40,
+    borderRadius: 999,
     backgroundColor: '#1c1f2f',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
     marginLeft: 4,
     marginRight: 8,
   },
+  categoryButtonIcon: {
+    marginRight: 2,
+  },
+  categoryButtonLabel: {
+    color: '#f8fafc',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  categoryButtonDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#60a5fa',
+    marginLeft: 2,
+  },
   categoryButtonActive: {
     borderColor: '#60a5fa',
     backgroundColor: 'rgba(37,99,235,0.25)',
+  },
+  categoryButtonPressed: {
+    opacity: 0.85,
   },
   profileAvatarButton: {
     width: 38,
@@ -2756,55 +2797,74 @@ const metaStyles = StyleSheet.create({
 });
 
 const searchMenuStyles = StyleSheet.create({
-  parentColumn: { flex: 1, padding: 16, backgroundColor: 'rgba(15,23,42,0.95)' },
-  parentItem: { paddingVertical: 10, paddingHorizontal: 8, borderRadius: 10, marginBottom: 8 },
-  parentItemActive: { backgroundColor: 'rgba(99,102,241,0.2)' },
-  parentRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  parentLabel: { color: '#e2e8f0', fontWeight: '700' },
-  parentLabelActive: { color: '#fff' },
-  parentDescription: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
-  badge: {
-    fontSize: 10,
-    color: '#fff',
-    backgroundColor: '#6366f1',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 999,
+  parentTabs: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 16,
   },
-  childColumn: {
+  parentTab: {
+    flexGrow: 1,
+    minWidth: '48%',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(15,23,42,0.85)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  parentTabActive: {
+    borderColor: '#60a5fa',
+    backgroundColor: 'rgba(37,99,235,0.16)',
+  },
+  parentTabHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  parentLabel: { color: '#cbd5f5', fontWeight: '700', fontSize: 14 },
+  parentLabelActive: { color: '#fff' },
+  parentDescription: { color: '#94a3b8', fontSize: 12, marginTop: 4, lineHeight: 16 },
+  badgeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#60a5fa',
+  },
+  childSection: {
     flex: 1,
-    borderLeftWidth: 1,
-    borderLeftColor: 'rgba(255,255,255,0.1)',
-    padding: 16,
-    backgroundColor: '#111827',
+    borderRadius: 18,
+    backgroundColor: '#0b1325',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   childHeader: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingRight: 0,
+    gap: 12,
   },
   childTitle: { color: '#f8fafc', fontWeight: '900', fontSize: 18 },
   clearLink: {
     color: '#bfdbff',
-    fontSize: 15,
-    fontWeight: '900',
-    paddingHorizontal: 0,
-    paddingVertical: 0,
+    fontSize: 14,
+    fontWeight: '700',
   },
-  childScroll: { marginTop: 12 },
-  childScrollContent: { paddingBottom: 16 },
+  childScroll: { marginTop: 14 },
+  childScrollContent: { paddingBottom: 32 },
   childItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginBottom: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    marginBottom: 10,
     backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  childItemSelected: { backgroundColor: 'rgba(99,102,241,0.3)' },
-  childLabel: { color: '#e5e7eb', fontWeight: '600' },
+  childItemSelected: {
+    backgroundColor: 'rgba(37,99,235,0.18)',
+    borderColor: '#60a5fa',
+  },
+  childLabel: { color: '#e5e7eb', fontWeight: '600', fontSize: 15 },
   childLabelSelected: { color: '#fff' },
-  clearInline: { marginTop: 12, alignSelf: 'flex-start' },
 });
 
 const drawerStyles = StyleSheet.create({
@@ -2840,6 +2900,5 @@ const drawerStyles = StyleSheet.create({
   title: { color: '#f8fafc', fontSize: 20, fontWeight: '800' },
   subtitle: { color: '#cbd5f5', fontSize: 12, marginTop: 4, lineHeight: 16 },
   closeBtn: { padding: 6, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.08)' },
-  menuBody: { flexDirection: 'row', flex: 1, gap: 12 },
-  menuColumn: { flex: 1 },
+  menuBody: { flex: 1 },
 });

@@ -196,9 +196,15 @@ export function subscribeToBlockedList(
   );
 }
 
+type SearchUsersOptions = {
+  limit?: number;
+  excludeUid?: string;
+  excludeUids?: string[];
+};
+
 export async function searchUsersByUsername(
   term: string,
-  opts?: { limit?: number; excludeUid?: string },
+  opts?: SearchUsersOptions,
 ): Promise<FollowUserSummary[]> {
   const normalized = term.trim().toLowerCase();
   if (!normalized) {
@@ -214,9 +220,21 @@ export async function searchUsersByUsername(
   ];
 
   const snapshot = await getDocs(query(usersRef, ...constraints));
+  const excluded = new Set<string>();
+  if (opts?.excludeUid) {
+    excluded.add(opts.excludeUid);
+  }
+  if (Array.isArray(opts?.excludeUids)) {
+    opts.excludeUids.forEach((uid) => {
+      if (typeof uid === 'string' && uid.length) {
+        excluded.add(uid);
+      }
+    });
+  }
+
   return snapshot.docs
     .map((docSnap) => mapSummaryFromProfile(docSnap.id, docSnap.data()))
-    .filter((summary) => summary.uid !== (opts?.excludeUid ?? null));
+    .filter((summary) => !excluded.has(summary.uid));
 }
 
 export async function followUser(targetUid: string) {
@@ -235,6 +253,8 @@ export async function followUser(targetUid: string) {
   const followerRef = followerDoc(targetUid, sourceUid);
   const incomingRequestRef = followRequestDoc(targetUid, sourceUid);
   const outgoingRequestRef = followRequestSentDoc(sourceUid, targetUid);
+  const sourceBlockedRef = blockedDoc(sourceUid, targetUid);
+  const targetBlockedRef = blockedDoc(targetUid, sourceUid);
 
   await runTransaction(db, async (transaction) => {
     const [
@@ -243,12 +263,16 @@ export async function followUser(targetUid: string) {
       followingSnapshot,
       incomingRequestSnapshot,
       outgoingRequestSnapshot,
+      sourceBlockedSnapshot,
+      targetBlockedSnapshot,
     ] = await Promise.all([
       transaction.get(sourceUserRef),
       transaction.get(targetUserRef),
       transaction.get(followingRef),
       transaction.get(incomingRequestRef),
       transaction.get(outgoingRequestRef),
+      transaction.get(sourceBlockedRef),
+      transaction.get(targetBlockedRef),
     ]);
 
     if (!targetSnapshot.exists()) {
@@ -257,6 +281,13 @@ export async function followUser(targetUid: string) {
     if (!sourceSnapshot.exists()) {
       throw new Error('PROFILE_MISSING');
     }
+    if (sourceBlockedSnapshot.exists()) {
+      throw new Error('FOLLOW_BLOCKED_TARGET');
+    }
+    if (targetBlockedSnapshot.exists()) {
+      throw new Error('FOLLOW_BLOCKED_BY_TARGET');
+    }
+
     const targetVisibility =
       typeof targetSnapshot.data()?.profileVisibility === 'string'
         ? targetSnapshot.data()?.profileVisibility
@@ -405,6 +436,10 @@ export async function blockUser(targetUid: string) {
   const targetFollowerRef = followerDoc(targetUid, sourceUid);
   const targetFollowingRef = followingDoc(targetUid, sourceUid);
   const sourceFollowerRef = followerDoc(sourceUid, targetUid);
+  const sourceIncomingRequestRef = followRequestDoc(sourceUid, targetUid);
+  const targetIncomingRequestRef = followRequestDoc(targetUid, sourceUid);
+  const sourceOutgoingRequestRef = followRequestSentDoc(sourceUid, targetUid);
+  const targetOutgoingRequestRef = followRequestSentDoc(targetUid, sourceUid);
 
   await runTransaction(db, async (transaction) => {
     const [
@@ -415,6 +450,10 @@ export async function blockUser(targetUid: string) {
       targetFollowerSnapshot,
       targetFollowingSnapshot,
       sourceFollowerSnapshot,
+      sourceIncomingRequestSnapshot,
+      targetIncomingRequestSnapshot,
+      sourceOutgoingRequestSnapshot,
+      targetOutgoingRequestSnapshot,
     ] = await Promise.all([
       transaction.get(sourceUserRef),
       transaction.get(targetUserRef),
@@ -423,6 +462,10 @@ export async function blockUser(targetUid: string) {
       transaction.get(targetFollowerRef),
       transaction.get(targetFollowingRef),
       transaction.get(sourceFollowerRef),
+      transaction.get(sourceIncomingRequestRef),
+      transaction.get(targetIncomingRequestRef),
+      transaction.get(sourceOutgoingRequestRef),
+      transaction.get(targetOutgoingRequestRef),
     ]);
 
     if (!targetSnapshot.exists()) {
@@ -482,6 +525,19 @@ export async function blockUser(targetUid: string) {
       if (!targetFollowingSnapshot.exists()) {
         targetFollowingDelta -= 1;
       }
+    }
+
+    if (sourceIncomingRequestSnapshot.exists()) {
+      transaction.delete(sourceIncomingRequestRef);
+    }
+    if (targetIncomingRequestSnapshot.exists()) {
+      transaction.delete(targetIncomingRequestRef);
+    }
+    if (sourceOutgoingRequestSnapshot.exists()) {
+      transaction.delete(sourceOutgoingRequestRef);
+    }
+    if (targetOutgoingRequestSnapshot.exists()) {
+      transaction.delete(targetOutgoingRequestRef);
     }
 
     const sourceUpdate: Record<string, unknown> = {

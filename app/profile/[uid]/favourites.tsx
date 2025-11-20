@@ -13,6 +13,7 @@ import {
 import { SearchResults } from '../../../components/home';
 import { useAuthUser } from '../../../lib/hooks/useAuthUser';
 import { useFollowState } from '../../../lib/hooks/useFollowState';
+import { useBlockRelationships } from '../../../lib/hooks/useBlockRelationships';
 import { canViewerAccessProfile } from '../../../lib/profileVisibility';
 import { useUserFavorites } from '../../../lib/hooks/useUserFavorites';
 import { useUserProfile } from '../../../lib/userProfile';
@@ -32,17 +33,25 @@ export default function PublicFavouritesScreen() {
   const { user, initializing } = useAuthUser();
   const viewerUid = user?.uid ?? null;
   const { width } = useWindowDimensions();
-  const rawColumnCount = useMemo(() => getColumnCount(width), [width]);
-  const columnCount = Platform.OS === 'web' ? 6 : Math.max(rawColumnCount, 3);
-  const isSingleColumn = rawColumnCount === 1;
+  const isWeb = Platform.OS === 'web';
+  const isMobile = !isWeb;
+  const baseColumnCount = useMemo(() => getColumnCount(width), [width]);
+  const mobileColumnCount = width >= 640 ? 2 : 1;
+  const rawColumnCount = isMobile ? mobileColumnCount : baseColumnCount;
+  const columnCount = isWeb ? 6 : Math.max(rawColumnCount, 3);
 
   const { profile, loading: profileLoading, error } = useUserProfile(targetUid);
   const { isFollowing, hasPendingRequest } = useFollowState({
     currentUid: viewerUid,
     targetUid,
   });
+  const blockRelationships = useBlockRelationships(viewerUid);
+  const viewerBlockedTarget = targetUid ? blockRelationships.isBlocking(targetUid) : false;
+  const viewerIsBlockedByTarget = targetUid ? blockRelationships.isBlockedBy(targetUid) : false;
   const canView = canViewerAccessProfile(viewerUid, profile ?? undefined, {
     isFollower: isFollowing,
+    hasBlocked: viewerBlockedTarget,
+    isBlockedBy: viewerIsBlockedByTarget,
   });
   const favorites = useUserFavorites(canView ? targetUid : null);
 
@@ -69,6 +78,20 @@ export default function PublicFavouritesScreen() {
     );
   }
 
+  if (viewerBlockedTarget || viewerIsBlockedByTarget) {
+    return (
+      <View style={styles.privateState}>
+        <Ionicons name="ban" size={36} color="#f9fafb" />
+        <Text style={styles.privateTitle}>User not available</Text>
+        <Text style={styles.privateCopy}>
+          {viewerBlockedTarget
+            ? 'You have blocked this player. Unblock them to view their favourites.'
+            : 'This player has blocked you. Their favourites are hidden.'}
+        </Text>
+      </View>
+    );
+  }
+
   if (!canView) {
     return (
       <View style={styles.privateState}>
@@ -91,9 +114,9 @@ export default function PublicFavouritesScreen() {
         error={favorites.error?.message}
         columnCount={columnCount}
         onSelect={handleSelect}
-        contentContainerStyle={isSingleColumn ? styles.singleColumnContent : undefined}
-        gridRowStyle={isSingleColumn ? styles.singleColumnRow : undefined}
-        cardStyle={isSingleColumn ? styles.singleColumnCard : undefined}
+        contentContainerStyle={isWeb ? undefined : styles.mobileResultsContent}
+        gridRowStyle={isWeb ? undefined : styles.mobileGridRow}
+        cardStyle={isWeb ? undefined : styles.mobileCard}
         emptyState={{
           title: 'No favourites yet',
           copy: `${profile.displayName} has not favourited any games.`,
@@ -153,16 +176,19 @@ const styles = StyleSheet.create({
     color: '#cbd5f5',
     textAlign: 'center',
   },
-  singleColumnContent: {
-    alignItems: 'center',
+  mobileResultsContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 120,
   },
-  singleColumnRow: {
-    gap: 0,
-    paddingBottom: 20,
+  mobileGridRow: {
+    gap: 16,
+    paddingBottom: 18,
   },
-  singleColumnCard: {
-    flex: 0,
-    maxWidth: 420,
-    width: '100%',
+  mobileCard: {
+    backgroundColor: '#1e1e22',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 0,
   },
 });
