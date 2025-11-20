@@ -3,10 +3,9 @@ import dotenv from 'dotenv';
 import express, { Request, Response, NextFunction } from 'express';
 import Stripe from 'stripe';
 import admin from 'firebase-admin';
-
-import { PLAN_PRICE_MAP, type PlanId } from '../../shared/plans';
 import path from 'path';
 
+import { PLAN_PRICE_MAP, type PlanId } from '../../shared/plans';
 
 dotenv.config();
 
@@ -25,17 +24,38 @@ if (!STRIPE_SECRET_KEY) {
 // This avoids the "2023-11-15" vs "2025-11-17.clover" type error.
 const stripe = new Stripe(STRIPE_SECRET_KEY, {});
 
+// Handle both:
+// 1) Local: FIREBASE_SERVICE_ACCOUNT_KEY = "./server/service-account.json"
+// 2) Render: FIREBASE_SERVICE_ACCOUNT_KEY = '{"type":"service_account",...}'
+const serviceAccountEnv = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 
-const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+let firebaseCredential: admin.credential.Credential;
 
-const firebaseCredential = serviceAccountPath
-  ? admin.credential.cert(path.resolve(serviceAccountPath))
-  : admin.credential.applicationDefault();
+if (serviceAccountEnv && serviceAccountEnv.trim() !== '') {
+  if (serviceAccountEnv.trim().startsWith('{')) {
+    // JSON string (Render)
+    firebaseCredential = admin.credential.cert(
+      JSON.parse(serviceAccountEnv) as admin.ServiceAccount,
+    );
+  } else {
+    // File path (local)
+    const resolvedPath = path.resolve(serviceAccountEnv);
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const serviceAccountJson = require(resolvedPath);
+    firebaseCredential = admin.credential.cert(
+      serviceAccountJson as admin.ServiceAccount,
+    );
+  }
+} else {
+  // Fallback (e.g. GOOGLE_APPLICATION_CREDENTIALS or GCP runtime)
+  firebaseCredential = admin.credential.applicationDefault();
+}
 
 const firebaseApp =
   admin.apps.length === 0
     ? admin.initializeApp({ credential: firebaseCredential })
     : admin.app();
+
 const db = firebaseApp.firestore();
 
 const app = express();
