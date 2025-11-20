@@ -23,6 +23,7 @@ import { useUserProfile } from '../../../lib/userProfile';
 import { useFollowRequests } from '../../../lib/hooks/useFollowRequests';
 import { getProfileVisibility } from '../../../lib/profileVisibility';
 import { resolveAvatarSource } from '../../../lib/avatar';
+import { useFollowAlertsContext } from '../../../lib/hooks/useFollowAlerts';
 
 type ProfileAction = {
   key: 'followers' | 'following' | 'blocked' | 'requests' | 'edit' | 'reviews';
@@ -69,6 +70,7 @@ export default function ProfileHomeScreen() {
   const { profile, loading, error } = useUserProfile(uid);
   const followRequests = useFollowRequests(uid);
   const pendingRequests = followRequests.requests.length;
+  const followAlerts = useFollowAlertsContext();
   const visibility = getProfileVisibility(profile ?? undefined);
   const isMobile = Platform.OS !== 'web';
 
@@ -216,19 +218,27 @@ export default function ProfileHomeScreen() {
           </View>
         </View>
         <View style={styles.statRow}>
-          {STAT_KEYS.map((key) => (
-            <Pressable
-              key={key}
-              style={({ pressed }) => [
-                styles.statBlock,
-                pressed && styles.statBlockPressed,
-              ]}
-              onPress={() => handleStatPress(key)}
-            >
-              <Text style={styles.statValue}>{formatCount(stats[key])}</Text>
-              <Text style={styles.statLabel}>{STAT_LABELS[key]}</Text>
-            </Pressable>
-          ))}
+          {STAT_KEYS.map((key) => {
+            const showFollowerAlert =
+              key === 'followers' && followAlerts.hasFollowerAlerts;
+            const showFollowingAlert =
+              key === 'following' && followAlerts.hasFollowingAlerts;
+            const showAlert = showFollowerAlert || showFollowingAlert;
+            return (
+              <Pressable
+                key={key}
+                style={({ pressed }) => [
+                  styles.statBlock,
+                  pressed && styles.statBlockPressed,
+                ]}
+                onPress={() => handleStatPress(key)}
+              >
+                {showAlert ? <View style={styles.statAlertDot} /> : null}
+                <Text style={styles.statValue}>{formatCount(stats[key])}</Text>
+                <Text style={styles.statLabel}>{STAT_LABELS[key]}</Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
 
@@ -248,7 +258,15 @@ export default function ProfileHomeScreen() {
                 <Ionicons name={action.icon} size={20} color="#6366f1" />
               </View>
               <View style={styles.actionCopy}>
-                <Text style={styles.actionTitle}>{action.title}</Text>
+                <View style={styles.actionTitleRow}>
+                  <Text style={styles.actionTitle}>{action.title}</Text>
+                  {action.key === 'followers' && followAlerts.hasFollowerAlerts ? (
+                    <View style={styles.inlineAlertDot} />
+                  ) : null}
+                  {action.key === 'following' && followAlerts.hasFollowingAlerts ? (
+                    <View style={styles.inlineAlertDot} />
+                  ) : null}
+                </View>
                 <Text style={styles.actionDescription}>{action.description}</Text>
               </View>
               {action.key === 'requests' && pendingRequests > 0 ? (
@@ -286,6 +304,7 @@ function MobileProfile({
   onPressStat: (key: ProfileAction['key']) => void;
   onSignOut: () => void;
 }) {
+  const followAlerts = useFollowAlertsContext();
   return (
     <SafeAreaView style={styles.mobileSafe}>
       <StatusBar barStyle="light-content" />
@@ -315,19 +334,27 @@ function MobileProfile({
             </View>
           </View>
           <View style={styles.mobileStatRow}>
-            {STAT_KEYS.map((key) => (
-              <Pressable
-                key={`mobile-stat-${key}`}
-                onPress={() => onPressStat(key)}
-                style={({ pressed }) => [
-                  styles.mobileStatBlock,
-                  pressed && styles.mobileStatBlockPressed,
-                ]}
-              >
-                <Text style={styles.mobileStatValue}>{formatCount(stats[key])}</Text>
-                <Text style={styles.mobileStatLabel}>{STAT_LABELS[key]}</Text>
-              </Pressable>
-            ))}
+            {STAT_KEYS.map((key) => {
+              const showFollowerAlert =
+                key === 'followers' && followAlerts.hasFollowerAlerts;
+              const showFollowingAlert =
+                key === 'following' && followAlerts.hasFollowingAlerts;
+              const showAlert = showFollowerAlert || showFollowingAlert;
+              return (
+                <Pressable
+                  key={`mobile-stat-${key}`}
+                  onPress={() => onPressStat(key)}
+                  style={({ pressed }) => [
+                    styles.mobileStatBlock,
+                    pressed && styles.mobileStatBlockPressed,
+                  ]}
+                >
+                  {showAlert ? <View style={styles.statAlertDot} /> : null}
+                  <Text style={styles.mobileStatValue}>{formatCount(stats[key])}</Text>
+                  <Text style={styles.mobileStatLabel}>{STAT_LABELS[key]}</Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
@@ -335,7 +362,15 @@ function MobileProfile({
           {ACTIONS.map((action) => (
             <Pressable key={action.key} style={styles.mobileActionRow} onPress={() => onNavigate(action)}>
               <Ionicons name={action.icon} size={18} color="#f8fafc" />
-              <Text style={styles.mobileActionLabel}>{action.title}</Text>
+              <View style={styles.mobileActionLabelWrap}>
+                <Text style={styles.mobileActionLabel}>{action.title}</Text>
+                {action.key === 'followers' && followAlerts.hasFollowerAlerts ? (
+                  <View style={styles.inlineAlertDot} />
+                ) : null}
+                {action.key === 'following' && followAlerts.hasFollowingAlerts ? (
+                  <View style={styles.inlineAlertDot} />
+                ) : null}
+              </View>
               {action.key === 'requests' && pendingRequests > 0 ? (
                 <View style={styles.badge}>
                   <Text style={styles.badgeLabel}>{pendingRequests}</Text>
@@ -388,7 +423,7 @@ const styles = StyleSheet.create({
   visibilityLabel: { color: '#f8fafc', fontSize: 12, fontWeight: '600' },
   visibilityHint: { color: '#94a3b8', fontSize: 12 },
   statRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  statBlock: { flex: 1, alignItems: 'center' },
+  statBlock: { flex: 1, alignItems: 'center', position: 'relative' },
   statBlockPressed: { opacity: 0.85 },
   statValue: { color: '#f8fafc', fontSize: 22, fontWeight: '800' },
   statLabel: { color: '#cbd5f5', fontSize: 13 },
@@ -418,6 +453,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionCopy: { flex: 1, gap: 4 },
+  actionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   actionTitle: { color: '#f8fafc', fontWeight: '700' },
   actionDescription: { color: '#94a3b8', fontSize: 13 },
   signOutButton: {
@@ -440,6 +476,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   badgeLabel: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  statAlertDot: {
+    position: 'absolute',
+    top: 6,
+    right: 22,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#facc15',
+  },
+  inlineAlertDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#facc15',
+  },
   loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { color: '#475569' },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
@@ -481,11 +532,12 @@ const styles = StyleSheet.create({
   mobileBio: { color: '#cbd5f5', fontSize: 13, marginTop: 4 },
   mobileJoined: { color: '#9ca3af', fontSize: 12, marginTop: 2 },
   mobileStatRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  mobileStatBlock: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 12, backgroundColor: '#26262b' },
+  mobileStatBlock: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 12, backgroundColor: '#26262b', position: 'relative' },
   mobileStatBlockPressed: { backgroundColor: '#2f2f36' },
   mobileStatValue: { color: '#f8fafc', fontSize: 18, fontWeight: '800' },
   mobileStatLabel: { color: '#cbd5f5', fontSize: 12 },
   mobileActionsBlock: { marginTop: 12, borderRadius: 24, backgroundColor: '#1c1c21', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   mobileActionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.08)', gap: 12 },
-  mobileActionLabel: { flex: 1, color: '#f8fafc', fontWeight: '600' },
+  mobileActionLabelWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  mobileActionLabel: { color: '#f8fafc', fontWeight: '600' },
 });

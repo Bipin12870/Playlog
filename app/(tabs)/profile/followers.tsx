@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
@@ -6,6 +6,7 @@ import { FollowList } from '../../../components/profile';
 import { useAuthUser } from '../../../lib/hooks/useAuthUser';
 import { useFollowers } from '../../../lib/hooks/useFollowList';
 import { useUserProfile } from '../../../lib/userProfile';
+import { useFollowAlertsContext } from '../../../lib/hooks/useFollowAlerts';
 
 export default function FollowersScreen() {
   const router = useRouter();
@@ -13,12 +14,17 @@ export default function FollowersScreen() {
   const uid = user?.uid ?? null;
   const { profile, loading: profileLoading } = useUserProfile(uid);
   const followers = useFollowers(uid);
+  const followAlerts = useFollowAlertsContext();
 
   const title = useMemo(() => {
     const count = profile?.stats?.followers ?? 0;
     if (!count) return 'No followers yet';
     return `${count} follower${count === 1 ? '' : 's'}`;
   }, [profile?.stats?.followers]);
+
+  useEffect(() => {
+    followAlerts.acknowledgeFollowers();
+  }, [followAlerts]);
 
   if (initializing || profileLoading) {
     return (
