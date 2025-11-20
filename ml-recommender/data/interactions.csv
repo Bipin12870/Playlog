@@ -1,0 +1,8 @@
+user_id,game_id,rating
+user1,1001,8
+user1,1002,9
+user1,1003,7
+user2,1001,6
+user2,1004,9
+user3,1002,8
+user3,1005,10
