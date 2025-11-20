@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, Text, View } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { FirebaseError } from 'firebase/app';
 import { useRouter } from 'expo-router';
@@ -51,6 +51,10 @@ export function GoogleSignup({ onError, onVerificationError }: GoogleSignupProps
   );
   const googleButtonInactive = !googleClientConfigured || !googleRequest;
   const googleButtonDisabled = googleLoading || !termsAccepted || googleButtonInactive;
+
+  const handleOpenTerms = useCallback(() => {
+    void Linking.openURL('https://bipin12870.github.io/playlog-legal/terms.html');
+  }, []);
 
   const finalizeGoogleSignIn = useCallback(
     async ({
@@ -173,7 +177,10 @@ export function GoogleSignup({ onError, onVerificationError }: GoogleSignupProps
           {termsAccepted ? <Feather name="check" size={16} color="#0f172a" /> : null}
         </View>
         <Text style={styles.checkboxLabel}>
-          I agree to the <Text style={styles.linkText}>terms &amp; conditions</Text>
+          I agree to the{' '}
+          <Text style={styles.linkText} onPress={handleOpenTerms}>
+            terms &amp; conditions
+          </Text>
         </Text>
       </Pressable>
 

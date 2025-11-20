@@ -1,5 +1,13 @@
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Linking,
+  Pressable,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { FirebaseError } from 'firebase/app';
 import { doc, getDoc } from 'firebase/firestore';
@@ -48,6 +56,10 @@ export function EmailSignup({ onSuccess, onError }: EmailSignupProps) {
     allPasswordChecksPass &&
     passwordsMatch &&
     termsAccepted;
+
+  const handleOpenTerms = useCallback(() => {
+    void Linking.openURL('https://bipin12870.github.io/playlog-legal/terms.html');
+  }, []);
 
   const handleEmailSignup = async () => {
     if (!canSubmitEmail || loading) return;
@@ -203,7 +215,10 @@ export function EmailSignup({ onSuccess, onError }: EmailSignupProps) {
           {termsAccepted ? <Feather name="check" size={16} color="#0f172a" /> : null}
         </View>
         <Text style={styles.checkboxLabel}>
-          I agree to the <Text style={styles.linkText}>terms &amp; conditions</Text>
+          I agree to the{' '}
+          <Text style={styles.linkText} onPress={handleOpenTerms}>
+            terms &amp; conditions
+          </Text>
         </Text>
       </Pressable>
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { FirebaseError } from 'firebase/app';
 import {
@@ -57,6 +57,10 @@ export function PhoneSignup({ onSuccess, onError, onVerificationError }: PhoneSi
   }, []);
 
   useEffect(() => () => clearRecaptcha(), [clearRecaptcha]);
+
+  const handleOpenTerms = useCallback(() => {
+    void Linking.openURL('https://bipin12870.github.io/playlog-legal/terms.html');
+  }, []);
 
   const handleSendCode = useCallback(async () => {
     setPhoneError(null);
@@ -224,7 +228,10 @@ export function PhoneSignup({ onSuccess, onError, onVerificationError }: PhoneSi
           {termsAccepted ? <Feather name="check" size={16} color="#0f172a" /> : null}
         </View>
         <Text style={styles.checkboxLabel}>
-          I agree to the <Text style={styles.linkText}>terms &amp; conditions</Text>
+          I agree to the{' '}
+          <Text style={styles.linkText} onPress={handleOpenTerms}>
+            terms &amp; conditions
+          </Text>
         </Text>
       </Pressable>
 
