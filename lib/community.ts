@@ -508,6 +508,7 @@ export async function setGameFavorite(
   const favoriteRef = doc(db, 'users', userId, 'favorites', resolveGameDocId(game.id));
 
   if (shouldFavorite) {
+    const now = serverTimestamp();
     await setDoc(
       favoriteRef,
       {
@@ -516,7 +517,8 @@ export async function setGameFavorite(
         cover: game.cover ?? null,
         summary: game.summary ?? null,
         rating: typeof game.rating === 'number' ? game.rating : null,
-        addedAt: serverTimestamp(),
+        savedAt: now,
+        addedAt: now,
       },
       { merge: true },
     );

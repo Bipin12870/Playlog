@@ -92,7 +92,7 @@ export function useFriendFavoriteGames(
         favoritesQuery,
         (snapshot) => {
           const items = snapshot.docs
-            .map((docSnap) => mapFavoriteDocument(docSnap.data()))
+            .map((docSnap) => mapFavoriteDocument(docSnap.data(), docSnap.id))
             .filter((entry): entry is UserFavorite => Boolean(entry));
 
           setFavoritesByFriend((prev) => ({
