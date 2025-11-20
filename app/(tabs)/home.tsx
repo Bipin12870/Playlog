@@ -6,6 +6,7 @@ import {
   Easing,
   Image,
   ImageSourcePropType,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -1634,8 +1635,14 @@ function Footer({ sizes }: { sizes: ReturnType<typeof useHomeScreen>['sizes'] })
           <View style={webStyles.footerCol}>
             <Text style={webStyles.footerHeading}>Company</Text>
             <FooterLink label="About us" />
-            <FooterLink label="Terms & Conditions" />
-            <FooterLink label="Privacy Policy" />
+            <FooterLink
+              label="Terms & Conditions"
+              href="https://bipin12870.github.io/playlog-legal/terms.html"
+            />
+            <FooterLink
+              label="Privacy Policy"
+              href="https://bipin12870.github.io/playlog-legal/privacy.html"
+            />
           </View>
           <View style={webStyles.footerCol}>
             <Text style={webStyles.footerHeading}>Contact</Text>
@@ -1657,8 +1664,25 @@ function Footer({ sizes }: { sizes: ReturnType<typeof useHomeScreen>['sizes'] })
   );
 }
 
-function FooterLink({ label }: { label: string }) {
-  return <Text style={webStyles.footerLink}>{label}</Text>;
+function FooterLink({ label, href }: { label: string; href?: string }) {
+  const handlePress = useCallback(() => {
+    if (!href) return;
+    void Linking.openURL(href);
+  }, [href]);
+
+  if (!href) {
+    return <Text style={webStyles.footerLink}>{label}</Text>;
+  }
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      accessibilityRole="link"
+      style={({ pressed }) => (pressed ? { opacity: 0.6 } : undefined)}
+    >
+      <Text style={webStyles.footerLink}>{label}</Text>
+    </Pressable>
+  );
 }
 
 function IconPill({ name }: { name: keyof typeof Ionicons.glyphMap }) {
