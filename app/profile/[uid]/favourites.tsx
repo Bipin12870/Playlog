@@ -13,6 +13,7 @@ import {
 import { SearchResults } from '../../../components/home';
 import { useAuthUser } from '../../../lib/hooks/useAuthUser';
 import { useFollowState } from '../../../lib/hooks/useFollowState';
+import { useBlockRelationships } from '../../../lib/hooks/useBlockRelationships';
 import { canViewerAccessProfile } from '../../../lib/profileVisibility';
 import { useUserFavorites } from '../../../lib/hooks/useUserFavorites';
 import { useUserProfile } from '../../../lib/userProfile';
@@ -41,8 +42,13 @@ export default function PublicFavouritesScreen() {
     currentUid: viewerUid,
     targetUid,
   });
+  const blockRelationships = useBlockRelationships(viewerUid);
+  const viewerBlockedTarget = targetUid ? blockRelationships.isBlocking(targetUid) : false;
+  const viewerIsBlockedByTarget = targetUid ? blockRelationships.isBlockedBy(targetUid) : false;
   const canView = canViewerAccessProfile(viewerUid, profile ?? undefined, {
     isFollower: isFollowing,
+    hasBlocked: viewerBlockedTarget,
+    isBlockedBy: viewerIsBlockedByTarget,
   });
   const favorites = useUserFavorites(canView ? targetUid : null);
 
@@ -65,6 +71,20 @@ export default function PublicFavouritesScreen() {
         <Ionicons name="alert-circle-outline" size={40} color="#94a3b8" />
         <Text style={styles.emptyTitle}>Profile unavailable</Text>
         {error ? <Text style={styles.emptyCopy}>{error.message}</Text> : null}
+      </View>
+    );
+  }
+
+  if (viewerBlockedTarget || viewerIsBlockedByTarget) {
+    return (
+      <View style={styles.privateState}>
+        <Ionicons name="ban" size={36} color="#f9fafb" />
+        <Text style={styles.privateTitle}>User not available</Text>
+        <Text style={styles.privateCopy}>
+          {viewerBlockedTarget
+            ? 'You have blocked this player. Unblock them to view their favourites.'
+            : 'This player has blocked you. Their favourites are hidden.'}
+        </Text>
       </View>
     );
   }

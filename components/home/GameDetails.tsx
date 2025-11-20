@@ -116,6 +116,7 @@ export function GameDetails({
   const { width } = useWindowDimensions();
   const isWide = width >= 1024;
   const isPhoneLayout = Platform.OS !== 'web' && width < 900;
+  const shouldShowNativeBackControls = Platform.OS !== 'web';
   const scrollY = useRef(new Animated.Value(0)).current;
 
   const rawCoverUrl = game.cover?.url ?? null;
@@ -1699,7 +1700,7 @@ export function GameDetails({
           </View>
         )}
       </Animated.ScrollView>
-      {isPhoneLayout ? (
+      {shouldShowNativeBackControls ? (
         <SafeAreaView
           pointerEvents="box-none"
           style={[styles.heroSafeArea, showCompactHeader && styles.heroSafeAreaSolid]}
