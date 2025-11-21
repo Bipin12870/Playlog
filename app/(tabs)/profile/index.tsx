@@ -7,6 +7,7 @@ import {
   Alert,
   Image,
   ImageSourcePropType,
+  Linking,
   Platform,
   Pressable,
   SafeAreaView,
@@ -23,6 +24,9 @@ import { useUserProfile } from '../../../lib/userProfile';
 import { useFollowRequests } from '../../../lib/hooks/useFollowRequests';
 import { getProfileVisibility } from '../../../lib/profileVisibility';
 import { resolveAvatarSource } from '../../../lib/avatar';
+import { useFollowAlertsContext } from '../../../lib/hooks/useFollowAlerts';
+import { SubscriptionOfferModal } from '../../../components/SubscriptionOfferModal';
+import { planCatalog, createCheckoutSession, type PlanId } from '../../../lib/billing';
 
 type ProfileAction = {
   key:
@@ -42,22 +46,95 @@ type ProfileAction = {
 };
 
 const ACTIONS: ProfileAction[] = [
-  { key: 'followers', title: 'Followers', description: 'See everyone keeping up with your activity.', icon: 'people', section: 'Social' },
-  { key: 'following', title: 'Following', description: 'Manage the players and friends you follow.', icon: 'person-add', section: 'Social' },
-  { key: 'requests', title: 'Follow requests', description: 'Approve or decline new followers.', icon: 'mail', section: 'Social' },
-  { key: 'blocked', title: 'Blocked users', description: 'Review and manage your blocked list.', icon: 'ban', section: 'Social' },
-  { key: 'edit', title: 'Edit Profile', description: 'Update your display name, avatar, and bio.', icon: 'create', section: 'Profile' },
-  { key: 'reviews', title: 'Reviews', description: 'Revisit and manage shared reviews.', icon: 'chatbubble-ellipses', section: 'Content' },
-  { key: 'visibility', title: 'Visibility settings', description: 'Control who can follow, message, or see your activity.', icon: 'eye', section: 'Privacy & Safety' },
-  { key: 'delete', title: 'Delete account', description: 'Permanently remove your account.', icon: 'trash', section: 'Account', variant: 'destructive' },
+  {
+    key: 'followers',
+    title: 'Followers',
+    description: 'See everyone keeping up with your activity.',
+    icon: 'people',
+    section: 'Social',
+  },
+  {
+    key: 'following',
+    title: 'Following',
+    description: 'Manage the players and friends you follow.',
+    icon: 'person-add',
+    section: 'Social',
+  },
+  {
+    key: 'requests',
+    title: 'Follow requests',
+    description: 'Approve or decline new followers.',
+    icon: 'mail',
+    section: 'Social',
+  },
+  {
+    key: 'blocked',
+    title: 'Blocked users',
+    description: 'Review and manage your blocked list.',
+    icon: 'ban',
+    section: 'Social',
+  },
+  {
+    key: 'edit',
+    title: 'Edit Profile',
+    description: 'Update your display name, avatar, and bio.',
+    icon: 'create',
+    section: 'Profile',
+  },
+  {
+    key: 'reviews',
+    title: 'Reviews',
+    description: 'Revisit and manage shared reviews.',
+    icon: 'chatbubble-ellipses',
+    section: 'Content',
+  },
+  {
+    key: 'visibility',
+    title: 'Visibility settings',
+    description: 'Control who can follow, message, or see your activity.',
+    icon: 'eye',
+    section: 'Privacy & Safety',
+  },
+  {
+    key: 'delete',
+    title: 'Delete account',
+    description: 'Permanently remove your account.',
+    icon: 'trash',
+    section: 'Account',
+    variant: 'destructive',
+  },
 ];
 
-const ACTION_SECTIONS: Array<{ key: string; title: ProfileAction['section']; actions: ProfileAction[] }> = [
-  { key: 'social', title: 'Social', actions: ACTIONS.filter((action) => action.section === 'Social') },
-  { key: 'profile', title: 'Profile', actions: ACTIONS.filter((action) => action.section === 'Profile') },
-  { key: 'content', title: 'Content', actions: ACTIONS.filter((action) => action.section === 'Content') },
-  { key: 'privacy', title: 'Privacy & Safety', actions: ACTIONS.filter((action) => action.section === 'Privacy & Safety') },
-  { key: 'account', title: 'Account', actions: ACTIONS.filter((action) => action.section === 'Account') },
+const ACTION_SECTIONS: Array<{
+  key: string;
+  title: ProfileAction['section'];
+  actions: ProfileAction[];
+}> = [
+  {
+    key: 'social',
+    title: 'Social',
+    actions: ACTIONS.filter((action) => action.section === 'Social'),
+  },
+  {
+    key: 'profile',
+    title: 'Profile',
+    actions: ACTIONS.filter((action) => action.section === 'Profile'),
+  },
+  {
+    key: 'content',
+    title: 'Content',
+    actions: ACTIONS.filter((action) => action.section === 'Content'),
+  },
+  {
+    key: 'privacy',
+    title: 'Privacy & Safety',
+    actions: ACTIONS.filter((action) => action.section === 'Privacy & Safety'),
+  },
+  {
+    key: 'account',
+    title: 'Account',
+    actions: ACTIONS.filter((action) => action.section === 'Account'),
+  },
 ];
 
 const SECTION_ICON: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
@@ -68,16 +145,13 @@ const SECTION_ICON: Record<string, { icon: keyof typeof Ionicons.glyphMap; color
   account: { icon: 'settings', color: '#f472b6' },
 };
 
-const STAT_KEYS: Array<ProfileAction['key']> = ['following', 'followers', 'blocked'];
-const STAT_LABELS: Record<ProfileAction['key'], string> = {
+const STAT_KEYS = ['following', 'followers', 'blocked'] as const;
+type StatKey = (typeof STAT_KEYS)[number];
+
+const STAT_LABELS: Record<StatKey, string> = {
   followers: 'Followers',
   following: 'Following',
   blocked: 'Blocked',
-  requests: 'Requests',
-  edit: 'Edit Profile',
-  reviews: 'Reviews',
-  visibility: 'Visibility',
-  delete: 'Delete',
 };
 
 function formatCount(value?: number | null) {
@@ -89,7 +163,11 @@ function formatCount(value?: number | null) {
 
 function formatJoined(dateValue?: Date | null) {
   if (!dateValue) return null;
-  return dateValue.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  return dateValue.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 export default function ProfileHomeScreen() {
@@ -101,12 +179,19 @@ export default function ProfileHomeScreen() {
   const pendingRequests = followRequests.requests.length;
   const visibility = getProfileVisibility(profile ?? undefined);
   const isMobile = Platform.OS !== 'web';
+  const followAlerts = useFollowAlertsContext();
+
+  const [subscriptionModalVisible, setSubscriptionModalVisible] = useState(false);
+  const [billingLoadingPlanId, setBillingLoadingPlanId] = useState<PlanId | null>(null);
+  const [billingError, setBillingError] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(
     ACTION_SECTIONS.reduce<Record<string, boolean>>((acc, section) => {
       acc[section.key] = false;
       return acc;
     }, {}),
   );
+
+  const isPremium = !!profile?.premium;
 
   const joinedLabel = useMemo(() => {
     if (!profile?.createdAt) return null;
@@ -124,19 +209,62 @@ export default function ProfileHomeScreen() {
         map[action.key] = action;
         return map;
       }, {} as Record<ProfileAction['key'], ProfileAction>),
-    []
+    [],
   );
 
   const heroAvatar = useMemo<ImageSourcePropType>(() => {
     return resolveAvatarSource(profile?.photoURL, profile?.avatarKey);
   }, [profile?.photoURL, profile?.avatarKey]);
 
-  const stats = profile?.stats ?? {};
+  // Treat stats loosely but with string-keyed record so StatKey works
+  const stats = (profile?.stats ?? {}) as Record<string, number>;
+
+  const planInfo = useMemo(() => {
+    const currentPlanId: PlanId = profile?.planId ?? (isPremium ? 'PREMIUM' : 'FREE');
+
+    const currentPlan = planCatalog[currentPlanId];
+    const planTitle = currentPlan?.title ?? (currentPlanId === 'PREMIUM' ? 'Premium' : 'Free');
+
+    const rawStatus: string | null = profile?.subscriptionStatus ?? null;
+    const rawEnd: any = profile?.currentPeriodEnd ?? null;
+
+    let expirationLabel: string | null = null;
+    if (rawEnd) {
+      let end: Date | null = null;
+
+      if (rawEnd && typeof rawEnd.toDate === 'function') {
+        end = rawEnd.toDate();
+      } else if (rawEnd instanceof Date) {
+        end = rawEnd;
+      } else if (typeof rawEnd === 'number' || typeof rawEnd === 'string') {
+        const d = new Date(rawEnd);
+        end = Number.isNaN(d.getTime()) ? null : d;
+      }
+
+      if (end) {
+        expirationLabel = end.toLocaleDateString(undefined, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        });
+      }
+    }
+
+    return {
+      currentPlanId,
+      planTitle,
+      subscriptionStatus: rawStatus,
+      expirationLabel,
+    };
+  }, [profile?.planId, profile?.subscriptionStatus, profile?.currentPeriodEnd, isPremium]);
+
+  const { planTitle, subscriptionStatus, expirationLabel } = planInfo;
+
   const handleSignOut = async () => {
     try {
       await signOut(auth);
-    } catch (error) {
-      console.warn('Failed to sign out', error);
+    } catch (err) {
+      console.warn('Failed to sign out', err);
     }
   };
 
@@ -170,14 +298,48 @@ export default function ProfileHomeScreen() {
   }, []);
 
   const handleStatPress = useCallback(
-    (key: ProfileAction['key']) => {
+    (key: StatKey) => {
       const action = actionsByKey[key];
       if (action) {
         handleNavigate(action);
       }
     },
-    [actionsByKey]
+    [actionsByKey],
   );
+
+  const handleSelectPlan = useCallback(
+    async (planId: PlanId) => {
+      try {
+        setBillingError(null);
+        setBillingLoadingPlanId(planId);
+
+        // FREE is non-billable; just close the modal.
+        if (planId === 'FREE') {
+          setSubscriptionModalVisible(false);
+          setBillingLoadingPlanId(null);
+          return;
+        }
+
+        const session = await createCheckoutSession(planId);
+
+        if (session && typeof session === 'object' && 'url' in session && session.url) {
+          await Linking.openURL(session.url as string);
+        } else {
+          setBillingError('Unable to start checkout session.');
+        }
+      } catch (err) {
+        console.error('Failed to create checkout session', err);
+        setBillingError('Something went wrong starting checkout.');
+      } finally {
+        setBillingLoadingPlanId(null);
+      }
+    },
+    [],
+  );
+
+  const onManagePlan = useCallback(() => {
+    setSubscriptionModalVisible(true);
+  }, []);
 
   if (initializing || loading) {
     return (
@@ -194,14 +356,21 @@ export default function ProfileHomeScreen() {
         <Ionicons name="person-circle-outline" size={64} color="#94a3b8" />
         <Text style={styles.emptyTitle}>Sign in to manage your profile</Text>
         <Text style={styles.emptyCopy}>
-          Log in to customise your Playlog presence. Update your display name, avatar, and bio once you’re signed in.
+          Log in to customise your Playlog presence. Update your display name, avatar, and bio
+          once you’re signed in.
         </Text>
         {error ? <Text style={styles.errorText}>{error.message}</Text> : null}
         <View style={styles.emptyActionRow}>
-          <Pressable style={[styles.emptyBtn, styles.emptyPrimary]} onPress={() => router.push('/login')}>
+          <Pressable
+            style={[styles.emptyBtn, styles.emptyPrimary]}
+            onPress={() => router.push('/login')}
+          >
             <Text style={styles.emptyPrimaryText}>Log in</Text>
           </Pressable>
-          <Pressable style={[styles.emptyBtn, styles.emptySecondary]} onPress={() => router.push('/signup')}>
+          <Pressable
+            style={[styles.emptyBtn, styles.emptySecondary]}
+            onPress={() => router.push('/signup')}
+          >
             <Text style={styles.emptySecondaryText}>Sign up</Text>
           </Pressable>
         </View>
@@ -211,161 +380,265 @@ export default function ProfileHomeScreen() {
 
   if (isMobile) {
     return (
-      <MobileProfile
-        profile={profile}
-        heroAvatar={heroAvatar}
-        stats={stats}
-        visibility={visibility}
-        joinedLabel={joinedLabel}
-        pendingRequests={pendingRequests}
-        onNavigate={handleNavigate}
-        onPressStat={handleStatPress}
-        onSignOut={confirmSignOut}
-        openSections={openSections}
-        onToggleSection={toggleSection}
-      />
+      <>
+        <SubscriptionOfferModal
+          visible={subscriptionModalVisible}
+          onClose={() => setSubscriptionModalVisible(false)}
+          onSelectPlan={handleSelectPlan}
+          loadingPlanId={billingLoadingPlanId}
+          errorMessage={billingError}
+          premium={isPremium}
+        />
+        <MobileProfile
+          profile={profile}
+          heroAvatar={heroAvatar}
+          stats={stats}
+          visibility={visibility}
+          joinedLabel={joinedLabel}
+          pendingRequests={pendingRequests}
+          onNavigate={handleNavigate}
+          onPressStat={handleStatPress}
+          onSignOut={confirmSignOut}
+          isPremium={isPremium}
+          planTitle={planTitle}
+          subscriptionStatus={subscriptionStatus}
+          expirationLabel={expirationLabel}
+          billingError={billingError}
+          onManagePlan={onManagePlan}
+          openSections={openSections}
+          onToggleSection={toggleSection}
+        />
+      </>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
-      <View style={styles.heroCard}>
-        <View style={styles.heroRow}>
-          <View style={styles.avatarWrapper}>
-            <Image source={heroAvatar} style={styles.avatarImage} />
-          </View>
-          <View style={styles.heroDetails}>
-            <Text style={styles.displayName}>{profile.displayName}</Text>
-            {profile.bio ? <Text style={styles.bioText}>{profile.bio}</Text> : null}
-            {joinedLabel ? <Text style={styles.joinedText}>Joined {joinedLabel}</Text> : null}
-            <View style={styles.visibilityRow}>
-              <View style={styles.visibilityBadge}>
-                <Ionicons
-                  name={visibility === 'private' ? 'lock-closed' : 'globe'}
-                  size={14}
-                  color={visibility === 'private' ? '#f97316' : '#22c55e'}
-                />
-                <Text style={styles.visibilityLabel}>
-                  {visibility === 'private' ? 'Private profile' : 'Public profile'}
+    <>
+      <SubscriptionOfferModal
+        visible={subscriptionModalVisible}
+        onClose={() => setSubscriptionModalVisible(false)}
+        onSelectPlan={handleSelectPlan}
+        loadingPlanId={billingLoadingPlanId}
+        errorMessage={billingError}
+        premium={isPremium}
+      />
+      <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
+        <View style={styles.heroCard}>
+          <View style={styles.heroRow}>
+            <View style={styles.avatarWrapper}>
+              <Image source={heroAvatar} style={styles.avatarImage} />
+            </View>
+            <View style={styles.heroDetails}>
+              <Text style={styles.displayName}>{profile.displayName}</Text>
+              {profile.bio ? <Text style={styles.bioText}>{profile.bio}</Text> : null}
+              {joinedLabel ? <Text style={styles.joinedText}>Joined {joinedLabel}</Text> : null}
+              <View style={styles.visibilityRow}>
+                <View style={styles.visibilityBadge}>
+                  <Ionicons
+                    name={visibility === 'private' ? 'lock-closed' : 'globe'}
+                    size={14}
+                    color={visibility === 'private' ? '#f97316' : '#22c55e'}
+                  />
+                  <Text style={styles.visibilityLabel}>
+                    {visibility === 'private' ? 'Private profile' : 'Public profile'}
+                  </Text>
+                </View>
+                <Text style={styles.visibilityHint}>
+                  {visibility === 'private'
+                    ? 'Only approved followers can see your favourites and reviews.'
+                    : 'Anyone on Playlog can see your favourites and reviews.'}
                 </Text>
               </View>
-              <Text style={styles.visibilityHint}>
-                {visibility === 'private'
-                  ? 'Only approved followers can see your favourites and reviews.'
-                  : 'Anyone on Playlog can see your favourites and reviews.'}
-              </Text>
+
+              <View style={styles.subscriptionRow}>
+                <View style={styles.subscriptionInfo}>
+                  <Text style={styles.subscriptionLabel}>
+                    {isPremium ? 'Premium access' : 'Free tier'}
+                  </Text>
+                  <Text style={styles.subscriptionStatus}>
+                    {subscriptionStatus ? `${subscriptionStatus} · ` : ''}
+                    {planTitle}
+                  </Text>
+                  {expirationLabel ? (
+                    <Text style={styles.subscriptionHint}>Valid through {expirationLabel}</Text>
+                  ) : null}
+                </View>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.subscriptionButton,
+                    pressed && styles.subscriptionButtonPressed,
+                  ]}
+                  onPress={onManagePlan}
+                >
+                  <Text style={styles.subscriptionButtonLabel}>
+                    {isPremium ? 'Manage plan' : 'Choose plan'}
+                  </Text>
+                </Pressable>
+              </View>
+              {billingError ? <Text style={styles.billingError}>{billingError}</Text> : null}
             </View>
           </View>
+          <View style={styles.statRow}>
+            {STAT_KEYS.map((key) => {
+              const showFollowerAlert =
+                key === 'followers' && followAlerts.hasFollowerAlerts;
+              const showFollowingAlert =
+                key === 'following' && followAlerts.hasFollowingAlerts;
+              const showAlert = showFollowerAlert || showFollowingAlert;
+              return (
+                <Pressable
+                  key={key}
+                  style={({ pressed }) => [
+                    styles.statBlock,
+                    pressed && styles.statBlockPressed,
+                  ]}
+                  onPress={() => handleStatPress(key)}
+                >
+                  {showAlert ? <View style={styles.statAlertDot} /> : null}
+                  <Text style={styles.statValue}>{formatCount(stats[key])}</Text>
+                  <Text style={styles.statLabel}>{STAT_LABELS[key]}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
-        <View style={styles.statRow}>
-          {STAT_KEYS.map((key) => (
-            <Pressable
-              key={key}
-              style={({ pressed }) => [
-                styles.statBlock,
-                pressed && styles.statBlockPressed,
-              ]}
-              onPress={() => handleStatPress(key)}
-            >
-              <Text style={styles.statValue}>{formatCount(stats[key])}</Text>
-              <Text style={styles.statLabel}>{STAT_LABELS[key]}</Text>
-            </Pressable>
+
+        <View style={styles.sectionStack}>
+          {ACTION_SECTIONS.map((section) => (
+            <View key={section.key} style={styles.sectionCard}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.sectionHeader,
+                  pressed && styles.sectionHeaderPressed,
+                ]}
+                onPress={() => toggleSection(section.key)}
+              >
+                <View style={styles.sectionHeaderLeft}>
+                  <View style={styles.sectionIconWrap}>
+                    <Ionicons
+                      name={SECTION_ICON[section.key]?.icon ?? 'grid'}
+                      size={18}
+                      color={SECTION_ICON[section.key]?.color ?? '#cbd5f5'}
+                    />
+                  </View>
+                  <Text style={styles.actionsTitle}>{section.title}</Text>
+                </View>
+                <Ionicons
+                  name={openSections[section.key] ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color="#cbd5f5"
+                />
+              </Pressable>
+              {openSections[section.key] ? (
+                <View style={styles.actionList}>
+                  {section.actions.map((action) => {
+                    const highlightColor =
+                      action.variant === 'destructive' ? '#ef4444' : '#6366f1';
+                    const pressedBg =
+                      action.variant === 'destructive'
+                        ? 'rgba(239,68,68,0.08)'
+                        : 'rgba(99,102,241,0.08)';
+                    return (
+                      <Pressable
+                        key={action.key}
+                        style={({ pressed }) => [
+                          styles.actionRow,
+                          pressed && { backgroundColor: pressedBg },
+                        ]}
+                        onPress={() => handleNavigate(action)}
+                      >
+                        <View
+                          style={[
+                            styles.actionIconWrap,
+                            action.variant === 'destructive' && {
+                              backgroundColor: 'rgba(239,68,68,0.12)',
+                            },
+                          ]}
+                        >
+                          <Ionicons name={action.icon} size={20} color={highlightColor} />
+                        </View>
+                        <View style={styles.actionCopy}>
+                          <View style={styles.actionTitleRow}>
+                            <Text style={styles.actionTitle}>{action.title}</Text>
+                            {action.key === 'followers' && followAlerts.hasFollowerAlerts ? (
+                              <View style={styles.inlineAlertDot} />
+                            ) : null}
+                            {action.key === 'following' && followAlerts.hasFollowingAlerts ? (
+                              <View style={styles.inlineAlertDot} />
+                            ) : null}
+                          </View>
+                          <Text style={styles.actionDescription}>{action.description}</Text>
+                        </View>
+                        {action.key === 'requests' && pendingRequests > 0 ? (
+                          <View style={styles.badge}>
+                            <Text style={styles.badgeLabel}>{pendingRequests}</Text>
+                          </View>
+                        ) : null}
+                        <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
+            </View>
           ))}
         </View>
-      </View>
 
-      <View style={styles.sectionStack}>
-        {ACTION_SECTIONS.map((section) => (
-          <View key={section.key} style={styles.sectionCard}>
-            <Pressable
-              style={({ pressed }) => [styles.sectionHeader, pressed && styles.sectionHeaderPressed]}
-              onPress={() => toggleSection(section.key)}
-            >
-              <View style={styles.sectionHeaderLeft}>
-                <View style={styles.sectionIconWrap}>
-                  <Ionicons
-                    name={SECTION_ICON[section.key]?.icon ?? 'grid'}
-                    size={18}
-                    color={SECTION_ICON[section.key]?.color ?? '#cbd5f5'}
-                  />
-                </View>
-                <Text style={styles.actionsTitle}>{section.title}</Text>
-              </View>
-              <Ionicons
-                name={openSections[section.key] ? 'chevron-up' : 'chevron-down'}
-                size={16}
-                color="#cbd5f5"
-              />
-            </Pressable>
-            {openSections[section.key] ? (
-              <View style={styles.actionList}>
-                {section.actions.map((action) => {
-                  const highlightColor = action.variant === 'destructive' ? '#ef4444' : '#6366f1';
-                  const pressedBg =
-                    action.variant === 'destructive'
-                      ? 'rgba(239,68,68,0.08)'
-                      : 'rgba(99,102,241,0.08)';
-                  return (
-                    <Pressable
-                      key={action.key}
-                      style={({ pressed }) => [styles.actionRow, pressed && { backgroundColor: pressedBg }]}
-                      onPress={() => handleNavigate(action)}
-                    >
-                      <View
-                        style={[
-                          styles.actionIconWrap,
-                          action.variant === 'destructive' && { backgroundColor: 'rgba(239,68,68,0.12)' },
-                        ]}
-                      >
-                        <Ionicons name={action.icon} size={20} color={highlightColor} />
-                      </View>
-                      <View style={styles.actionCopy}>
-                        <Text style={styles.actionTitle}>{action.title}</Text>
-                        <Text style={styles.actionDescription}>{action.description}</Text>
-                      </View>
-                      {action.key === 'requests' && pendingRequests > 0 ? (
-                        <View style={styles.badge}>
-                          <Text style={styles.badgeLabel}>{pendingRequests}</Text>
-                        </View>
-                      ) : null}
-                      <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
-                    </Pressable>
-                  );
-                })}
-              </View>
-            ) : null}
-          </View>
-        ))}
-      </View>
-    </ScrollView>
+        <Pressable
+          onPress={confirmSignOut}
+          style={({ pressed }) => [
+            styles.signOutButton,
+            pressed && styles.signOutButtonPressed,
+          ]}
+        >
+          <Text style={styles.signOutLabel}>Sign out</Text>
+        </Pressable>
+      </ScrollView>
+    </>
   );
 }
+
+type MobileProfileProps = {
+  profile: any;
+  heroAvatar: ImageSourcePropType;
+  stats: Record<string, number>;
+  visibility: ReturnType<typeof getProfileVisibility>;
+  joinedLabel: string | null;
+  pendingRequests: number;
+  onNavigate: (action: ProfileAction) => void;
+  onPressStat: (key: StatKey) => void;
+  onSignOut: () => void;
+  isPremium: boolean;
+  planTitle: string;
+  subscriptionStatus: string | null;
+  expirationLabel: string | null;
+  billingError: string | null;
+  onManagePlan: () => void;
+  openSections: Record<string, boolean>;
+  onToggleSection: (key: string) => void;
+};
 
 function MobileProfile({
   profile,
   heroAvatar,
   stats,
-  visibility,
+  visibility, // currently unused but kept for future
   joinedLabel,
   pendingRequests,
   onNavigate,
   onPressStat,
   onSignOut,
+  isPremium,
+  planTitle,
+  subscriptionStatus,
+  expirationLabel,
+  billingError,
+  onManagePlan,
   openSections,
   onToggleSection,
-}: {
-  profile: any;
-  heroAvatar: ImageSourcePropType;
-  stats: any;
-  visibility: ReturnType<typeof getProfileVisibility>;
-  joinedLabel: string | null;
-  pendingRequests: number;
-  onNavigate: (action: ProfileAction) => void;
-  onPressStat: (key: ProfileAction['key']) => void;
-  onSignOut: () => void;
-  openSections: Record<string, boolean>;
-  onToggleSection: (key: string) => void;
-}) {
+}: MobileProfileProps) {
+  const followAlerts = useFollowAlertsContext();
+
   return (
     <SafeAreaView style={styles.mobileSafe}>
       <StatusBar barStyle="light-content" />
@@ -395,20 +668,51 @@ function MobileProfile({
             </View>
           </View>
           <View style={styles.mobileStatRow}>
-            {STAT_KEYS.map((key) => (
-              <Pressable
-                key={`mobile-stat-${key}`}
-                onPress={() => onPressStat(key)}
-                style={({ pressed }) => [
-                  styles.mobileStatBlock,
-                  pressed && styles.mobileStatBlockPressed,
-                ]}
-              >
-                <Text style={styles.mobileStatValue}>{formatCount(stats[key])}</Text>
-                <Text style={styles.mobileStatLabel}>{STAT_LABELS[key]}</Text>
-              </Pressable>
-            ))}
+            {STAT_KEYS.map((key) => {
+              const showFollowerAlert =
+                key === 'followers' && followAlerts.hasFollowerAlerts;
+              const showFollowingAlert =
+                key === 'following' && followAlerts.hasFollowingAlerts;
+              const showAlert = showFollowerAlert || showFollowingAlert;
+              return (
+                <Pressable
+                  key={`mobile-stat-${key}`}
+                  onPress={() => onPressStat(key)}
+                  style={({ pressed }) => [
+                    styles.mobileStatBlock,
+                    pressed && styles.mobileStatBlockPressed,
+                  ]}
+                >
+                  {showAlert ? <View style={styles.statAlertDot} /> : null}
+                  <Text style={styles.mobileStatValue}>{formatCount(stats[key])}</Text>
+                  <Text style={styles.mobileStatLabel}>{STAT_LABELS[key]}</Text>
+                </Pressable>
+              );
+            })}
           </View>
+        </View>
+
+        <View style={styles.mobileSubscriptionCard}>
+          <Text style={styles.mobileSubscriptionLabel}>{isPremium ? 'Premium' : 'Free tier'}</Text>
+          <Text style={styles.mobileSubscriptionPlan}>{planTitle}</Text>
+          <Text style={styles.mobileSubscriptionStatus}>
+            {subscriptionStatus ?? 'Active membership'}
+          </Text>
+          {expirationLabel ? (
+            <Text style={styles.mobileSubscriptionHint}>Valid through {expirationLabel}</Text>
+          ) : null}
+          <Pressable
+            style={({ pressed }) => [
+              styles.mobileSubscriptionButton,
+              pressed && styles.mobileSubscriptionButtonPressed,
+            ]}
+            onPress={onManagePlan}
+          >
+            <Text style={styles.mobileSubscriptionButtonLabel}>
+              {isPremium ? 'Manage plan' : 'Choose plan'}
+            </Text>
+          </Pressable>
+          {billingError ? <Text style={styles.billingError}>{billingError}</Text> : null}
         </View>
 
         <View style={styles.mobileActionsBlock}>
@@ -439,7 +743,8 @@ function MobileProfile({
               </Pressable>
               {openSections[section.key]
                 ? section.actions.map((action) => {
-                    const highlightColor = action.variant === 'destructive' ? '#f87171' : '#f8fafc';
+                    const highlightColor =
+                      action.variant === 'destructive' ? '#f87171' : '#f8fafc';
                     return (
                       <Pressable
                         key={`mobile-${action.key}`}
@@ -447,14 +752,22 @@ function MobileProfile({
                         onPress={() => onNavigate(action)}
                       >
                         <Ionicons name={action.icon} size={18} color={highlightColor} />
-                        <Text
-                          style={[
-                            styles.mobileActionLabel,
-                            action.variant === 'destructive' && { color: '#f87171' },
-                          ]}
-                        >
-                          {action.title}
-                        </Text>
+                        <View style={styles.mobileActionLabelWrap}>
+                          <Text
+                            style={[
+                              styles.mobileActionLabel,
+                              action.variant === 'destructive' && { color: '#f87171' },
+                            ]}
+                          >
+                            {action.title}
+                          </Text>
+                          {action.key === 'followers' && followAlerts.hasFollowerAlerts ? (
+                            <View style={styles.inlineAlertDot} />
+                          ) : null}
+                          {action.key === 'following' && followAlerts.hasFollowingAlerts ? (
+                            <View style={styles.inlineAlertDot} />
+                          ) : null}
+                        </View>
                         {action.key === 'requests' && pendingRequests > 0 ? (
                           <View style={styles.badge}>
                             <Text style={styles.badgeLabel}>{pendingRequests}</Text>
@@ -510,11 +823,58 @@ const styles = StyleSheet.create({
   },
   visibilityLabel: { color: '#f8fafc', fontSize: 12, fontWeight: '600' },
   visibilityHint: { color: '#94a3b8', fontSize: 12 },
+
+  subscriptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 12,
+  },
+  subscriptionInfo: { flex: 1, gap: 4 },
+  subscriptionLabel: { color: '#cbd5f5', fontSize: 12, fontWeight: '600' },
+  subscriptionStatus: { color: '#f8fafc', fontSize: 14, fontWeight: '700' },
+  subscriptionHint: { color: '#94a3b8', fontSize: 12 },
+  subscriptionButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    backgroundColor: '#6366f1',
+  },
+  subscriptionButtonPressed: {
+    opacity: 0.9,
+  },
+  subscriptionButtonLabel: {
+    color: '#f8fafc',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  billingError: { color: '#fca5a5', fontSize: 13, marginTop: 4 },
+
   statRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  statBlock: { flex: 1, alignItems: 'center' },
+  statBlock: { flex: 1, alignItems: 'center', position: 'relative' },
   statBlockPressed: { opacity: 0.85 },
   statValue: { color: '#f8fafc', fontSize: 22, fontWeight: '800' },
   statLabel: { color: '#cbd5f5', fontSize: 13 },
+
+  statAlertDot: {
+    position: 'absolute',
+    top: -4,
+    left: '50%',
+    transform: [{ translateX: -5 }],
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#facc15',
+  },
+  inlineAlertDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#facc15',
+  },
+
   sectionStack: { gap: 16 },
   sectionCard: {
     borderRadius: 18,
@@ -560,8 +920,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionCopy: { flex: 1, gap: 4 },
+  actionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   actionTitle: { color: '#f8fafc', fontWeight: '700' },
   actionDescription: { color: '#94a3b8', fontSize: 13 },
+
   signOutButton: {
     marginTop: 14,
     alignSelf: 'flex-start',
@@ -573,6 +935,7 @@ const styles = StyleSheet.create({
   },
   signOutButtonPressed: { opacity: 0.85 },
   signOutLabel: { color: '#f8fafc', fontWeight: '700' },
+
   badge: {
     minWidth: 28,
     paddingHorizontal: 8,
@@ -582,13 +945,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   badgeLabel: { color: '#fff', fontSize: 12, fontWeight: '700' },
+
   loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { color: '#475569' },
-  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
+
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    gap: 12,
+  },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
   emptyCopy: { color: '#4b5563', textAlign: 'center' },
   errorText: { color: '#ef4444', marginTop: 8 },
-  emptyActionRow: { flexDirection: 'row', gap: 12, width: '100%', marginTop: 16 },
+  emptyActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    marginTop: 16,
+  },
   emptyBtn: {
     flex: 1,
     paddingVertical: 12,
@@ -604,9 +980,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   emptySecondaryText: { color: '#0f172a', fontWeight: '700' },
+
+  // Mobile styles
   mobileSafe: { flex: 1, backgroundColor: '#0f172a' },
   mobileScroll: { padding: 20, gap: 24, backgroundColor: '#0f172a' },
-  mobileHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
+  mobileHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
   mobileSignOutButton: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -617,17 +999,73 @@ const styles = StyleSheet.create({
   },
   mobileSignOutButtonPressed: { opacity: 0.8 },
   mobileSignOutLabel: { color: '#f8fafc', fontWeight: '600' },
-  mobileHeroCard: { backgroundColor: '#1c1c21', borderRadius: 28, padding: 20, gap: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  mobileHeroCard: {
+    backgroundColor: '#1c1c21',
+    borderRadius: 28,
+    padding: 20,
+    gap: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
   mobileHeroRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   mobileHeroDetails: { flex: 1 },
   mobileBio: { color: '#cbd5f5', fontSize: 13, marginTop: 4 },
   mobileJoined: { color: '#9ca3af', fontSize: 12, marginTop: 2 },
-  mobileStatRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  mobileStatBlock: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 12, backgroundColor: '#26262b' },
+
+  mobileSubscriptionCard: {
+    backgroundColor: '#111827',
+    borderRadius: 20,
+    padding: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    gap: 8,
+  },
+  mobileSubscriptionLabel: { color: '#cbd5f5', fontSize: 12, fontWeight: '600' },
+  mobileSubscriptionPlan: { color: '#f8fafc', fontSize: 18, fontWeight: '700' },
+  mobileSubscriptionStatus: { color: '#cbd5f5', fontSize: 13 },
+  mobileSubscriptionHint: { color: '#9ca3af', fontSize: 12 },
+  mobileSubscriptionButton: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#6366f1',
+  },
+  mobileSubscriptionButtonPressed: {
+    opacity: 0.9,
+  },
+  mobileSubscriptionButtonLabel: {
+    color: '#f8fafc',
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+
+  mobileStatRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  mobileStatBlock: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#26262b',
+    position: 'relative',
+  },
   mobileStatBlockPressed: { backgroundColor: '#2f2f36' },
   mobileStatValue: { color: '#f8fafc', fontSize: 18, fontWeight: '800' },
   mobileStatLabel: { color: '#cbd5f5', fontSize: 12 },
-  mobileActionsBlock: { marginTop: 12, borderRadius: 24, backgroundColor: '#1c1c21', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+
+  mobileActionsBlock: {
+    marginTop: 12,
+    borderRadius: 24,
+    backgroundColor: '#1c1c21',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
   mobileSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -647,6 +1085,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   mobileSectionTitle: { color: '#e5e7eb', fontSize: 13, fontWeight: '700' },
-  mobileActionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.08)', gap: 12 },
-  mobileActionLabel: { flex: 1, color: '#f8fafc', fontWeight: '600' },
+  mobileActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+    gap: 12,
+  },
+  mobileActionLabelWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  mobileActionLabel: { color: '#f8fafc', fontWeight: '600' },
 });
