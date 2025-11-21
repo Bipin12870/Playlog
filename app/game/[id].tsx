@@ -10,6 +10,7 @@ import {
   fetchTrendingGames,
 } from '../../lib/igdb';
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
+import { useUserProfile } from '../../lib/userProfile';
 import { useGameDetailsCache } from '../../lib/hooks/useGameDetailsCache';
 import {
   CONTENT_BLOCKED_ERROR,
@@ -56,6 +57,7 @@ export default function GameDetailsScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
   const { user } = useAuthUser();
+  const { profile } = useUserProfile(user?.uid ?? null);
   const blockRelationships = useBlockRelationships(user?.uid ?? null);
   const { cacheReady, getCachedDetails, cacheGameDetails } = useGameDetailsCache();
 
@@ -84,6 +86,11 @@ export default function GameDetailsScreen() {
   const [replySubmittingIds, setReplySubmittingIds] = useState<string[]>([]);
   const [replyUpdatingIds, setReplyUpdatingIds] = useState<string[]>([]);
   const [replyDeletingIds, setReplyDeletingIds] = useState<string[]>([]);
+  const planId =
+    profile?.planId ??
+    profile?.currentPlanId ??
+    (profile?.premium ? 'PREMIUM' : 'FREE');
+  const isPremium = planId === 'PREMIUM';
 
   useEffect(() => {
     if (idMissing) {
@@ -332,8 +339,9 @@ export default function GameDetailsScreen() {
   );
 
   const personalReviewLimitReached =
-    typeof userReviewCount === 'number' && userReviewCount >= MAX_REVIEWS_PER_USER;
+    !isPremium && typeof userReviewCount === 'number' && userReviewCount >= MAX_REVIEWS_PER_USER;
   const reviewLimitReached = personalReviewLimitReached && !userReview;
+  const reviewLimit = isPremium ? Number.POSITIVE_INFINITY : MAX_REVIEWS_PER_USER;
 
   const canSubmitReview = Boolean(user && game && (!reviewLimitReached || userReview));
 
@@ -388,14 +396,19 @@ export default function GameDetailsScreen() {
       }
       setReviewSubmitting(true);
       try {
-        await submitGameReview(gameId, user, {
-          ...input,
-          game: {
-            id: currentGame.id,
-            name: currentGame.name,
-            cover: currentGame.cover ?? null,
+        await submitGameReview(
+          gameId,
+          user,
+          {
+            ...input,
+            game: {
+              id: currentGame.id,
+              name: currentGame.name,
+              cover: currentGame.cover ?? null,
+            },
           },
-        });
+          { skipReviewLimit: isPremium },
+        );
       } catch (err) {
         if (err instanceof Error) {
           switch (err.message) {
@@ -416,7 +429,7 @@ export default function GameDetailsScreen() {
         setReviewSubmitting(false);
       }
     },
-    [numericId, user, game],
+    [numericId, user, game, isPremium],
   );
 
   const handleSubmitReply = useCallback(
@@ -570,7 +583,7 @@ export default function GameDetailsScreen() {
           reviewError={reviewError}
           communityAverage={communityAverage}
           communityReviewCount={communityReviewCount}
-          reviewLimit={MAX_REVIEWS_PER_USER}
+          reviewLimit={reviewLimit}
           reviewLimitReached={reviewLimitReached}
           canSubmitReview={canSubmitReview}
           reviewSubmitting={reviewSubmitting}

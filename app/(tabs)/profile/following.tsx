@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
@@ -6,7 +6,6 @@ import { FollowList } from '../../../components/profile';
 import { useAuthUser } from '../../../lib/hooks/useAuthUser';
 import { useFollowing } from '../../../lib/hooks/useFollowList';
 import { useUserProfile } from '../../../lib/userProfile';
-import { useFollowAlertsContext } from '../../../lib/hooks/useFollowAlerts';
 
 export default function FollowingScreen() {
   const router = useRouter();
@@ -14,17 +13,12 @@ export default function FollowingScreen() {
   const uid = user?.uid ?? null;
   const { profile, loading: profileLoading } = useUserProfile(uid);
   const following = useFollowing(uid);
-  const followAlerts = useFollowAlertsContext();
 
   const title = useMemo(() => {
     const count = profile?.stats?.following ?? 0;
     if (!count) return 'Not following anyone yet';
     return `Following ${count} player${count === 1 ? '' : 's'}`;
   }, [profile?.stats?.following]);
-
-  useEffect(() => {
-    followAlerts.acknowledgeFollowing();
-  }, [followAlerts]);
 
   if (initializing || profileLoading) {
     return (

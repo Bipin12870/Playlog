@@ -3,6 +3,9 @@ import { GoogleAuthProvider, signInWithCredential, signOut } from 'firebase/auth
 import { doc, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
 
 import { auth, db } from './firebase';
+import type { PlanId } from '../shared/plans';
+
+const FREE_PLAN: PlanId = 'FREE';
 
 /**
  * Ensures the user's profile and username records exist inside Firestore.
@@ -38,6 +41,13 @@ export async function ensureUserProfile(user: User) {
 
     if (!userDoc.exists()) {
       profileData.createdAt = serverTimestamp();
+      profileData.planId = FREE_PLAN;
+      profileData.currentPlanId = FREE_PLAN;
+      profileData.premium = false;
+      profileData.subscriptionStatus = 'free';
+      profileData.stripeCustomerId = null;
+      profileData.stripeSubscriptionId = null;
+      profileData.currentPeriodEnd = null;
     }
 
     transaction.set(
