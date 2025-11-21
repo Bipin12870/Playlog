@@ -6,6 +6,7 @@ import admin from 'firebase-admin';
 import path from 'path';
 
 import { PLAN_PRICE_MAP, type PlanId } from '../../shared/plans';
+import { json } from 'stream/consumers';
 
 dotenv.config();
 
@@ -23,7 +24,6 @@ if (!STRIPE_SECRET_KEY) {
 }
 
 // IMPORTANT: let Stripe use its default API version from your account.
-// This avoids the "2023-11-15" vs "2025-11-17.clover" type error.
 const stripe = new Stripe(STRIPE_SECRET_KEY, {});
 
 // Handle both:
@@ -101,10 +101,13 @@ app.post(
       const uid = await resolveAuthUid(req);
       const userRef = db.collection('users').doc(uid);
       const userSnapshot = await userRef.get();
-      const existingCustomerId = userSnapshot.data()?.stripeCustomerId;
-      const customerEmail = userSnapshot.data()?.email ?? undefined;
 
-      const session = await stripe.checkout.sessions.create({
+      const userData = userSnapshot.data() || {};
+      const existingCustomerId: string | undefined = userData.stripeCustomerId || undefined;
+      const customerEmail: string | undefined = userData.email || undefined;
+
+      // Build params first, then conditionally add customer or customer_email
+      const sessionParams: Stripe.Checkout.SessionCreateParams = {
         mode: 'subscription',
         payment_method_types: ['card'],
         line_items: [
@@ -116,8 +119,6 @@ app.post(
         success_url: STRIPE_SUCCESS_URL,
         cancel_url: STRIPE_CANCEL_URL,
         client_reference_id: uid,
-        customer: existingCustomerId ?? undefined,
-        customer_email: customerEmail,
         subscription_data: {
           metadata: {
             planId,
@@ -128,7 +129,17 @@ app.post(
           planId,
           uid,
         },
-      });
+      };
+
+      if (existingCustomerId) {
+        // Existing Stripe customer – use customer, DO NOT send customer_email
+        sessionParams.customer = existingCustomerId;
+      } else if (customerEmail) {
+        // No customer yet – let Stripe create one using the email
+        sessionParams.customer_email = customerEmail;
+      }
+
+      const session = await stripe.checkout.sessions.create(sessionParams);
 
       return res.status(200).json({ url: session.url, sessionId: session.id });
     } catch (error) {
@@ -347,7 +358,9 @@ function resolvePlanIdFromInvoice(invoice: any): PlanId | null {
 }
 
 function resolvePlanIdFromPriceId(priceId: string): PlanId | null {
-  const entry = Object.entries(PLAN_PRICE_MAP).find(([, mappedPriceId]) => mappedPriceId === priceId);
+  const entry = Object.entries(PLAN_PRICE_MAP).find(
+    ([, mappedPriceId]) => mappedPriceId === priceId,
+  );
   return entry ? (entry[0] as PlanId) : null;
 }
 
