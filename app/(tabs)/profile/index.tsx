@@ -10,13 +10,13 @@ import {
   Linking,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { auth } from '../../../lib/firebase';
 import { useAuthUser } from '../../../lib/hooks/useAuthUser';

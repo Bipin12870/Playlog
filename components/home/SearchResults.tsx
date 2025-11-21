@@ -22,17 +22,7 @@ type EmptyState = {
   copy: string;
 };
 
-type AdItem = {
-  kind: 'ad';
-  id: string;
-  tag?: string;
-  title: string;
-  copy: string;
-  ctaLabel: string;
-  href: string;
-};
-
-type GridItem = GameSummary | AdItem | null;
+type GridItem = GameSummary | null;
 
 type SearchResultsProps = {
   games: GameSummary[];
@@ -51,8 +41,6 @@ type SearchResultsProps = {
   onLoadMore?: () => void;
   hasMore?: boolean;
   loadingMore?: boolean;
-  adFrequency?: number | null;
-  ads?: AdItem[];
 };
 
 export function SearchResults({
@@ -74,8 +62,6 @@ export function SearchResults({
   onLoadMore,
   hasMore = false,
   loadingMore = false,
-  adFrequency: adFrequencyProp = 6,
-  ads: adsProp,
 }: SearchResultsProps) {
   const isCompact = cardVariant === 'compact';
   const isWeb = Platform.OS === 'web';
@@ -114,28 +100,11 @@ export function SearchResults({
 
   const data = useMemo<GridItem[]>(() => {
     if (!games.length) return [];
-    const shouldInsertAds = typeof adFrequencyProp === 'number' && adFrequencyProp > 0;
-
-    const withAds: GridItem[] = [];
-    let adInsertCount = 0;
-    games.forEach((game, index) => {
-      withAds.push(game);
-      if (
-        shouldInsertAds &&
-        (index + 1) % adFrequencyProp === 0 &&
-        index < games.length - 1
-      ) {
-        const ad = adInventory[adInsertCount % adInventory.length];
-        withAds.push({ ...ad, id: `${ad.id}-${adInsertCount}` });
-        adInsertCount += 1;
-      }
-    });
-
-    const remainder = withAds.length % resolvedColumnCount;
-    if (remainder === 0) return withAds;
+    const remainder = games.length % resolvedColumnCount;
+    if (remainder === 0) return games;
     const placeholders = Array.from({ length: resolvedColumnCount - remainder }, () => null);
-    return [...withAds, ...placeholders];
-  }, [games, resolvedColumnCount, adFrequencyProp, adInventory]);
+    return [...games, ...placeholders];
+  }, [games, resolvedColumnCount]);
 
   const renderItem: ListRenderItem<GridItem> = ({ item }) => {
     if (!item) {
@@ -144,20 +113,6 @@ export function SearchResults({
           pointerEvents="none"
           style={[styles.card, isCompact && styles.compactCard, styles.placeholderCard, cardStyle]}
         />
-      );
-    }
-
-    if (isAdItem(item)) {
-      return (
-        <View style={[styles.card, isCompact && styles.compactCard, cardStyle]}>
-          <AdBanner
-            tag={item.tag}
-            title={item.title}
-            copy={item.copy}
-            ctaLabel={item.ctaLabel}
-            href={item.href}
-          />
-        </View>
       );
     }
 
@@ -217,9 +172,6 @@ export function SearchResults({
         numColumns={resolvedColumnCount}
         keyExtractor={(item, index) => {
           if (!item) return `placeholder-${index}`;
-          if ('kind' in item && item.kind === 'ad') {
-            return item.id;
-          }
           return item.id.toString();
         }}
         columnWrapperStyle={
@@ -268,27 +220,4 @@ const styles = StyleSheet.create({
   loadMoreLabel: { color: '#f8fafc', fontWeight: '700' },
   loadMorePressed: { opacity: 0.9 },
   loadMoreDisabled: { opacity: 0.7 },
-  adCard: {
-    flex: 1,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#0b1220',
-    padding: 16,
-    gap: 6,
-    justifyContent: 'center',
-  },
-  adCardCompact: {
-    borderRadius: 16,
-    padding: 14,
-  },
-  adLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#a5b4fc',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  adTitle: { fontSize: 16, fontWeight: '700', color: '#f8fafc' },
-  adCopy: { fontSize: 13, color: '#cbd5f5' },
 });

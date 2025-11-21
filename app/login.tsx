@@ -37,7 +37,15 @@ export default function LoginScreen() {
   }) => {
     const active = method === value;
     return (
-      <Pressable onPress={() => pick(value)} style={[styles.methodBtn, active && styles.methodBtnActive]}>
+      <Pressable
+        onPress={() => pick(value)}
+        style={[styles.methodBtn, active && styles.methodBtnActive]}
+        accessibilityRole="button"
+        accessibilityLabel={`Log in with ${label}`}
+        accessibilityHint={active ? `Collapse ${label} form` : `Expand ${label} form`}
+        accessibilityState={{ selected: active, expanded: active }}
+        hitSlop={10}
+      >
         <Ionicons name={icon} size={18} color={active ? '#0f172a' : '#8b5cf6'} />
         <Text style={active ? styles.methodTextActive : styles.methodText}>{label}</Text>
         <Ionicons
@@ -98,7 +106,12 @@ export default function LoginScreen() {
           </View>
         </View>
         <Link href="/(tabs)/home" asChild>
-          <Pressable style={styles.mobileCloseBtn} hitSlop={12}>
+          <Pressable
+            style={styles.mobileCloseBtn}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Close login and go back"
+          >
             <Ionicons name="close" size={18} color="#e2e8f0" />
           </Pressable>
         </Link>
@@ -155,7 +168,7 @@ export default function LoginScreen() {
                 <View style={styles.leftContent}>
                   {/* CLICKABLE LOGO */}
                   <Link href="/(tabs)/home" asChild>
-                    <Pressable style={styles.brandRow}>
+                    <Pressable style={styles.brandRow} accessibilityRole="link" accessibilityLabel="Go back home">
                       <Image source={LOGO} style={styles.logoImg} />
                       <View>
                         <Text style={styles.brand}>Playlog</Text>

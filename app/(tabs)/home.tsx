@@ -10,7 +10,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleProp,
@@ -21,6 +20,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -1003,7 +1003,7 @@ function NativeHome({
           color="#f8fafc"
           style={nativeStyles.categoryButtonIcon}
         />
-        <Text style={nativeStyles.categoryButtonLabel}>Filters</Text>
+       
         {filterControls.filtersActive ? <View style={nativeStyles.categoryButtonDot} /> : null}
       </Pressable>
       <Pressable
