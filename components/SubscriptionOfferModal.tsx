@@ -1,12 +1,6 @@
 import { ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { billingPlans, type PlanId } from '../lib/billing';
 
@@ -54,7 +48,9 @@ export function SubscriptionOfferModal({
           <Pressable style={styles.closeButton} onPress={onClose} accessibilityRole="button">
             <Ionicons name="close" size={20} color="#111827" />
           </Pressable>
+
           <Text style={styles.heading}>{headerCopy}</Text>
+
           <View style={styles.features}>
             {FEATURES.map((feature) => (
               <View key={feature} style={styles.featureRow}>
@@ -63,9 +59,12 @@ export function SubscriptionOfferModal({
               </View>
             ))}
           </View>
+
           <View style={styles.planList}>
             {billingPlans.map((plan) => {
               const active = loadingPlanId === plan.id;
+              const actionLabel = premium ? 'Manage in Stripe' : 'Select';
+
               return (
                 <Pressable
                   key={plan.id}
@@ -87,14 +86,16 @@ export function SubscriptionOfferModal({
                     {active ? (
                       <ActivityIndicator size="small" color="#f8fafc" />
                     ) : (
-                      <Text style={styles.planActionLabel}>Select</Text>
+                      <Text style={styles.planActionLabel}>{actionLabel}</Text>
                     )}
                   </View>
                 </Pressable>
               );
             })}
           </View>
+
           {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
           <Pressable
             style={({ pressed }) => [
               styles.secondaryAction,

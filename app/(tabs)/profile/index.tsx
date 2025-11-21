@@ -26,7 +26,12 @@ import { getProfileVisibility } from '../../../lib/profileVisibility';
 import { resolveAvatarSource } from '../../../lib/avatar';
 import { useFollowAlertsContext } from '../../../lib/hooks/useFollowAlerts';
 import { SubscriptionOfferModal } from '../../../components/SubscriptionOfferModal';
-import { planCatalog, createCheckoutSession, type PlanId } from '../../../lib/billing';
+import {
+  planCatalog,
+  createCheckoutSession,
+  createBillingPortalSession,
+  type PlanId,
+} from '../../../lib/billing';
 
 type ProfileAction = {
   key:
@@ -313,13 +318,27 @@ export default function ProfileHomeScreen() {
         setBillingError(null);
         setBillingLoadingPlanId(planId);
 
-        // FREE is non-billable; just close the modal.
-        if (planId === 'FREE') {
+        // If the user is already premium, tapping the plan means:
+        // "Open Stripe customer portal so I can manage/cancel".
+        if (isPremium) {
+          const portalSession = await createBillingPortalSession();
+          if (portalSession && portalSession.url) {
+            await Linking.openURL(portalSession.url);
+          } else {
+            setBillingError('Unable to open billing portal.');
+          }
           setSubscriptionModalVisible(false);
-          setBillingLoadingPlanId(null);
           return;
         }
 
+        // Not premium yet:
+        // FREE is non-billable → just close modal.
+        if (planId === 'FREE') {
+          setSubscriptionModalVisible(false);
+          return;
+        }
+
+        // PREMIUM (or any paid plan) → go to Stripe Checkout.
         const session = await createCheckoutSession(planId);
 
         if (session && typeof session === 'object' && 'url' in session && session.url) {
@@ -328,13 +347,13 @@ export default function ProfileHomeScreen() {
           setBillingError('Unable to start checkout session.');
         }
       } catch (err) {
-        console.error('Failed to create checkout session', err);
-        setBillingError('Something went wrong starting checkout.');
+        console.error('Failed to start billing flow', err);
+        setBillingError('Something went wrong starting billing.');
       } finally {
         setBillingLoadingPlanId(null);
       }
     },
-    [],
+    [isPremium],
   );
 
   const onManagePlan = useCallback(() => {
@@ -945,22 +964,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   badgeLabel: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  statAlertDot: {
-    position: 'absolute',
-    top: -4,
-    left: '50%',
-    transform: [{ translateX: -5 }],
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#facc15',
-  },
-  inlineAlertDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#facc15',
-  },
+
   loadingState: {
     flex: 1,
     alignItems: 'center',
