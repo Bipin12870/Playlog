@@ -170,6 +170,7 @@ export default function HomeScreen() {
   const { sizes, placeholders } = useHomeScreen();
   const isWeb = Platform.OS === 'web';
   const { user: currentUser, initializing: authInitializing } = useAuthUser();
+  
   const { profile: userProfile } = useUserProfile(currentUser?.uid ?? null);
   const isPremium = Boolean(
     userProfile?.planId === 'PREMIUM' ||
@@ -417,11 +418,19 @@ export default function HomeScreen() {
 
     setExploreLoading(true);
     try {
-      const [featured, trending, personalized] = await Promise.allSettled([
-        fetchFeaturedGames(),
-        fetchTrendingGames(),
-        currentUser?.uid ? fetchRecommendedGames(currentUser.uid, 12) : fetchRandomGames(),
-      ]);
+// 🔍 Log UID and how recommendations will be fetched
+if (currentUser?.uid) {
+  console.log("🔑 Fetching AI recommendations for UID:", currentUser.uid);
+} else {
+  console.log("🎲 User not logged in — fetching random games");
+}
+const [featured, trending, personalized] = await Promise.allSettled([
+  fetchFeaturedGames(),
+  fetchTrendingGames(),
+  currentUser?.uid ? fetchRecommendedGames(currentUser.uid, 12) : fetchRandomGames(),
+]);
+
+    
 
       const nextFeatured =
         featured.status === 'fulfilled' && Array.isArray(featured.value) ? featured.value : [];
