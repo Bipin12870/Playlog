@@ -4,7 +4,6 @@ import React, { useCallback, useMemo } from 'react';
 import {
   GestureResponderEvent,
   Pressable,
-  SafeAreaView,
   SectionList,
   SectionListData,
   SectionListRenderItem,
@@ -12,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useSearchHistory, type SearchHistoryItem } from '../lib/hooks/useSearchHistory';
 

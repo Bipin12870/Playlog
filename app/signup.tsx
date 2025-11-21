@@ -104,7 +104,15 @@ export default function SignupScreen() {
     const active = method === value;
     return (
       <View style={[styles.accordionBlock, active && styles.accordionBlockActive]}>
-        <Pressable style={styles.accordionHeader} onPress={() => pick(value)}>
+        <Pressable
+          style={styles.accordionHeader}
+          onPress={() => pick(value)}
+          accessibilityRole="button"
+          accessibilityLabel={`${label} sign up`}
+          accessibilityHint={active ? `Collapse ${label} form` : `Expand ${label} form`}
+          accessibilityState={{ expanded: active, selected: active }}
+          hitSlop={10}
+        >
           <Ionicons name={icon} size={18} color={active ? '#0f172a' : '#8b5cf6'} />
           <Text style={styles.accordionLabel}>{label}</Text>
           <Ionicons
@@ -172,7 +180,12 @@ export default function SignupScreen() {
           </View>
         </View>
         <Link href="/(tabs)/home" asChild>
-          <Pressable style={styles.mobileCloseBtn} hitSlop={12}>
+          <Pressable
+            style={styles.mobileCloseBtn}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Close sign up and go back"
+          >
             <Ionicons name="close" size={18} color="#e2e8f0" />
           </Pressable>
         </Link>
