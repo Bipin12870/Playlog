@@ -26,7 +26,12 @@ import { getProfileVisibility } from '../../../lib/profileVisibility';
 import { resolveAvatarSource } from '../../../lib/avatar';
 import { useFollowAlertsContext } from '../../../lib/hooks/useFollowAlerts';
 import { SubscriptionOfferModal } from '../../../components/SubscriptionOfferModal';
-import { planCatalog, createCheckoutSession, type PlanId } from '../../../lib/billing';
+import {
+  planCatalog,
+  createCheckoutSession,
+  createBillingPortalSession,
+  type PlanId,
+} from '../../../lib/billing';
 
 type ProfileAction = {
   key:
@@ -184,6 +189,7 @@ export default function ProfileHomeScreen() {
   const [subscriptionModalVisible, setSubscriptionModalVisible] = useState(false);
   const [billingLoadingPlanId, setBillingLoadingPlanId] = useState<PlanId | null>(null);
   const [billingError, setBillingError] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(
     ACTION_SECTIONS.reduce<Record<string, boolean>>((acc, section) => {
       acc[section.key] = false;
@@ -337,9 +343,33 @@ export default function ProfileHomeScreen() {
     [],
   );
 
-  const onManagePlan = useCallback(() => {
-    setSubscriptionModalVisible(true);
-  }, []);
+  // 🔹 New: manage plan – opens Stripe portal for premium, plan picker for free
+  const handleManagePlan = useCallback(async () => {
+    try {
+      setBillingError(null);
+
+      // FREE tier → show upgrade modal
+      if (!isPremium) {
+        setSubscriptionModalVisible(true);
+        return;
+      }
+
+      // PREMIUM → open Stripe billing portal (where they can cancel)
+      setPortalLoading(true);
+      const session = await createBillingPortalSession();
+
+      if (session && session.url) {
+        await Linking.openURL(session.url);
+      } else {
+        setBillingError('Unable to open billing portal.');
+      }
+    } catch (err) {
+      console.error('Failed to open billing portal', err);
+      setBillingError('Something went wrong opening billing portal.');
+    } finally {
+      setPortalLoading(false);
+    }
+  }, [isPremium]);
 
   if (initializing || loading) {
     return (
@@ -404,7 +434,8 @@ export default function ProfileHomeScreen() {
           subscriptionStatus={subscriptionStatus}
           expirationLabel={expirationLabel}
           billingError={billingError}
-          onManagePlan={onManagePlan}
+          onManagePlan={handleManagePlan}
+          portalLoading={portalLoading}
           openSections={openSections}
           onToggleSection={toggleSection}
         />
@@ -467,11 +498,17 @@ export default function ProfileHomeScreen() {
                   style={({ pressed }) => [
                     styles.subscriptionButton,
                     pressed && styles.subscriptionButtonPressed,
+                    portalLoading && isPremium && { opacity: 0.7 },
                   ]}
-                  onPress={onManagePlan}
+                  onPress={handleManagePlan}
+                  disabled={portalLoading && isPremium}
                 >
                   <Text style={styles.subscriptionButtonLabel}>
-                    {isPremium ? 'Manage plan' : 'Choose plan'}
+                    {isPremium
+                      ? portalLoading
+                        ? 'Opening…'
+                        : 'Manage plan'
+                      : 'Choose plan'}
                   </Text>
                 </Pressable>
               </View>
@@ -614,6 +651,7 @@ type MobileProfileProps = {
   expirationLabel: string | null;
   billingError: string | null;
   onManagePlan: () => void;
+  portalLoading: boolean;
   openSections: Record<string, boolean>;
   onToggleSection: (key: string) => void;
 };
@@ -634,6 +672,7 @@ function MobileProfile({
   expirationLabel,
   billingError,
   onManagePlan,
+  portalLoading,
   openSections,
   onToggleSection,
 }: MobileProfileProps) {
@@ -705,11 +744,17 @@ function MobileProfile({
             style={({ pressed }) => [
               styles.mobileSubscriptionButton,
               pressed && styles.mobileSubscriptionButtonPressed,
+              portalLoading && isPremium && { opacity: 0.7 },
             ]}
             onPress={onManagePlan}
+            disabled={portalLoading && isPremium}
           >
             <Text style={styles.mobileSubscriptionButtonLabel}>
-              {isPremium ? 'Manage plan' : 'Choose plan'}
+              {isPremium
+                ? portalLoading
+                  ? 'Opening…'
+                  : 'Manage plan'
+                : 'Choose plan'}
             </Text>
           </Pressable>
           {billingError ? <Text style={styles.billingError}>{billingError}</Text> : null}
@@ -945,22 +990,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   badgeLabel: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  statAlertDot: {
-    position: 'absolute',
-    top: -4,
-    left: '50%',
-    transform: [{ translateX: -5 }],
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#facc15',
-  },
-  inlineAlertDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#facc15',
-  },
+
   loadingState: {
     flex: 1,
     alignItems: 'center',
