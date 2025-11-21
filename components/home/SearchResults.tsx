@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { GameCard } from '../GameCard';
+import { AdBanner } from './AdBanner';
 import { GameSummary } from '../../types/game';
 
 type EmptyState = {
@@ -21,12 +22,17 @@ type EmptyState = {
   copy: string;
 };
 
-type AdPlaceholderItem = {
+type AdItem = {
   kind: 'ad';
   id: string;
+  tag?: string;
+  title: string;
+  copy: string;
+  ctaLabel: string;
+  href: string;
 };
 
-type GridItem = GameSummary | AdPlaceholderItem | null;
+type GridItem = GameSummary | AdItem | null;
 
 type SearchResultsProps = {
   games: GameSummary[];
@@ -46,6 +52,7 @@ type SearchResultsProps = {
   hasMore?: boolean;
   loadingMore?: boolean;
   adFrequency?: number | null;
+  ads?: AdItem[];
 };
 
 export function SearchResults({
@@ -68,17 +75,49 @@ export function SearchResults({
   hasMore = false,
   loadingMore = false,
   adFrequency: adFrequencyProp = 6,
+  ads: adsProp,
 }: SearchResultsProps) {
   const isCompact = cardVariant === 'compact';
   const isWeb = Platform.OS === 'web';
   const baseColumns = isWeb ? Math.max(columnCount, 6) : columnCount;
   const resolvedColumnCount = isCompact && baseColumns < 3 ? 3 : baseColumns;
 
+  const adInventory = useMemo<AdItem[]>(
+    () =>
+      adsProp?.length
+        ? adsProp
+        : [
+            {
+              kind: 'ad',
+              id: 'prime-video',
+              tag: 'Sponsored',
+              title: 'Prime Video',
+              copy: 'Stream fresh originals, hit movies, and weekly drops in one place.',
+              ctaLabel: 'Watch now',
+              href: 'https://www.primevideo.com/',
+            },
+            {
+              kind: 'ad',
+              id: 'playlog-promote',
+              tag: 'Sponsored',
+              title: 'Boost your next launch',
+              copy: 'Secure premium placement across Playlog and spotlight your studio’s headline release.',
+              ctaLabel: 'Reserve placement',
+              href: 'https://example.com/advertise',
+            },
+          ],
+    [adsProp],
+  );
+
+  const isAdItem = (item: GridItem): item is AdItem =>
+    !!item && typeof item === 'object' && 'kind' in item && item.kind === 'ad';
+
   const data = useMemo<GridItem[]>(() => {
     if (!games.length) return [];
     const shouldInsertAds = typeof adFrequencyProp === 'number' && adFrequencyProp > 0;
 
     const withAds: GridItem[] = [];
+    let adInsertCount = 0;
     games.forEach((game, index) => {
       withAds.push(game);
       if (
@@ -86,7 +125,9 @@ export function SearchResults({
         (index + 1) % adFrequencyProp === 0 &&
         index < games.length - 1
       ) {
-        withAds.push({ kind: 'ad', id: `ad-${index}` });
+        const ad = adInventory[adInsertCount % adInventory.length];
+        withAds.push({ ...ad, id: `${ad.id}-${adInsertCount}` });
+        adInsertCount += 1;
       }
     });
 
@@ -94,7 +135,7 @@ export function SearchResults({
     if (remainder === 0) return withAds;
     const placeholders = Array.from({ length: resolvedColumnCount - remainder }, () => null);
     return [...withAds, ...placeholders];
-  }, [games, resolvedColumnCount, adFrequencyProp]);
+  }, [games, resolvedColumnCount, adFrequencyProp, adInventory]);
 
   const renderItem: ListRenderItem<GridItem> = ({ item }) => {
     if (!item) {
@@ -106,14 +147,16 @@ export function SearchResults({
       );
     }
 
-    if (item && typeof item === 'object' && 'kind' in item && item.kind === 'ad') {
+    if (isAdItem(item)) {
       return (
         <View style={[styles.card, isCompact && styles.compactCard, cardStyle]}>
-          <View style={[styles.adCard, isCompact && styles.adCardCompact]}>
-            <Text style={styles.adLabel}>Sponsored</Text>
-            <Text style={styles.adTitle}>Ad placement</Text>
-            <Text style={styles.adCopy}>Reserve this space to promote your next release.</Text>
-          </View>
+          <AdBanner
+            tag={item.tag}
+            title={item.title}
+            copy={item.copy}
+            ctaLabel={item.ctaLabel}
+            href={item.href}
+          />
         </View>
       );
     }

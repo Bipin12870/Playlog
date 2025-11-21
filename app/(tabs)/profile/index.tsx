@@ -698,8 +698,9 @@ const styles = StyleSheet.create({
   badgeLabel: { color: '#fff', fontSize: 12, fontWeight: '700' },
   statAlertDot: {
     position: 'absolute',
-    top: 6,
-    right: 22,
+    top: -4,
+    left: '50%',
+    transform: [{ translateX: -5 }],
     width: 10,
     height: 10,
     borderRadius: 5,
