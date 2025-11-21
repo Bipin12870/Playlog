@@ -15,6 +15,8 @@ const STRIPE_SUCCESS_URL =
   process.env.STRIPE_SUCCESS_URL ??
   'https://example.com/stripe-success?session_id={CHECKOUT_SESSION_ID}';
 const STRIPE_CANCEL_URL = process.env.STRIPE_CANCEL_URL ?? 'https://example.com/stripe-cancel';
+const STRIPE_PORTAL_RETURN_URL =
+  process.env.STRIPE_PORTAL_RETURN_URL ?? 'https://example.com/stripe-portal-return';
 
 if (!STRIPE_SECRET_KEY) {
   throw new Error('Missing STRIPE_SECRET_KEY. Set this in your billing backend environment.');
@@ -129,6 +131,40 @@ app.post(
       });
 
       return res.status(200).json({ url: session.url, sessionId: session.id });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// 🔹 Customer portal: manage/cancel subscription
+app.post(
+  '/stripe/create-portal-session',
+  express.json(),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const uid = await resolveAuthUid(req);
+
+      const userRef = db.collection('users').doc(uid);
+      const userSnapshot = await userRef.get();
+
+      if (!userSnapshot.exists) {
+        throw new ApiError('User not found', 404);
+      }
+
+      const userData = userSnapshot.data();
+      const customerId = userData?.stripeCustomerId;
+
+      if (!customerId) {
+        throw new ApiError('User has no Stripe customer ID', 400);
+      }
+
+      const session = await stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: STRIPE_PORTAL_RETURN_URL,
+      });
+
+      return res.status(200).json({ url: session.url });
     } catch (error) {
       next(error);
     }
