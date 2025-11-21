@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { GameCard } from '../GameCard';
+import { AdBanner } from './AdBanner';
 import { GameSummary } from '../../types/game';
 
 type EmptyState = {
@@ -66,6 +67,36 @@ export function SearchResults({
   const isWeb = Platform.OS === 'web';
   const baseColumns = isWeb ? Math.max(columnCount, 6) : columnCount;
   const resolvedColumnCount = isCompact && baseColumns < 3 ? 3 : baseColumns;
+
+  const adInventory = useMemo<AdItem[]>(
+    () =>
+      adsProp?.length
+        ? adsProp
+        : [
+            {
+              kind: 'ad',
+              id: 'prime-video',
+              tag: 'Sponsored',
+              title: 'Prime Video',
+              copy: 'Stream fresh originals, hit movies, and weekly drops in one place.',
+              ctaLabel: 'Watch now',
+              href: 'https://www.primevideo.com/',
+            },
+            {
+              kind: 'ad',
+              id: 'playlog-promote',
+              tag: 'Sponsored',
+              title: 'Boost your next launch',
+              copy: 'Secure premium placement across Playlog and spotlight your studio’s headline release.',
+              ctaLabel: 'Reserve placement',
+              href: 'https://example.com/advertise',
+            },
+          ],
+    [adsProp],
+  );
+
+  const isAdItem = (item: GridItem): item is AdItem =>
+    !!item && typeof item === 'object' && 'kind' in item && item.kind === 'ad';
 
   const data = useMemo<GridItem[]>(() => {
     if (!games.length) return [];

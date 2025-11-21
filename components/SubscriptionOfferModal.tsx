@@ -1,11 +1,14 @@
+import { ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
-type SubscriptionOfferModalProps = {
-  visible: boolean;
-  onClose: () => void;
-  onSelectPlan?: () => void;
-};
+import { billingPlans, type PlanId } from '../lib/billing';
 
 const FEATURES = [
   'Unlimited favourite games',
@@ -14,14 +17,34 @@ const FEATURES = [
   'AI recommended games',
 ];
 
-export function SubscriptionOfferModal({ visible, onClose, onSelectPlan }: SubscriptionOfferModalProps) {
-  const handleSelectPlan = () => {
+type SubscriptionOfferModalProps = {
+  visible: boolean;
+  onClose: () => void;
+  onSelectPlan?: (planId: PlanId) => void;
+  loadingPlanId?: PlanId | null;
+  errorMessage?: string | null;
+  premium?: boolean;
+};
+
+export function SubscriptionOfferModal({
+  visible,
+  onClose,
+  onSelectPlan,
+  loadingPlanId,
+  errorMessage,
+  premium,
+}: SubscriptionOfferModalProps) {
+  const handleSelectPlan = (planId: PlanId) => {
     if (onSelectPlan) {
-      onSelectPlan();
+      onSelectPlan(planId);
     } else {
       onClose();
     }
   };
+
+  const headerCopy = premium
+    ? 'You already have premium access'
+    : 'Choose a plan that unlocks everything';
 
   return (
     <Modal animationType="fade" transparent visible={visible} onRequestClose={onClose}>
@@ -31,11 +54,7 @@ export function SubscriptionOfferModal({ visible, onClose, onSelectPlan }: Subsc
           <Pressable style={styles.closeButton} onPress={onClose} accessibilityRole="button">
             <Ionicons name="close" size={20} color="#111827" />
           </Pressable>
-          <Text style={styles.heading}>
-            <Text style={styles.price}>$4.99</Text>
-            <Text style={styles.period}> per month</Text>
-          </Text>
-          <View style={styles.divider} />
+          <Text style={styles.heading}>{headerCopy}</Text>
           <View style={styles.features}>
             {FEATURES.map((feature) => (
               <View key={feature} style={styles.featureRow}>
@@ -44,18 +63,43 @@ export function SubscriptionOfferModal({ visible, onClose, onSelectPlan }: Subsc
               </View>
             ))}
           </View>
+          <View style={styles.planList}>
+            {billingPlans.map((plan) => {
+              const active = loadingPlanId === plan.id;
+              return (
+                <Pressable
+                  key={plan.id}
+                  style={({ pressed }) => [
+                    styles.planCard,
+                    plan.highlight && styles.planCardFeatured,
+                    pressed && styles.planCardPressed,
+                  ]}
+                  onPress={() => handleSelectPlan(plan.id)}
+                  accessibilityRole="button"
+                >
+                  <View>
+                    <Text style={styles.planTitle}>{plan.title}</Text>
+                    <Text style={styles.planPrice}>{plan.priceLabel}</Text>
+                    <Text style={styles.planCycle}>{plan.billingCycle}</Text>
+                    <Text style={styles.planDescription}>{plan.description}</Text>
+                  </View>
+                  <View style={styles.planAction}>
+                    {active ? (
+                      <ActivityIndicator size="small" color="#f8fafc" />
+                    ) : (
+                      <Text style={styles.planActionLabel}>Select</Text>
+                    )}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
           <Pressable
             style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && styles.primaryButtonPressed,
+              styles.secondaryAction,
+              pressed && styles.secondaryActionPressed,
             ]}
-            onPress={handleSelectPlan}
-            accessibilityRole="button"
-          >
-            <Text style={styles.primaryLabel}>Select Plan</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.secondaryAction, pressed && styles.secondaryActionPressed]}
             onPress={onClose}
             accessibilityRole="button"
           >
@@ -77,7 +121,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
-    maxWidth: 360,
+    maxWidth: 400,
     backgroundColor: '#f8fafc',
     borderRadius: 24,
     padding: 24,
@@ -100,23 +144,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 20,
     fontWeight: '700',
-    color: '#1f2937',
-    marginTop: 8,
-  },
-  price: {
-    fontSize: 30,
-    fontWeight: '800',
     color: '#111827',
-  },
-  period: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#374151',
-    marginLeft: 4,
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#d1d5db',
   },
   features: {
     gap: 12,
@@ -131,23 +159,65 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  primaryButton: {
-    marginTop: 8,
-    paddingVertical: 14,
-    borderRadius: 999,
+  planList: {
+    gap: 12,
+  },
+  planCard: {
     backgroundColor: '#111827',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#1f2937',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 12,
   },
-  primaryButtonPressed: {
-    backgroundColor: '#0f172a',
-    opacity: 0.9,
+  planCardFeatured: {
+    borderColor: '#6366f1',
+    shadowColor: '#6366f1',
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 12 },
+    shadowRadius: 16,
   },
-  primaryLabel: {
-    color: '#f8fafc',
+  planCardPressed: {
+    opacity: 0.85,
+  },
+  planTitle: {
+    color: '#e0e7ff',
     fontSize: 16,
     fontWeight: '700',
-    letterSpacing: 0.3,
+  },
+  planPrice: {
+    color: '#f8fafc',
+    fontSize: 20,
+    fontWeight: '800',
+    marginTop: 4,
+  },
+  planCycle: {
+    color: '#cbd5f5',
+    fontSize: 12,
+  },
+  planDescription: {
+    color: '#cbd5f5',
+    fontSize: 13,
+    marginTop: 4,
+  },
+  planAction: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 64,
+  },
+  planActionLabel: {
+    color: '#f8fafc',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  errorText: {
+    color: '#b91c1c',
+    fontSize: 14,
+    textAlign: 'center',
   },
   secondaryAction: {
     alignSelf: 'center',
