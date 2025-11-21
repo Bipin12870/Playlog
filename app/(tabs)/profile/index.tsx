@@ -189,7 +189,6 @@ export default function ProfileHomeScreen() {
   const [subscriptionModalVisible, setSubscriptionModalVisible] = useState(false);
   const [billingLoadingPlanId, setBillingLoadingPlanId] = useState<PlanId | null>(null);
   const [billingError, setBillingError] = useState<string | null>(null);
-  const [portalLoading, setPortalLoading] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(
     ACTION_SECTIONS.reduce<Record<string, boolean>>((acc, section) => {
       acc[section.key] = false;
@@ -319,13 +318,27 @@ export default function ProfileHomeScreen() {
         setBillingError(null);
         setBillingLoadingPlanId(planId);
 
-        // FREE is non-billable; just close the modal.
-        if (planId === 'FREE') {
+        // If the user is already premium, tapping the plan means:
+        // "Open Stripe customer portal so I can manage/cancel".
+        if (isPremium) {
+          const portalSession = await createBillingPortalSession();
+          if (portalSession && portalSession.url) {
+            await Linking.openURL(portalSession.url);
+          } else {
+            setBillingError('Unable to open billing portal.');
+          }
           setSubscriptionModalVisible(false);
-          setBillingLoadingPlanId(null);
           return;
         }
 
+        // Not premium yet:
+        // FREE is non-billable → just close modal.
+        if (planId === 'FREE') {
+          setSubscriptionModalVisible(false);
+          return;
+        }
+
+        // PREMIUM (or any paid plan) → go to Stripe Checkout.
         const session = await createCheckoutSession(planId);
 
         if (session && typeof session === 'object' && 'url' in session && session.url) {
@@ -334,42 +347,18 @@ export default function ProfileHomeScreen() {
           setBillingError('Unable to start checkout session.');
         }
       } catch (err) {
-        console.error('Failed to create checkout session', err);
-        setBillingError('Something went wrong starting checkout.');
+        console.error('Failed to start billing flow', err);
+        setBillingError('Something went wrong starting billing.');
       } finally {
         setBillingLoadingPlanId(null);
       }
     },
-    [],
+    [isPremium],
   );
 
-  // 🔹 New: manage plan – opens Stripe portal for premium, plan picker for free
-  const handleManagePlan = useCallback(async () => {
-    try {
-      setBillingError(null);
-
-      // FREE tier → show upgrade modal
-      if (!isPremium) {
-        setSubscriptionModalVisible(true);
-        return;
-      }
-
-      // PREMIUM → open Stripe billing portal (where they can cancel)
-      setPortalLoading(true);
-      const session = await createBillingPortalSession();
-
-      if (session && session.url) {
-        await Linking.openURL(session.url);
-      } else {
-        setBillingError('Unable to open billing portal.');
-      }
-    } catch (err) {
-      console.error('Failed to open billing portal', err);
-      setBillingError('Something went wrong opening billing portal.');
-    } finally {
-      setPortalLoading(false);
-    }
-  }, [isPremium]);
+  const onManagePlan = useCallback(() => {
+    setSubscriptionModalVisible(true);
+  }, []);
 
   if (initializing || loading) {
     return (
@@ -434,8 +423,7 @@ export default function ProfileHomeScreen() {
           subscriptionStatus={subscriptionStatus}
           expirationLabel={expirationLabel}
           billingError={billingError}
-          onManagePlan={handleManagePlan}
-          portalLoading={portalLoading}
+          onManagePlan={onManagePlan}
           openSections={openSections}
           onToggleSection={toggleSection}
         />
@@ -498,17 +486,11 @@ export default function ProfileHomeScreen() {
                   style={({ pressed }) => [
                     styles.subscriptionButton,
                     pressed && styles.subscriptionButtonPressed,
-                    portalLoading && isPremium && { opacity: 0.7 },
                   ]}
-                  onPress={handleManagePlan}
-                  disabled={portalLoading && isPremium}
+                  onPress={onManagePlan}
                 >
                   <Text style={styles.subscriptionButtonLabel}>
-                    {isPremium
-                      ? portalLoading
-                        ? 'Opening…'
-                        : 'Manage plan'
-                      : 'Choose plan'}
+                    {isPremium ? 'Manage plan' : 'Choose plan'}
                   </Text>
                 </Pressable>
               </View>
@@ -651,7 +633,6 @@ type MobileProfileProps = {
   expirationLabel: string | null;
   billingError: string | null;
   onManagePlan: () => void;
-  portalLoading: boolean;
   openSections: Record<string, boolean>;
   onToggleSection: (key: string) => void;
 };
@@ -672,7 +653,6 @@ function MobileProfile({
   expirationLabel,
   billingError,
   onManagePlan,
-  portalLoading,
   openSections,
   onToggleSection,
 }: MobileProfileProps) {
@@ -744,17 +724,11 @@ function MobileProfile({
             style={({ pressed }) => [
               styles.mobileSubscriptionButton,
               pressed && styles.mobileSubscriptionButtonPressed,
-              portalLoading && isPremium && { opacity: 0.7 },
             ]}
             onPress={onManagePlan}
-            disabled={portalLoading && isPremium}
           >
             <Text style={styles.mobileSubscriptionButtonLabel}>
-              {isPremium
-                ? portalLoading
-                  ? 'Opening…'
-                  : 'Manage plan'
-                : 'Choose plan'}
+              {isPremium ? 'Manage plan' : 'Choose plan'}
             </Text>
           </Pressable>
           {billingError ? <Text style={styles.billingError}>{billingError}</Text> : null}
