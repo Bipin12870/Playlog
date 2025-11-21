@@ -945,8 +945,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   badgeLabel: { color: '#fff', fontSize: 12, fontWeight: '700' },
-
-  loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  statAlertDot: {
+    position: 'absolute',
+    top: -4,
+    left: '50%',
+    transform: [{ translateX: -5 }],
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#facc15',
+  },
+  inlineAlertDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#facc15',
+  },
+  loadingState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
   loadingText: { color: '#475569' },
 
   emptyState: {
