@@ -6,3 +6,7 @@ user2,1001,6
 user2,1004,9
 user3,1002,8
 user3,1005,10
+user_id,game_id,rating
+ydTqHtwyyYOaJrgZv1hcW51IW4R2,1001,8
+ydTqHtwyyYOaJrgZv1hcW51IW4R2,1002,9
+ydTqHtwyyYOaJrgZv1hcW51IW4R2,1003,10

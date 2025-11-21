@@ -5,8 +5,15 @@ from surprise import Dataset, Reader, SVD
 # 1. Load your interaction data
 df = pd.read_csv("data/interactions.csv")  # expects columns: user_id, game_id, rating
 
+# 🔧 CLEANING STEP — this fixes your error
+df = df.rename(columns=lambda c: c.strip())  # remove weird spaces in headers
+df["rating"] = pd.to_numeric(df["rating"], errors="coerce")  # convert rating to number
+df = df.dropna(subset=["rating"])  # drop rows where rating is not numeric
+
+# Optional: print to confirm cleaning
+print(df.head())
+
 # 2. Setup Surprise with your rating scale
-# Change (1, 10) to (1, 5) if you use 1–5 stars in your app
 reader = Reader(rating_scale=(1, 10))
 
 data = Dataset.load_from_df(df[["user_id", "game_id", "rating"]], reader)
