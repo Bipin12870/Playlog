@@ -9,6 +9,7 @@ import {
   fetchSimilarGamesByGenres,
   fetchTrendingGames,
 } from '../../lib/igdb';
+import { useTheme, type ThemeColors } from '../../lib/theme';
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
 import { useUserProfile } from '../../lib/userProfile';
 import { useGameDetailsCache } from '../../lib/hooks/useGameDetailsCache';
@@ -56,6 +57,10 @@ type IgdbGame = {
 export default function GameDetailsScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const accentColor = colors.accent;
+  const dangerColor = colors.danger;
   const { user } = useAuthUser();
   const { profile } = useUserProfile(user?.uid ?? null);
   const blockRelationships = useBlockRelationships(user?.uid ?? null);
@@ -559,7 +564,7 @@ export default function GameDetailsScreen() {
 
       {loading ? (
         <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color="#6366f1" />
+          <ActivityIndicator size="large" color={accentColor} />
         </View>
       ) : error ? (
         <View style={styles.centerContent}>
@@ -681,34 +686,39 @@ function mapToSummary(raw: IgdbGame | GameSummary): GameSummary {
   };
 }
 
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  centerContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  errorText: {
-    color: '#fca5a5',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  retryButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    borderRadius: 999,
-    backgroundColor: '#6366f1',
-  },
-  retryButtonPressed: {
-    backgroundColor: '#4f46e5',
-  },
-  retryLabel: {
-    color: '#f8fafc',
-    fontWeight: '600',
-  },
-});
+function createStyles(colors: ThemeColors, isDark: boolean) {
+  const accent = colors.accent;
+  const danger = colors.danger;
+
+  return StyleSheet.create({
+    page: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    centerContent: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+    },
+    errorText: {
+      color: danger,
+      fontSize: 16,
+      textAlign: 'center',
+      marginBottom: 12,
+    },
+    retryButton: {
+      paddingVertical: 10,
+      paddingHorizontal: 24,
+      borderRadius: 999,
+      backgroundColor: accent,
+    },
+    retryButtonPressed: {
+      backgroundColor: isDark ? `${accent}cc` : `${accent}e6`,
+    },
+    retryLabel: {
+      color: isDark ? colors.text : '#ffffff',
+      fontWeight: '600',
+    },
+  });
+}

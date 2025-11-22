@@ -12,10 +12,13 @@ import {
 } from 'react-native';
 
 import { useAuthUser } from '../../../lib/hooks/useAuthUser';
+import { useTheme, type ThemeColors } from '../../../lib/theme';
 
 export default function DeleteAccountScreen() {
   const router = useRouter();
   const { user } = useAuthUser();
+  const { colors, isDark } = useTheme();
+  const styles = createStyles(colors, isDark);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,7 +87,7 @@ export default function DeleteAccountScreen() {
         ]}
       >
         {deleting ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={isDark ? colors.text : '#ffffff'} />
         ) : (
           <Text style={styles.deleteLabel}>Delete account permanently</Text>
         )}
@@ -96,42 +99,44 @@ export default function DeleteAccountScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-    padding: 20,
-    gap: 12,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#f8fafc',
-  },
-  copy: {
-    fontSize: 14,
-    color: '#f8fafc',
-    lineHeight: 20,
-  },
-  warningBox: {
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: 'rgba(239,68,68,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.3)',
-    gap: 4,
-  },
-  warningText: { color: '#fca5a5', fontSize: 13 },
-  deleteButton: {
-    marginTop: 4,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    backgroundColor: '#ef4444',
-  },
-  deleteButtonPressed: { backgroundColor: '#dc2626' },
-  deleteLabel: { color: '#fff', fontWeight: '700' },
-  cancelLink: { paddingVertical: 10 },
-  cancelText: { color: '#cbd5f5', fontWeight: '600' },
-  errorText: { color: '#f87171', fontSize: 13 },
-});
+function createStyles(colors: ThemeColors, isDark: boolean) {
+  return StyleSheet.create({
+    page: {
+      flex: 1,
+      backgroundColor: colors.background,
+      padding: 20,
+      gap: 12,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    copy: {
+      fontSize: 14,
+      color: colors.text,
+      lineHeight: 20,
+    },
+    warningBox: {
+      padding: 12,
+      borderRadius: 12,
+      backgroundColor: isDark ? 'rgba(239,68,68,0.08)' : colors.surfaceSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 4,
+    },
+    warningText: { color: colors.danger, fontSize: 13 },
+    deleteButton: {
+      marginTop: 4,
+      paddingVertical: 14,
+      borderRadius: 12,
+      alignItems: 'center',
+      backgroundColor: colors.danger,
+    },
+    deleteButtonPressed: { backgroundColor: '#dc2626' },
+    deleteLabel: { color: isDark ? colors.text : '#ffffff', fontWeight: '700' },
+    cancelLink: { paddingVertical: 10 },
+    cancelText: { color: colors.muted, fontWeight: '600' },
+    errorText: { color: colors.danger, fontSize: 13 },
+  });
+}

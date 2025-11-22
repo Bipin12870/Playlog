@@ -1,8 +1,12 @@
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useTheme, type ThemeColors } from '../../../lib/theme';
+
 export default function VisibilitySettingsScreen() {
   const router = useRouter();
+  const { colors, isDark } = useTheme();
+  const styles = createStyles(colors, isDark);
 
   return (
     <View style={styles.page}>
@@ -21,38 +25,40 @@ export default function VisibilitySettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-    padding: 20,
-    gap: 12,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#f8fafc',
-  },
-  copy: {
-    fontSize: 14,
-    color: '#cbd5f5',
-    lineHeight: 20,
-  },
-  copyMuted: {
-    fontSize: 13,
-    color: '#9ca3af',
-    lineHeight: 20,
-  },
-  cta: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#6366f1',
-    marginTop: 4,
-  },
-  ctaLabel: {
-    color: '#f8fafc',
-    fontWeight: '700',
-  },
-});
+function createStyles(colors: ThemeColors, isDark: boolean) {
+  return StyleSheet.create({
+    page: {
+      flex: 1,
+      backgroundColor: colors.background,
+      padding: 20,
+      gap: 12,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    copy: {
+      fontSize: 14,
+      color: colors.text,
+      lineHeight: 20,
+    },
+    copyMuted: {
+      fontSize: 13,
+      color: colors.muted,
+      lineHeight: 20,
+    },
+    cta: {
+      alignSelf: 'flex-start',
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 12,
+      backgroundColor: colors.accent,
+      marginTop: 4,
+    },
+    ctaLabel: {
+      color: isDark ? colors.text : '#ffffff',
+      fontWeight: '700',
+    },
+  });
+}

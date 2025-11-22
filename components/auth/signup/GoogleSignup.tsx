@@ -6,7 +6,8 @@ import { useRouter } from 'expo-router';
 import * as Google from 'expo-auth-session/providers/google';
 
 import { signInWithGoogleCredential } from '../../../lib/auth';
-import { signupStyles as styles } from './styles';
+import { useTheme } from '../../../lib/theme';
+import { createSignupStyles } from './styles';
 
 interface GoogleSignupProps {
   onError: (message: string | null) => void;
@@ -15,6 +16,10 @@ interface GoogleSignupProps {
 
 export function GoogleSignup({ onError, onVerificationError }: GoogleSignupProps) {
   const router = useRouter();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createSignupStyles(colors, isDark), [colors, isDark]);
+  const primaryContentColor = isDark ? colors.text : '#0f172a';
+  const disabledContentColor = colors.muted;
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -174,7 +179,7 @@ export function GoogleSignup({ onError, onVerificationError }: GoogleSignupProps
 
       <Pressable style={styles.checkboxRow} onPress={() => setTermsAccepted((prev) => !prev)}>
         <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
-          {termsAccepted ? <Feather name="check" size={16} color="#0f172a" /> : null}
+          {termsAccepted ? <Feather name="check" size={16} color={primaryContentColor} /> : null}
         </View>
         <Text style={styles.checkboxLabel}>
           I agree to the{' '}
@@ -190,10 +195,14 @@ export function GoogleSignup({ onError, onVerificationError }: GoogleSignupProps
         style={[styles.primaryButton, (googleButtonDisabled || googleButtonInactive) && styles.submitDisabled]}
       >
         {googleLoading ? (
-          <ActivityIndicator color="#0f172a" />
+          <ActivityIndicator color={googleButtonDisabled ? disabledContentColor : primaryContentColor} />
         ) : (
           <>
-            <Ionicons name="logo-google" size={18} color="#0f172a" />
+            <Ionicons
+              name="logo-google"
+              size={18}
+              color={googleButtonDisabled ? disabledContentColor : primaryContentColor}
+            />
             <Text style={styles.primaryButtonText}>Continue with Google</Text>
           </>
         )}

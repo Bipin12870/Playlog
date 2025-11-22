@@ -9,7 +9,6 @@ import {
   Text,
   TextInput,
   View,
-  useColorScheme,
 } from 'react-native';
 import { signOut } from 'firebase/auth';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -29,6 +28,7 @@ import {
 } from '../../lib/events/categoryDrawer';
 import { useSearchHistory, type SearchHistoryItem } from '../../lib/hooks/useSearchHistory';
 import { SearchHistoryDropdown } from '../../components/search/SearchHistoryDropdown';
+import { useTheme } from '../../lib/theme';
 
 const LOGO = require('../../assets/logo.png');
 let pendingLogoGlow = false;
@@ -49,6 +49,7 @@ type WebNavBarProps = {
     muted: string;
     accent: string;
     isDark: boolean;
+    input: string;
   };
   user: ReturnType<typeof useAuthUser>['user'];
   pendingRequests: number;
@@ -93,8 +94,8 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
   const placeholder = placeholderByScope[nextScope] ?? 'Search';
   const showSearch = activeRoute !== 'profile';
   const isDarkSurface = palette.isDark;
-  const inputBackground = isDarkSurface ? '#1f2937' : '#ffffff';
-  const signOutTextColor = isDarkSurface ? '#f1f5f9' : '#1f2937';
+  const inputBackground = palette.input;
+  const signOutTextColor = palette.text;
 
   useEffect(() => {
     return () => {
@@ -331,12 +332,18 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
           onPress={handleCategoryOpen}
           style={[
             styles.categoryButton,
-            { borderColor: palette.border },
-            categoryActive && styles.categoryButtonActive,
+            {
+              borderColor: palette.border,
+              backgroundColor: isDarkSurface ? 'rgba(15,23,42,0.8)' : 'rgba(255,255,255,0.9)',
+            },
+            categoryActive && {
+              borderColor: palette.accent,
+              backgroundColor: `${palette.accent}26`,
+            },
           ]}
           hitSlop={8}
         >
-          <Ionicons name="options-outline" size={18} color="#f8fafc" />
+          <Ionicons name="options-outline" size={18} color={palette.text} />
         </Pressable>
         <View style={styles.authLinks}>
           {user ? (
@@ -344,16 +351,7 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
               onPress={confirmSignOut}
               style={[styles.signOutButton, { borderColor: palette.border }]}
             >
-              <Text
-                style={[
-                  styles.signOutLabel,
-                  {
-                    color: signOutTextColor,
-                  },
-                ]}
-              >
-                Sign out
-              </Text>
+              <Text style={[styles.signOutLabel, { color: signOutTextColor }]}>Sign out</Text>
             </Pressable>
           ) : (
             <>
@@ -450,24 +448,25 @@ function NativeTabs({
 }
 
 export default function TabsLayout() {
-  const scheme = useColorScheme();
-  const accent = scheme === 'dark' ? '#7dcfff' : '#2b6cb0';
+  const { colors, isDark } = useTheme();
+  const accent = colors.accent;
   const { user } = useAuthUser();
   const followRequests = useFollowRequests(user?.uid ?? null);
   const pendingRequests = followRequests.requests.length;
   const profileBadge =
     pendingRequests > 0 ? (pendingRequests > 99 ? '99+' : String(pendingRequests)) : undefined;
-  const pageBackground = '#0f172a';
-  const navBackground = pageBackground;
-  const navBorder = '#1e293b';
-  const navMuted = '#94a3b8';
+  const pageBackground = colors.background;
+  const navBackground = colors.surface;
+  const navBorder = colors.border;
+  const navMuted = colors.muted;
   const palette = {
     background: navBackground,
     border: navBorder,
-    text: '#f8fafc',
+    text: colors.text,
     muted: navMuted,
     accent,
-    isDark: true,
+    isDark,
+    input: colors.inputBackground,
   };
 
   if (Platform.OS === 'web') {

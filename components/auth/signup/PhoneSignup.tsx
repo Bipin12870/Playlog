@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { FirebaseError } from 'firebase/app';
@@ -12,7 +12,8 @@ import {
 
 import { ensureUserProfile } from '../../../lib/auth';
 import { auth } from '../../../lib/firebase';
-import { signupStyles as styles } from './styles';
+import { useTheme } from '../../../lib/theme';
+import { createSignupStyles } from './styles';
 
 interface PhoneSignupProps {
   onSuccess: (payload: { contact: string }) => void;
@@ -26,6 +27,12 @@ declare global {
 }
 
 export function PhoneSignup({ onSuccess, onError, onVerificationError }: PhoneSignupProps) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createSignupStyles(colors, isDark), [colors, isDark]);
+  const placeholderColor = colors.muted;
+  const primaryContentColor = isDark ? colors.text : '#0f172a';
+  const errorAccent = colors.danger;
+
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -203,7 +210,7 @@ export function PhoneSignup({ onSuccess, onError, onVerificationError }: PhoneSi
             value={fullName}
             onChangeText={setFullName}
             placeholder="Your display name"
-            placeholderTextColor="#475569"
+            placeholderTextColor={placeholderColor}
             style={styles.input}
             autoCapitalize="words"
           />
@@ -215,7 +222,7 @@ export function PhoneSignup({ onSuccess, onError, onVerificationError }: PhoneSi
             value={phone}
             onChangeText={setPhone}
             placeholder="0403 984 897 or +61403984897"
-            placeholderTextColor="#475569"
+            placeholderTextColor={placeholderColor}
             style={styles.input}
             keyboardType="phone-pad"
             autoCapitalize="none"
@@ -225,7 +232,7 @@ export function PhoneSignup({ onSuccess, onError, onVerificationError }: PhoneSi
 
       <Pressable style={styles.checkboxRow} onPress={() => setTermsAccepted((prev) => !prev)}>
         <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
-          {termsAccepted ? <Feather name="check" size={16} color="#0f172a" /> : null}
+          {termsAccepted ? <Feather name="check" size={16} color={primaryContentColor} /> : null}
         </View>
         <Text style={styles.checkboxLabel}>
           I agree to the{' '}
@@ -242,10 +249,10 @@ export function PhoneSignup({ onSuccess, onError, onVerificationError }: PhoneSi
           disabled={phoneLoading || !termsAccepted}
         >
           {phoneLoading ? (
-            <ActivityIndicator />
+            <ActivityIndicator color={primaryContentColor} />
           ) : (
             <>
-              <Ionicons name="chatbubble-ellipses" size={18} color="#0f172a" />
+              <Ionicons name="chatbubble-ellipses" size={18} color={primaryContentColor} />
               <Text style={styles.primaryButtonText}>Send verification code</Text>
             </>
           )}
@@ -258,7 +265,7 @@ export function PhoneSignup({ onSuccess, onError, onVerificationError }: PhoneSi
               value={smsCode}
               onChangeText={setSmsCode}
               placeholder="123456"
-              placeholderTextColor="#475569"
+              placeholderTextColor={placeholderColor}
               style={styles.input}
               keyboardType="number-pad"
               autoCapitalize="none"
@@ -275,10 +282,10 @@ export function PhoneSignup({ onSuccess, onError, onVerificationError }: PhoneSi
             disabled={phoneLoading || smsCode.trim().length < 4}
           >
             {phoneLoading ? (
-              <ActivityIndicator />
+              <ActivityIndicator color={primaryContentColor} />
             ) : (
               <>
-                <Ionicons name="shield-checkmark" size={18} color="#0f172a" />
+                <Ionicons name="shield-checkmark" size={18} color={primaryContentColor} />
                 <Text style={styles.primaryButtonText}>Verify &amp; create account</Text>
               </>
             )}
@@ -288,7 +295,7 @@ export function PhoneSignup({ onSuccess, onError, onVerificationError }: PhoneSi
 
       {phoneError && (
         <View style={styles.errorBanner}>
-          <Feather name="alert-triangle" size={16} color="#f87171" />
+          <Feather name="alert-triangle" size={16} color={errorAccent} />
           <Text style={styles.errorText}>{phoneError}</Text>
         </View>
       )}

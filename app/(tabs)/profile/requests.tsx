@@ -5,9 +5,12 @@ import { FollowRequestList } from '../../../components/profile';
 import { useAuthUser } from '../../../lib/hooks/useAuthUser';
 import { useFollowRequests } from '../../../lib/hooks/useFollowRequests';
 import { isModerationError } from '../../../lib/errors';
+import { useTheme, type ThemeColors } from '../../../lib/theme';
 
 export default function FollowRequestsScreen() {
   const { user, initializing } = useAuthUser();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const uid = user?.uid ?? null;
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null,
@@ -22,7 +25,7 @@ export default function FollowRequestsScreen() {
   if (initializing) {
     return (
       <View style={styles.loadingState}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
@@ -66,45 +69,47 @@ export default function FollowRequestsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-    padding: 16,
-  },
-  loadingState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0f172a',
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0f172a',
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#f9fafb',
-    textAlign: 'center',
-  },
-  emptyCopy: {
-    fontSize: 14,
-    color: '#cbd5f5',
-    textAlign: 'center',
-  },
-  errorText: {
-    color: '#fca5a5',
-    fontSize: 14,
-    marginBottom: 12,
-  },
-  successText: {
-    color: '#34d399',
-    fontSize: 14,
-    marginBottom: 12,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    page: {
+      flex: 1,
+      backgroundColor: colors.background,
+      padding: 16,
+    },
+    loadingState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.background,
+    },
+    emptyState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.background,
+      paddingHorizontal: 24,
+      gap: 12,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text,
+      textAlign: 'center',
+    },
+    emptyCopy: {
+      fontSize: 14,
+      color: colors.muted,
+      textAlign: 'center',
+    },
+    errorText: {
+      color: colors.danger,
+      fontSize: 14,
+      marginBottom: 12,
+    },
+    successText: {
+      color: colors.success,
+      fontSize: 14,
+      marginBottom: 12,
+    },
+  });
+}

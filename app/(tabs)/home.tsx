@@ -52,6 +52,7 @@ import {
   subscribeToCategoryDrawerEvents,
 } from '../../lib/events/categoryDrawer';
 import { resolveAvatarSource } from '../../lib/avatar';
+import { useTheme, type ThemeColors } from '../../lib/theme';
 
 const LOGO = require('../../assets/logo.png');
 const PAGE_SIZE = 12;
@@ -168,6 +169,7 @@ const HOME_AD_SLOTS: HomeAdSlotConfig[] = [
 export default function HomeScreen() {
   const router = useRouter();
   const { sizes, placeholders } = useHomeScreen();
+  const { colors, statusBarStyle, isDark } = useTheme();
   const isWeb = Platform.OS === 'web';
   const { user: currentUser, initializing: authInitializing } = useAuthUser();
   
@@ -814,11 +816,11 @@ const [featured, trending, personalized] = await Promise.allSettled([
   );
 
   if (isWeb) {
-    return (
-      <>
-        <WebHome
-          sizes={sizes}
-          placeholders={placeholders}
+  return (
+    <>
+      <WebHome
+        sizes={sizes}
+        placeholders={placeholders}
           sections={sections}
           hasActiveSearch={hasActiveSearch}
           searchResultsProps={searchResultsProps}
@@ -827,16 +829,18 @@ const [featured, trending, personalized] = await Promise.allSettled([
           heroItems={heroItems}
           heroIndex={heroIndex}
           heroAnimatedStyle={heroAnimatedStyle}
-          filterControls={filterControls}
-          sortControls={sortControls}
-          showRecentSearches={showRecentSearches}
-          recentHistory={recentHistory}
-          onSelectHistoryTerm={handleSelectHistoryTerm}
-        />
-        {categoryDrawer}
-      </>
-    );
-  }
+        filterControls={filterControls}
+        sortControls={sortControls}
+        showRecentSearches={showRecentSearches}
+        recentHistory={recentHistory}
+        onSelectHistoryTerm={handleSelectHistoryTerm}
+        colors={colors}
+        isDark={isDark}
+      />
+      {categoryDrawer}
+    </>
+  );
+}
 
   const handleLogoPress = useCallback(() => {
     resetSearch();
@@ -958,6 +962,19 @@ function NativeHome({
   showRecentSearches,
   profileAvatar,
 }: NativeHomeProps) {
+  const { colors, statusBarStyle, isDark } = useTheme();
+  const nativeTheme = useMemo(
+    () => ({
+      text: { color: colors.text },
+      muted: { color: colors.muted },
+      border: colors.border,
+      inputBg: colors.inputBackground,
+      accent: colors.accent,
+      surface: colors.surface,
+      surfaceAlt: colors.surfaceSecondary,
+    }),
+    [colors],
+  );
   const [hideGate, setHideGate] = useState(false);
   const showGate = !authInitializing && !currentUser && !hideGate;
   const heroGame = heroItems[heroIndex] ?? null;
@@ -978,12 +995,23 @@ function NativeHome({
         <Image source={LOGO} style={nativeStyles.logoMark} resizeMode="contain" />
       </Pressable>
       <View style={nativeStyles.searchArea}>
-        <View style={nativeStyles.searchBox}>
-          <Ionicons name="search" size={16} color="#9ca3af" style={nativeStyles.searchIcon} />
+        <View
+          style={[
+            nativeStyles.searchBox,
+            { backgroundColor: nativeTheme.surfaceAlt, borderColor: nativeTheme.border, borderWidth: 1 },
+          ]}
+        >
+          <Ionicons
+            name="search"
+            size={16}
+            color={colors.muted}
+            style={nativeStyles.searchIcon}
+          />
           <TextInput
             {...searchInputProps}
-            style={nativeStyles.searchInput}
-            placeholderTextColor="#9ca3af"
+            style={[nativeStyles.searchInput, nativeTheme.text]}
+            placeholderTextColor={colors.muted}
+            selectionColor={colors.accent}
           />
         </View>
         {showHistoryDropdown ? (
@@ -999,7 +1027,11 @@ function NativeHome({
         onPress={onOpenCategoryDrawer}
         style={({ pressed }) => [
           nativeStyles.categoryButton,
-          filterControls.filtersActive && nativeStyles.categoryButtonActive,
+          { backgroundColor: nativeTheme.surfaceAlt, borderColor: nativeTheme.border },
+          filterControls.filtersActive && {
+            borderColor: nativeTheme.accent,
+            backgroundColor: `${nativeTheme.accent}26`,
+          },
           pressed && nativeStyles.categoryButtonPressed,
         ]}
         hitSlop={10}
@@ -1009,7 +1041,7 @@ function NativeHome({
         <Ionicons
           name="options-outline"
           size={18}
-          color="#f8fafc"
+          color={colors.text}
           style={nativeStyles.categoryButtonIcon}
         />
        
@@ -1030,8 +1062,8 @@ function NativeHome({
   );
 
   return (
-    <SafeAreaView style={nativeStyles.container}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={[nativeStyles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={statusBarStyle} />
 
       {hasActiveSearch ? (
         // 🔹 SEARCH MODE: NO ScrollView around FlatList
@@ -1039,11 +1071,11 @@ function NativeHome({
           {header}
           <View style={nativeStyles.searchResults}>
             {searchResultsProps.query ? (
-              <Text style={nativeStyles.resultsHeading}>
+              <Text style={[nativeStyles.resultsHeading, nativeTheme.text]}>
                 Results for “{searchResultsProps.query}”
               </Text>
             ) : null}
-            <SearchMetaBar tone="dark" sortControls={sortControls} />
+            <SearchMetaBar tone={isDark ? 'dark' : 'light'} sortControls={sortControls} />
           </View>
           {/* SearchResults contains FlatList and is now the ONLY vertical scroller */}
           <SearchResults {...searchResultsProps} />
@@ -1208,6 +1240,8 @@ type WebHomeProps = HomeSectionProps & {
   recentHistory: SearchHistoryItem[];
   showRecentSearches: boolean;
   onSelectHistoryTerm: (term: string) => void;
+  colors: ThemeColors;
+  isDark: boolean;
 };
 
 function WebHome({
@@ -1225,7 +1259,10 @@ function WebHome({
   recentHistory,
   showRecentSearches,
   onSelectHistoryTerm,
+  colors,
+  isDark,
 }: WebHomeProps) {
+  const textColor = colors.text;
   const heroGame = heroItems[heroIndex] ?? null;
   const heroCover = resolveHeroUri(heroGame);
   const secondaryGame = heroItems.length > 1 ? heroItems[(heroIndex + 1) % heroItems.length] : null;
@@ -1234,7 +1271,7 @@ function WebHome({
   const heroPosterWidth = Math.max(200, Math.min(sizes.heroH * 0.6, 340));
 
   return (
-    <View style={webStyles.container}>
+    <View style={[webStyles.container, { backgroundColor: colors.background }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={webStyles.scroll}>
         <View style={[webStyles.shell, { maxWidth: sizes.MAX_WIDTH, paddingHorizontal: sizes.SHELL_PADDING }]}>
           {!hasActiveSearch && (
@@ -1318,11 +1355,11 @@ function WebHome({
           {hasActiveSearch ? (
             <View style={webStyles.searchResults}>
               {searchResultsProps.query ? (
-                <Text style={webStyles.resultsHeading}>
+                <Text style={[webStyles.resultsHeading, { color: textColor }]}>
                   Results for “{searchResultsProps.query}”
                 </Text>
               ) : null}
-              <SearchMetaBar tone="dark" sortControls={sortControls} />
+              <SearchMetaBar tone={isDark ? 'dark' : 'light'} sortControls={sortControls} />
               <SearchResults {...searchResultsProps} />
             </View>
           ) : (
@@ -1380,11 +1417,12 @@ function NativeSection({
   itemGap: number;
   onSelectGame: (game: GameSummary) => void;
 }) {
+  const { colors } = useTheme();
   const data = resolveGames(section, placeholders);
 
   return (
     <View style={nativeStyles.section}>
-      <Text style={nativeStyles.sectionTitle}>{section.title}</Text>
+      <Text style={[nativeStyles.sectionTitle, { color: colors.text }]}>{section.title}</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -1429,7 +1467,7 @@ function NativeGameCard({
       <View style={{ width }}>
         {friendLabel ? (
           <View style={nativeStyles.friendLabel}>
-            <Ionicons name="people" size={12} color="#fbbf24" />
+            <Ionicons name="people" size={12} color="#f8fafc" />
             <Text style={nativeStyles.friendLabelText}>{friendLabel}</Text>
           </View>
         ) : null}
@@ -1545,7 +1583,7 @@ function WebGameCard({
       <View style={[webStyles.cardWrap, { width }]}>
         {friendLabel ? (
           <View style={webStyles.friendLabel}>
-            <Ionicons name="people" size={12} color="#fbbf24" />
+            <Ionicons name="people" size={12} color="#f8fafc" />
             <Text style={webStyles.friendLabelText}>{friendLabel}</Text>
           </View>
         ) : null}
@@ -1605,11 +1643,20 @@ function WebAdSlot({ slot }: { slot: HomeAdSlotConfig }) {
 }
 
 function SectionTitle({ title, tight }: { title: string; tight?: boolean }) {
+  const { colors } = useTheme();
   return (
     <View style={[webStyles.sectionTitleWrap, tight && { marginTop: 2, marginBottom: 8 }]}>
-      <View style={webStyles.sectionDivider} />
-      <Text style={[webStyles.sectionTitle, tight && { fontSize: 18 }]}>{title}</Text>
-      <View style={webStyles.sectionDivider} />
+      <View style={[webStyles.sectionDivider, { backgroundColor: colors.border }]} />
+      <Text
+        style={[
+          webStyles.sectionTitle,
+          { color: colors.text },
+          tight && { fontSize: 18 },
+        ]}
+      >
+        {title}
+      </Text>
+      <View style={[webStyles.sectionDivider, { backgroundColor: colors.border }]} />
     </View>
   );
 }
@@ -1771,6 +1818,47 @@ function CategoryDrawer({ visible, onClose, onSelectCategory, filterControls }: 
   const [renderDrawer, setRenderDrawer] = useState(visible);
   const slideAnim = useRef(new Animated.Value(0)).current;
   const drawerWidth = Math.min(CATEGORY_DRAWER_WIDTH, Dimensions.get('window').width * 0.9);
+  const { colors, isDark } = useTheme();
+  const themeStyles = useMemo(
+    () => ({
+      panel: {
+        backgroundColor: colors.surface,
+        borderRightColor: colors.border,
+      },
+      title: { color: colors.text },
+      subtitle: { color: colors.muted },
+      close: { color: colors.text },
+      parentTab: {
+        backgroundColor: colors.surfaceSecondary,
+        borderColor: colors.border,
+        borderWidth: 1,
+      },
+      parentTabActive: {
+        borderColor: colors.accent,
+        backgroundColor: isDark ? 'rgba(59,130,246,0.18)' : colors.accentSoft,
+      },
+      parentLabel: { color: colors.text },
+      parentDescription: { color: colors.muted },
+      badgeDot: { backgroundColor: colors.accent },
+      childSection: {
+        backgroundColor: colors.surfaceSecondary,
+        borderColor: colors.border,
+      },
+      childTitle: { color: colors.text },
+      clearLink: { color: colors.accent },
+      childItem: {
+        backgroundColor: colors.surface,
+        borderColor: colors.border,
+      },
+      childItemSelected: {
+        borderColor: colors.accent,
+        backgroundColor: isDark ? 'rgba(37,99,235,0.18)' : colors.accentSoft,
+      },
+      childLabel: { color: colors.text },
+      childLabelSelected: { color: colors.text },
+    }),
+    [colors, isDark],
+  );
 
   useEffect(() => {
     if (visible) {
@@ -1910,6 +1998,7 @@ function CategoryDrawer({ visible, onClose, onSelectCategory, filterControls }: 
         <Animated.View
           style={[
             drawerStyles.panel,
+            themeStyles.panel,
             {
               width: drawerWidth,
               transform: [{ translateX }],
@@ -1918,13 +2007,13 @@ function CategoryDrawer({ visible, onClose, onSelectCategory, filterControls }: 
         >
           <View style={drawerStyles.header}>
             <View style={drawerStyles.headerCopy}>
-              <Text style={drawerStyles.title}>Categories</Text>
-              <Text style={drawerStyles.subtitle}>
+              <Text style={[drawerStyles.title, themeStyles.title]}>Categories</Text>
+              <Text style={[drawerStyles.subtitle, themeStyles.subtitle]}>
                 {filtersActive ? summary : 'Choose a platform, genre, or release window'}
               </Text>
             </View>
             <Pressable onPress={onClose} style={drawerStyles.closeBtn} hitSlop={8}>
-              <Ionicons name="close" size={18} color="#f8fafc" />
+              <Ionicons name="close" size={18} color={themeStyles.close.color} />
             </Pressable>
           </View>
           <View style={drawerStyles.menuBody}>
@@ -1941,28 +2030,35 @@ function CategoryDrawer({ visible, onClose, onSelectCategory, filterControls }: 
                     onPress={() => setActiveCategory(item.key as 'platform' | 'genre' | 'release')}
                     style={[
                       searchMenuStyles.parentTab,
+                      themeStyles.parentTab,
                       isActive && searchMenuStyles.parentTabActive,
+                      isActive && themeStyles.parentTabActive,
                     ]}
                   >
                     <View style={searchMenuStyles.parentTabHeader}>
                       <Text
                         style={[
                           searchMenuStyles.parentLabel,
+                          themeStyles.parentLabel,
                           isActive && searchMenuStyles.parentLabelActive,
                         ]}
                       >
                         {item.label}
                       </Text>
-                      {hasSelection ? <View style={searchMenuStyles.badgeDot} /> : null}
+                      {hasSelection ? (
+                        <View style={[searchMenuStyles.badgeDot, themeStyles.badgeDot]} />
+                      ) : null}
                     </View>
-                    <Text style={searchMenuStyles.parentDescription}>{item.description}</Text>
+                    <Text style={[searchMenuStyles.parentDescription, themeStyles.parentDescription]}>
+                      {item.description}
+                    </Text>
                   </Pressable>
                 );
               })}
             </View>
             <View style={searchMenuStyles.childSection}>
               <View style={searchMenuStyles.childHeader}>
-                <Text style={searchMenuStyles.childTitle}>
+                <Text style={[searchMenuStyles.childTitle, themeStyles.childTitle]}>
                   {activeCategory === 'platform'
                     ? 'Select a platform'
                     : activeCategory === 'genre'
@@ -1970,7 +2066,7 @@ function CategoryDrawer({ visible, onClose, onSelectCategory, filterControls }: 
                     : 'Select a release window'}
                 </Text>
                 <Pressable onPress={handleClear} hitSlop={8}>
-                  <Text style={searchMenuStyles.clearLink}>Clear</Text>
+                  <Text style={[searchMenuStyles.clearLink, themeStyles.clearLink]}>Clear</Text>
                 </Pressable>
               </View>
               <ScrollView
@@ -1990,14 +2086,18 @@ function CategoryDrawer({ visible, onClose, onSelectCategory, filterControls }: 
                       key={`${activeCategory}-${String(option.value ?? 'all')}`}
                       style={[
                         searchMenuStyles.childItem,
+                        themeStyles.childItem,
                         isSelected && searchMenuStyles.childItemSelected,
+                        isSelected && themeStyles.childItemSelected,
                       ]}
                       onPress={() => handleChildSelect(option)}
                     >
                       <Text
                         style={[
                           searchMenuStyles.childLabel,
+                          themeStyles.childLabel,
                           isSelected && searchMenuStyles.childLabelSelected,
+                          isSelected && themeStyles.childLabelSelected,
                         ]}
                       >
                         {option.label}
@@ -2484,11 +2584,13 @@ const nativeStyles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: 'rgba(251,191,36,0.15)',
+    backgroundColor: '#2563eb',
+    borderWidth: 1,
+    borderColor: '#1d4ed8',
     marginBottom: 6,
     gap: 6,
   },
-  friendLabelText: { color: '#fbbf24', fontSize: 12, fontWeight: '700' },
+  friendLabelText: { color: '#f8fafc', fontSize: 12, fontWeight: '700' },
   thumbnail: {
     width: '100%',
     aspectRatio: 2 / 3,
@@ -2683,10 +2785,12 @@ const webStyles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 999,
-    backgroundColor: 'rgba(251,191,36,0.15)',
+    backgroundColor: '#2563eb',
+    borderWidth: 1,
+    borderColor: '#1d4ed8',
     marginBottom: 8,
   },
-  friendLabelText: { color: '#fde68a', fontSize: 12, fontWeight: '700' },
+  friendLabelText: { color: '#f8fafc', fontSize: 12, fontWeight: '700' },
   thumbWrap: {
     width: '100%',
     aspectRatio: 2 / 3,

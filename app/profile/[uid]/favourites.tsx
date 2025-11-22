@@ -18,6 +18,7 @@ import { canViewerAccessProfile } from '../../../lib/profileVisibility';
 import { useUserFavorites } from '../../../lib/hooks/useUserFavorites';
 import { useUserProfile } from '../../../lib/userProfile';
 import type { GameSummary } from '../../../types/game';
+import { useTheme, type ThemeColors } from '../../../lib/theme';
 
 function getColumnCount(width: number) {
   if (width >= 1400) return 5;
@@ -31,6 +32,8 @@ export default function PublicFavouritesScreen() {
   const params = useLocalSearchParams<{ uid?: string }>();
   const targetUid = params.uid ?? null;
   const { user, initializing } = useAuthUser();
+  const { colors, isDark } = useTheme();
+  const styles = createStyles(colors);
   const viewerUid = user?.uid ?? null;
   const { width } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
@@ -63,7 +66,7 @@ export default function PublicFavouritesScreen() {
   if (initializing || profileLoading) {
     return (
       <View style={styles.loadingState}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
@@ -71,7 +74,7 @@ export default function PublicFavouritesScreen() {
   if (!targetUid || !profile) {
     return (
       <View style={styles.emptyState}>
-        <Ionicons name="alert-circle-outline" size={40} color="#94a3b8" />
+        <Ionicons name="alert-circle-outline" size={40} color={colors.muted} />
         <Text style={styles.emptyTitle}>Profile unavailable</Text>
         {error ? <Text style={styles.emptyCopy}>{error.message}</Text> : null}
       </View>
@@ -81,7 +84,7 @@ export default function PublicFavouritesScreen() {
   if (viewerBlockedTarget || viewerIsBlockedByTarget) {
     return (
       <View style={styles.privateState}>
-        <Ionicons name="ban" size={36} color="#f9fafb" />
+        <Ionicons name="ban" size={36} color={colors.text} />
         <Text style={styles.privateTitle}>User not available</Text>
         <Text style={styles.privateCopy}>
           {viewerBlockedTarget
@@ -95,7 +98,7 @@ export default function PublicFavouritesScreen() {
   if (!canView) {
     return (
       <View style={styles.privateState}>
-        <Ionicons name="lock-closed" size={36} color="#f9fafb" />
+        <Ionicons name="lock-closed" size={36} color={colors.text} />
         <Text style={styles.privateTitle}>Favourites are hidden</Text>
         <Text style={styles.privateCopy}>
           {hasPendingRequest
@@ -116,7 +119,17 @@ export default function PublicFavouritesScreen() {
         onSelect={handleSelect}
         contentContainerStyle={isWeb ? undefined : styles.mobileResultsContent}
         gridRowStyle={isWeb ? undefined : styles.mobileGridRow}
-        cardStyle={isWeb ? undefined : styles.mobileCard}
+        cardStyle={
+          isWeb
+            ? undefined
+            : [
+                styles.mobileCard,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                },
+              ]
+        }
         emptyState={{
           title: 'No favourites yet',
           copy: `${profile.displayName} has not favourited any games.`,
@@ -126,69 +139,69 @@ export default function PublicFavouritesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-    padding: 16,
-  },
-  loadingState: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyState: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#f9fafb',
-    textAlign: 'center',
-  },
-  emptyCopy: {
-    fontSize: 14,
-    color: '#cbd5f5',
-    textAlign: 'center',
-  },
-  privateState: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-  privateTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#f9fafb',
-    textAlign: 'center',
-  },
-  privateCopy: {
-    fontSize: 14,
-    color: '#cbd5f5',
-    textAlign: 'center',
-  },
-  mobileResultsContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 120,
-  },
-  mobileGridRow: {
-    gap: 16,
-    paddingBottom: 18,
-  },
-  mobileCard: {
-    backgroundColor: '#1e1e22',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    marginBottom: 0,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    page: {
+      flex: 1,
+      backgroundColor: colors.background,
+      padding: 16,
+    },
+    loadingState: {
+      flex: 1,
+      backgroundColor: colors.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    emptyState: {
+      flex: 1,
+      backgroundColor: colors.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+      gap: 12,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text,
+      textAlign: 'center',
+    },
+    emptyCopy: {
+      fontSize: 14,
+      color: colors.muted,
+      textAlign: 'center',
+    },
+    privateState: {
+      flex: 1,
+      backgroundColor: colors.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+      gap: 12,
+    },
+    privateTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text,
+      textAlign: 'center',
+    },
+    privateCopy: {
+      fontSize: 14,
+      color: colors.muted,
+      textAlign: 'center',
+    },
+    mobileResultsContent: {
+      paddingHorizontal: 20,
+      paddingBottom: 120,
+    },
+    mobileGridRow: {
+      gap: 16,
+      paddingBottom: 18,
+    },
+    mobileCard: {
+      borderRadius: 18,
+      borderWidth: 1,
+      marginBottom: 0,
+    },
+  });
+}

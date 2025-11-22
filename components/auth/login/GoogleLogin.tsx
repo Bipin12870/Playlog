@@ -6,16 +6,23 @@ import { useRouter } from 'expo-router';
 import * as Google from 'expo-auth-session/providers/google';
 
 import { signInWithGoogleCredential } from '../../../lib/auth';
-import { loginStyles as styles } from './styles';
-
-const descriptionStyle = {
-  color: '#94a3b8',
-  fontSize: 14,
-  lineHeight: 20,
-};
+import { useTheme } from '../../../lib/theme';
+import { createLoginStyles } from './styles';
 
 export function GoogleLogin() {
   const router = useRouter();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createLoginStyles(colors, isDark), [colors, isDark]);
+  const descriptionStyle = useMemo(
+    () => ({
+      color: colors.muted,
+      fontSize: 14,
+      lineHeight: 20,
+    }),
+    [colors.muted],
+  );
+  const primaryContentColor = isDark ? colors.text : '#0f172a';
+  const disabledContentColor = colors.muted;
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -170,13 +177,13 @@ export function GoogleLogin() {
         style={[styles.primaryButton, (googleButtonDisabled || googleButtonInactive) && styles.submitDisabled]}
       >
         {googleLoading ? (
-          <ActivityIndicator color={googleButtonDisabled ? '#475569' : '#0f172a'} />
+          <ActivityIndicator color={googleButtonDisabled ? disabledContentColor : primaryContentColor} />
         ) : (
           <>
             <Ionicons
               name="logo-google"
               size={18}
-              color={googleButtonDisabled ? '#475569' : '#0f172a'}
+              color={googleButtonDisabled ? disabledContentColor : primaryContentColor}
             />
             <Text style={[styles.primaryButtonText, googleButtonDisabled && styles.primaryButtonTextDisabled]}>
               Continue with Google
@@ -187,7 +194,7 @@ export function GoogleLogin() {
 
       {errorMessage && (
         <View style={styles.errorBanner}>
-          <Feather name="alert-triangle" size={16} color="#f87171" />
+          <Feather name="alert-triangle" size={16} color={colors.danger} />
           <Text style={styles.errorText}>{errorMessage}</Text>
         </View>
       )}

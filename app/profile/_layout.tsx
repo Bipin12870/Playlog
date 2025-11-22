@@ -1,14 +1,17 @@
 import { Stack } from 'expo-router';
 
 import { GameFavoritesProvider } from '../../lib/hooks/useGameFavorites';
+import { useTheme } from '../../lib/theme';
 
 export default function PublicProfileLayout() {
+  const { colors } = useTheme();
+
   return (
     <GameFavoritesProvider>
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: '#0f172a' },
-          headerTintColor: '#f9fafb',
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.text,
           headerTitleAlign: 'center',
           headerShadowVisible: false,
           presentation: 'card',
