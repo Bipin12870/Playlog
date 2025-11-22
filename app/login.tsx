@@ -1,5 +1,14 @@
-import { useState } from 'react';
-import { Image, ImageBackground, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { useMemo, useState } from 'react';
+import {
+  Image,
+  ImageBackground,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { Link } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Feather, Ionicons } from '@expo/vector-icons';
@@ -7,8 +16,9 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import { EmailLogin } from '../components/auth/login/EmailLogin';
 import { GoogleLogin } from '../components/auth/login/GoogleLogin';
 import { PhoneLogin } from '../components/auth/login/PhoneLogin';
-import { loginStyles as styles } from '../components/auth/login/styles';
+import { createLoginStyles } from '../components/auth/login/styles';
 import { SubscriptionOfferModal } from '../components/SubscriptionOfferModal';
+import { useTheme } from '../lib/theme';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -21,10 +31,15 @@ type Method = 'none' | 'google' | 'phone' | 'email';
 export default function LoginScreen() {
   const { width } = useWindowDimensions();
   const wide = width >= 900;
+  const { colors, isDark, statusBarStyle } = useTheme();
+  const styles = useMemo(() => createLoginStyles(colors, isDark), [colors, isDark]);
 
   const [method, setMethod] = useState<Method>('email');
   const [showSubscriptionOffer, setShowSubscriptionOffer] = useState(true);
   const pick = (next: Method) => setMethod((prev) => (prev === next ? 'none' : next));
+  const accentColor = colors.accent;
+  const onAccentColor = isDark ? colors.text : '#0f172a';
+  const muted = colors.muted;
 
   const MethodPill = ({
     label,
@@ -46,12 +61,12 @@ export default function LoginScreen() {
         accessibilityState={{ selected: active, expanded: active }}
         hitSlop={10}
       >
-        <Ionicons name={icon} size={18} color={active ? '#0f172a' : '#8b5cf6'} />
+        <Ionicons name={icon} size={18} color={active ? onAccentColor : accentColor} />
         <Text style={active ? styles.methodTextActive : styles.methodText}>{label}</Text>
         <Ionicons
           name={active ? 'chevron-up' : 'chevron-down'}
           size={16}
-          color={active ? '#0f172a' : '#94a3b8'}
+          color={active ? onAccentColor : muted}
           style={styles.methodChevron}
         />
       </Pressable>
@@ -112,7 +127,7 @@ export default function LoginScreen() {
             accessibilityRole="button"
             accessibilityLabel="Close login and go back"
           >
-            <Ionicons name="close" size={18} color="#e2e8f0" />
+            <Ionicons name="close" size={18} color={muted} />
           </Pressable>
         </Link>
       </View>
@@ -146,6 +161,7 @@ export default function LoginScreen() {
         visible={showSubscriptionOffer}
         onClose={() => setShowSubscriptionOffer(false)}
       />
+      <StatusBar barStyle={statusBarStyle} />
       <ImageBackground source={BACKDROP} style={styles.background} imageStyle={styles.backgroundImage}>
       <View style={styles.scrim} />
       <ScrollView

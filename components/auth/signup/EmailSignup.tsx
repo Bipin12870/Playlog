@@ -19,7 +19,8 @@ import {
 } from 'firebase/auth';
 
 import { auth, db } from '../../../lib/firebase';
-import { signupStyles as styles } from './styles';
+import { useTheme } from '../../../lib/theme';
+import { createSignupStyles } from './styles';
 
 interface EmailSignupProps {
   onSuccess: (payload: { email: string; verificationError?: string | null }) => void;
@@ -27,6 +28,12 @@ interface EmailSignupProps {
 }
 
 export function EmailSignup({ onSuccess, onError }: EmailSignupProps) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createSignupStyles(colors, isDark), [colors, isDark]);
+  const placeholderColor = colors.muted;
+  const primaryContentColor = isDark ? colors.text : '#0f172a';
+  const errorAccent = colors.danger;
+
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -156,7 +163,7 @@ export function EmailSignup({ onSuccess, onError }: EmailSignupProps) {
         value={fullName}
         onChangeText={setFullName}
         placeholder="Full name"
-        placeholderTextColor="#b8bcc7"
+        placeholderTextColor={placeholderColor}
         style={styles.input}
         autoCapitalize="words"
       />
@@ -164,7 +171,7 @@ export function EmailSignup({ onSuccess, onError }: EmailSignupProps) {
         value={email}
         onChangeText={setEmail}
         placeholder="Email"
-        placeholderTextColor="#b8bcc7"
+        placeholderTextColor={placeholderColor}
         keyboardType="email-address"
         autoCapitalize="none"
         style={styles.input}
@@ -175,13 +182,13 @@ export function EmailSignup({ onSuccess, onError }: EmailSignupProps) {
           value={password}
           onChangeText={setPassword}
           placeholder="Password"
-          placeholderTextColor="#b8bcc7"
+          placeholderTextColor={placeholderColor}
           secureTextEntry={!showPassword}
           autoCapitalize="none"
           style={styles.inputField}
         />
         <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)}>
-          <Feather name={showPassword ? 'eye-off' : 'eye'} size={18} color="#94a3b8" />
+          <Feather name={showPassword ? 'eye-off' : 'eye'} size={18} color={colors.muted} />
         </TouchableOpacity>
       </View>
 
@@ -190,13 +197,13 @@ export function EmailSignup({ onSuccess, onError }: EmailSignupProps) {
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           placeholder="Confirm password"
-          placeholderTextColor="#b8bcc7"
+          placeholderTextColor={placeholderColor}
           secureTextEntry={!showConfirmPassword}
           autoCapitalize="none"
           style={styles.inputField}
         />
         <TouchableOpacity onPress={() => setShowConfirmPassword((prev) => !prev)}>
-          <Feather name={showConfirmPassword ? 'eye-off' : 'eye'} size={18} color="#94a3b8" />
+          <Feather name={showConfirmPassword ? 'eye-off' : 'eye'} size={18} color={colors.muted} />
         </TouchableOpacity>
       </View>
 
@@ -228,10 +235,10 @@ export function EmailSignup({ onSuccess, onError }: EmailSignupProps) {
         style={[styles.primaryButton, (!canSubmitEmail || loading) && styles.submitDisabled]}
       >
         {loading ? (
-          <ActivityIndicator color="#0f172a" />
+          <ActivityIndicator color={primaryContentColor} />
         ) : (
           <>
-            <Ionicons name="shield-checkmark" size={18} color="#0f172a" />
+            <Ionicons name="shield-checkmark" size={18} color={primaryContentColor} />
             <Text style={styles.primaryButtonText}>Create account</Text>
           </>
         )}
@@ -241,9 +248,14 @@ export function EmailSignup({ onSuccess, onError }: EmailSignupProps) {
 }
 
 function ValidationStatus({ passed, text }: { passed: boolean; text: string }) {
+  const { colors } = useTheme();
   return (
     <View style={styles.validationRow}>
-      <Feather name={passed ? 'check-circle' : 'circle'} size={16} color={passed ? '#22c55e' : '#475569'} />
+      <Feather
+        name={passed ? 'check-circle' : 'circle'}
+        size={16}
+        color={passed ? colors.success : colors.muted}
+      />
       <Text style={[styles.validationText, passed && styles.validationTextPassed]}>{text}</Text>
     </View>
   );

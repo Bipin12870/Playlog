@@ -26,6 +26,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GameCard } from '../GameCard';
 import { getFriendlyModerationMessage } from '../../lib/errors';
 import type { GameDetailsData, GameReview, GameSummary } from '../../types/game';
+import { useTheme } from '../../lib/theme';
 
 type ReviewFormInput = {
   rating: number;
@@ -114,6 +115,7 @@ export function GameDetails({
   onBack,
 }: GameDetailsProps) {
   const { width } = useWindowDimensions();
+  const { colors, isDark } = useTheme();
   const isWide = width >= 1024;
   const isPhoneLayout = Platform.OS !== 'web' && width < 900;
   const shouldShowNativeBackControls = Platform.OS !== 'web';
@@ -456,6 +458,113 @@ export function GameDetails({
     const plural = reviewLimitRemaining === 1 ? 'review' : 'reviews';
     return `${reviewLimitRemaining} ${plural} left on free plan`;
   }, [reviewLimitRemaining]);
+
+  const themeStyles = useMemo(
+    () => ({
+      surfaceCard: { backgroundColor: colors.surface, borderColor: colors.border },
+      surfaceAltCard: { backgroundColor: colors.surfaceSecondary, borderColor: colors.border },
+      factNavBorder: { borderColor: isDark ? 'rgba(16, 185, 129, 0.2)' : colors.border },
+      factNavLabel: { color: colors.accent },
+      factNavUnderline: { backgroundColor: colors.accent },
+      factList: { color: colors.text },
+      heroHeadline: { color: colors.text },
+      heroEyebrow: { color: colors.muted },
+      heroMetricLabel: { color: colors.muted },
+      heroMetricValue: { color: colors.text },
+      heroMetricSuffix: { color: colors.muted },
+      heroMetricMeta: { color: colors.muted },
+      sectionTitle: { color: colors.text },
+      communityTitle: { color: colors.text },
+      sectionSubtitle: { color: colors.muted },
+      reviewAuthor: { color: colors.text },
+      reviewBody: { color: colors.text },
+      reviewDate: { color: colors.muted },
+      reviewInitial: { color: colors.text },
+      replyToggleLabel: { color: colors.text },
+      replyToggleButton: {
+        backgroundColor: isDark ? 'rgba(99, 102, 241, 0.15)' : colors.surfaceSecondary,
+        borderColor: colors.border,
+        borderWidth: 1,
+      },
+      replyToggleButtonActive: {
+        backgroundColor: isDark ? 'rgba(99, 102, 241, 0.3)' : colors.accentSoft,
+        borderColor: colors.accent,
+      },
+      heroOverviewCard: isDark
+        ? null
+        : {
+            backgroundColor: colors.surface,
+            shadowColor: colors.border,
+            borderColor: colors.border,
+            borderWidth: 1,
+          },
+      heroOverviewCardWide: isDark
+        ? null
+        : {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            borderWidth: 1,
+          },
+      overviewText: { color: colors.text },
+      heroSecondaryButton: {
+        borderColor: colors.border,
+        backgroundColor: isDark ? 'rgba(15, 23, 42, 0.6)' : colors.surfaceSecondary,
+      },
+      heroSecondaryButtonActive: {
+        borderColor: colors.accent,
+        backgroundColor: isDark ? 'rgba(248, 250, 252, 0.08)' : colors.accentSoft,
+      },
+      heroSecondaryButtonLabel: { color: colors.text },
+      heroMetricsCard: { backgroundColor: colors.surfaceSecondary, borderColor: colors.border },
+      heroPhoneSecondaryButton: {
+        backgroundColor: colors.surface,
+        borderColor: colors.border,
+        borderWidth: 1,
+      },
+      heroPhoneSecondaryActive: {
+        borderColor: colors.accent,
+        backgroundColor: isDark ? 'rgba(248, 250, 252, 0.12)' : colors.accentSoft,
+      },
+      heroPhoneSecondaryLabel: { color: colors.text },
+      heroPhoneTitle: { color: colors.text },
+      heroPhoneMeta: { color: colors.muted },
+      heroPhoneAccordionLabel: { color: colors.text },
+      heroTopBarTitle: { color: colors.text },
+      communityLoadMoreButton: {
+        backgroundColor: isDark ? 'rgba(99, 102, 241, 0.18)' : colors.surfaceSecondary,
+        borderColor: colors.border,
+        borderWidth: 1,
+      },
+      communityLoadMoreButtonActive: {
+        backgroundColor: isDark ? 'rgba(99, 102, 241, 0.28)' : colors.accentSoft,
+      },
+      communityLoadMoreLabel: { color: colors.text },
+      rateModalSafeArea: { backgroundColor: colors.background },
+      rateModalSheet: { backgroundColor: colors.surface, borderColor: colors.border },
+      rateModalLabel: { color: colors.text },
+      rateModalGameTitle: { color: colors.text },
+      rateModalGameMeta: { color: colors.muted },
+      rateModalCoverFallbackText: { color: colors.text },
+      rateModalTextarea: {
+        backgroundColor: colors.surfaceSecondary,
+        borderColor: colors.border,
+        color: colors.text,
+      },
+      ratingSelectedValue: { color: colors.text },
+      ratingClearButton: {
+        backgroundColor: isDark ? 'rgba(148, 163, 184, 0.18)' : colors.surfaceSecondary,
+        borderColor: colors.border,
+        borderWidth: 1,
+      },
+      ratingClearButtonActive: {
+        backgroundColor: isDark ? 'rgba(148, 163, 184, 0.3)' : colors.accentSoft,
+      },
+      ratingClearLabel: { color: colors.text },
+      ratingStarActive: colors.accent,
+      ratingStarInactive: colors.muted,
+    }),
+    [colors, isDark],
+  );
 
   const replySubmittingSet = useMemo(() => new Set(replySubmittingIds ?? []), [replySubmittingIds]);
   const replyUpdatingSet = useMemo(() => new Set(replyUpdatingIds ?? []), [replyUpdatingIds]);
@@ -878,7 +987,7 @@ export function GameDetails({
         !isPhoneLayout && styles.heroFactBoardDesktop,
       ]}
     >
-      <View style={styles.heroFactNav} accessibilityRole="tablist">
+      <View style={[styles.heroFactNav, themeStyles.factNavBorder]} accessibilityRole="tablist">
         {heroFactSections.map((section) => {
           const isActive = section.key === activeFactSection;
           return (
@@ -888,37 +997,46 @@ export function GameDetails({
               style={styles.heroFactNavItem}
               accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
-            >
-              <Text
-                style={[
-                  styles.heroFactNavLabel,
-                  isActive && styles.heroFactNavLabelActive,
-                ]}
               >
-                {section.label.toUpperCase()}
-              </Text>
-              <View
-                style={[
-                  styles.heroFactNavUnderline,
-                  isActive && styles.heroFactNavUnderlineActive,
-                ]}
-              />
-            </Pressable>
-          );
-        })}
+                <Text
+                  style={[
+                    styles.heroFactNavLabel,
+                    themeStyles.factNavLabel,
+                    isActive && styles.heroFactNavLabelActive,
+                  ]}
+                >
+                  {section.label.toUpperCase()}
+                </Text>
+                <View
+                  style={[
+                    styles.heroFactNavUnderline,
+                    isActive && styles.heroFactNavUnderlineActive,
+                    isActive && themeStyles.factNavUnderline,
+                  ]}
+                />
+              </Pressable>
+            );
+          })}
+        </View>
+        {activeFactSection && activeFactItems.length ? (
+          <Text
+            style={[
+              styles.heroFactList,
+              isPhoneLayout && styles.heroFactListPhone,
+              themeStyles.factList,
+            ]}
+          >
+            {activeFactItems.join(', ')}
+          </Text>
+        ) : null}
       </View>
-      {activeFactSection && activeFactItems.length ? (
-        <Text style={[styles.heroFactList, isPhoneLayout && styles.heroFactListPhone]}>
-          {activeFactItems.join(', ')}
-        </Text>
-      ) : null}
-    </View>
   ) : null;
 
   const metricsPanel = quickMetrics.length ? (
     <View
       style={[
         styles.heroMetricsCard,
+        themeStyles.heroMetricsCard,
         isPhoneLayout ? styles.heroMetricsCardPhone : styles.heroMetricsCardDesktop,
       ]}
     >
@@ -936,6 +1054,7 @@ export function GameDetails({
             <Text
               style={[
                 styles.heroMetricLabel,
+                themeStyles.heroMetricLabel,
               ]}
             >
               {metric.label}
@@ -944,6 +1063,7 @@ export function GameDetails({
               <Text
                 style={[
                   styles.heroMetricValue,
+                  themeStyles.heroMetricValue,
                 ]}
               >
                 {metric.value}
@@ -952,6 +1072,7 @@ export function GameDetails({
                 <Text
                   style={[
                     styles.heroMetricSuffix,
+                    themeStyles.heroMetricSuffix,
                   ]}
                 >
                   {metric.suffix}
@@ -962,6 +1083,7 @@ export function GameDetails({
               <Text
                 style={[
                   styles.heroMetricMeta,
+                  themeStyles.heroMetricMeta,
                 ]}
               >
                 {metric.meta}
@@ -1027,7 +1149,7 @@ export function GameDetails({
   }, []);
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <Animated.ScrollView
         ref={scrollViewRef}
         style={styles.scrollView}
@@ -1131,8 +1253,10 @@ export function GameDetails({
           {isPhoneLayout ? (
             <>
               <View style={[styles.heroPhoneInfoShell, phoneInfoStyle]}>
-                <Text style={styles.heroPhoneTitle}>{game.name}</Text>
-                {releaseMeta ? <Text style={styles.heroPhoneMeta}>{releaseMeta}</Text> : null}
+                <Text style={[styles.heroPhoneTitle, themeStyles.heroPhoneTitle]}>{game.name}</Text>
+                {releaseMeta ? (
+                  <Text style={[styles.heroPhoneMeta, themeStyles.heroPhoneMeta]}>{releaseMeta}</Text>
+                ) : null}
                 <View style={styles.heroPhoneActionsRow}>
                   <Pressable
                     onPress={handleWatchTrailer}
@@ -1153,18 +1277,22 @@ export function GameDetails({
                     onPress={handleFavoritePress}
                     style={({ pressed }) => [
                       styles.heroPhoneSecondaryButton,
+                      themeStyles.heroPhoneSecondaryButton,
                       isFavorite && styles.heroPhoneSecondaryActive,
+                      isFavorite && themeStyles.heroPhoneSecondaryActive,
                       (favoriteDisabled || pressed) && styles.heroPhoneSecondaryPressed,
                     ]}
                     accessibilityRole="button"
                     disabled={favoriteDisabled}
                   >
                     {favoriteDisabled ? (
-                      <ActivityIndicator size="small" color="#f8fafc" />
+                      <ActivityIndicator size="small" color={colors.text} />
                     ) : (
                       <>
-                        <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={16} color="#f8fafc" />
-                        <Text style={styles.heroPhoneSecondaryLabel}>
+                        <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={16} color={colors.text} />
+                        <Text
+                          style={[styles.heroPhoneSecondaryLabel, themeStyles.heroPhoneSecondaryLabel]}
+                        >
                           {isFavorite ? 'Favourited' : 'Add to favourites'}
                         </Text>
                       </>
@@ -1174,39 +1302,45 @@ export function GameDetails({
                 {favoriteError ? <Text style={styles.favoriteError}>{favoriteError}</Text> : null}
               </View>
               <View style={styles.heroPhoneAccordionWrapper}>
-                <View style={styles.heroPhoneAccordion}>
-                  <Pressable
-                    onPress={handleToggleOverview}
-                    style={styles.heroPhoneAccordionHeader}
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.heroPhoneAccordionLabel}>Overview</Text>
-                    <Ionicons
-                      name={isOverviewExpanded ? 'chevron-up' : 'chevron-down'}
-                      size={18}
-                      color="#e2e8f0"
-                    />
-                  </Pressable>
-                  <Text
-                    style={styles.heroPhoneOverviewText}
-                    numberOfLines={!isOverviewExpanded ? 3 : undefined}
-                  >
-                    {overviewText}
+              <View style={styles.heroPhoneAccordion}>
+                <Pressable
+                  onPress={handleToggleOverview}
+                  style={styles.heroPhoneAccordionHeader}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.heroPhoneAccordionLabel, themeStyles.heroPhoneAccordionLabel]}>
+                    Overview
                   </Text>
-                </View>
+                  <Ionicons
+                    name={isOverviewExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color={colors.text}
+                  />
+                </Pressable>
+                <Text
+                  style={[styles.heroPhoneOverviewText, themeStyles.overviewText]}
+                  numberOfLines={!isOverviewExpanded ? 3 : undefined}
+                >
+                  {overviewText}
+                </Text>
+              </View>
               </View>
             </>
           ) : (
             <View
               style={[
                 styles.heroOverviewCard,
+                themeStyles.heroOverviewCard,
                 isWide && styles.heroOverviewCardWide,
+                isWide && themeStyles.heroOverviewCardWide,
               ]}
             >
               <View style={styles.heroOverviewLayout}>
                 <View style={styles.heroOverviewTextColumn}>
-                  <Text style={styles.heroHeadline}>{game.name}</Text>
-                  <Text style={styles.heroEyebrow}>{releaseLine ?? 'Upcoming release'}</Text>
+                  <Text style={[styles.heroHeadline, themeStyles.heroHeadline]}>{game.name}</Text>
+                  <Text style={[styles.heroEyebrow, themeStyles.heroEyebrow]}>
+                    {releaseLine ?? 'Upcoming release'}
+                  </Text>
                   {!isPhoneLayout ? (
                     <>
                       <View style={[styles.heroActionsRow, styles.heroOverviewActionsRow]}>
@@ -1229,22 +1363,29 @@ export function GameDetails({
                           onPress={handleFavoritePress}
                           style={({ pressed }) => [
                             styles.heroPhoneSecondaryButton,
+                            themeStyles.heroPhoneSecondaryButton,
                             isFavorite && styles.heroPhoneSecondaryActive,
+                            isFavorite && themeStyles.heroPhoneSecondaryActive,
                             (favoriteDisabled || pressed) && styles.heroPhoneSecondaryPressed,
                           ]}
                           accessibilityRole="button"
                           disabled={favoriteDisabled}
                         >
                           {favoriteDisabled ? (
-                            <ActivityIndicator size="small" color="#f8fafc" />
+                            <ActivityIndicator size="small" color={colors.text} />
                           ) : (
                             <>
                               <Ionicons
                                 name={isFavorite ? 'heart' : 'heart-outline'}
                                 size={16}
-                                color="#f8fafc"
+                                color={colors.text}
                               />
-                              <Text style={styles.heroPhoneSecondaryLabel}>
+                              <Text
+                                style={[
+                                  styles.heroPhoneSecondaryLabel,
+                                  themeStyles.heroPhoneSecondaryLabel,
+                                ]}
+                              >
                                 {isFavorite ? 'Favourited' : 'Add to favourites'}
                               </Text>
                             </>
@@ -1282,9 +1423,12 @@ export function GameDetails({
                   color="#e2e8f0"
                 />
               </Pressable>
-              <Text style={styles.heroOverviewDesktopText} numberOfLines={overviewNumberOfLines}>
-                {overviewText}
-              </Text>
+                  <Text
+                    style={[styles.heroOverviewDesktopText, themeStyles.overviewText]}
+                    numberOfLines={overviewNumberOfLines}
+                  >
+                    {overviewText}
+                  </Text>
               <View style={styles.heroOverviewCtaRow}>
                 <Pressable
                   onPress={handleRateShortcutPress}
@@ -1323,6 +1467,7 @@ export function GameDetails({
         <View
           style={[
             styles.detailSurface,
+            themeStyles.surfaceCard,
             !isPhoneLayout && styles.detailSurfaceDesktop,
           ]}
           onLayout={handleReviewSectionLayout}
@@ -1330,13 +1475,15 @@ export function GameDetails({
 
           <View style={[styles.section, !isPhoneLayout && styles.detailSurfaceSpacer]}>
             <View style={styles.reviewSectionHeader}>
-              <Text style={styles.communitySectionTitle}>Community reviews</Text>
+              <Text style={[styles.communitySectionTitle, themeStyles.communityTitle]}>
+                Community reviews
+              </Text>
             </View>
 
             {reviewError ? <Text style={styles.errorText}>{reviewError}</Text> : null}
             {reviewsLoading ? (
               <View style={styles.reviewLoading}>
-                <ActivityIndicator size="large" color="#6366f1" />
+                <ActivityIndicator size="large" color={colors.accent} />
               </View>
             ) : visibleCommunityReviews.length ? (
               visibleCommunityReviews.map((review, index) => {
@@ -1367,14 +1514,16 @@ export function GameDetails({
                   >
                     <View style={styles.reviewTimeline}>
                       <View style={styles.reviewAvatar}>
-                        <Text style={styles.reviewInitial}>{review.author.charAt(0).toUpperCase()}</Text>
+                        <Text style={[styles.reviewInitial, themeStyles.reviewInitial]}>
+                          {review.author.charAt(0).toUpperCase()}
+                        </Text>
                       </View>
                       {!isLastReview ? <View style={styles.reviewConnector} /> : null}
                     </View>
                     <View style={styles.reviewCard}>
                       <View style={styles.reviewHeader}>
                         <Text
-                          style={styles.reviewAuthor}
+                          style={[styles.reviewAuthor, themeStyles.reviewAuthor]}
                           numberOfLines={1}
                           ellipsizeMode="tail"
                         >
@@ -1383,26 +1532,29 @@ export function GameDetails({
                         <Text style={styles.reviewRating}>{review.rating.toFixed(1)}/10</Text>
                       </View>
                       {review.createdAt ? (
-                        <Text style={styles.reviewDate}>{formatReviewDate(review.createdAt)}</Text>
+                        <Text style={[styles.reviewDate, themeStyles.reviewDate]}>
+                          {formatReviewDate(review.createdAt)}
+                        </Text>
                       ) : null}
-                      <Text style={styles.reviewBody}>{review.body}</Text>
+                      <Text style={[styles.reviewBody, themeStyles.reviewBody]}>{review.body}</Text>
                       {totalReplies > 0 ? (
                         <View style={styles.replyToggleRow}>
                           {useReplyModal ? (
-                        <Pressable
-                          onPress={() => {
-                            setReviewModalMode('replies');
-                            setReplyModalReviewId(review.id);
-                            setReplyModalFromReviews(true);
-                            setShowAllReviewsModal(true);
-                          }}
-                          style={({ pressed }) => [
-                            styles.replyToggleButton,
-                            pressed && styles.replyToggleButtonPressed,
-                          ]}
-                          accessibilityRole="button"
+                            <Pressable
+                              onPress={() => {
+                                setReviewModalMode('replies');
+                                setReplyModalReviewId(review.id);
+                                setReplyModalFromReviews(true);
+                                setShowAllReviewsModal(true);
+                              }}
+                              style={({ pressed }) => [
+                                styles.replyToggleButton,
+                                themeStyles.replyToggleButton,
+                                pressed && themeStyles.replyToggleButtonActive,
+                              ]}
+                              accessibilityRole="button"
                             >
-                              <Text style={styles.replyToggleLabel}>
+                              <Text style={[styles.replyToggleLabel, themeStyles.replyToggleLabel]}>
                                 View replies ({totalReplies})
                               </Text>
                             </Pressable>
@@ -1411,11 +1563,12 @@ export function GameDetails({
                               onPress={() => handleToggleReplies(review.id, totalReplies)}
                               style={({ pressed }) => [
                                 styles.replyToggleButton,
-                                pressed && styles.replyToggleButtonPressed,
+                                themeStyles.replyToggleButton,
+                                pressed && themeStyles.replyToggleButtonActive,
                               ]}
                               accessibilityRole="button"
                             >
-                              <Text style={styles.replyToggleLabel}>
+                              <Text style={[styles.replyToggleLabel, themeStyles.replyToggleLabel]}>
                                 View replies ({totalReplies})
                               </Text>
                             </Pressable>
@@ -1425,22 +1578,26 @@ export function GameDetails({
                                 onPress={() => handleToggleReplies(review.id, totalReplies)}
                                 style={({ pressed }) => [
                                   styles.replyToggleButton,
-                                  pressed && styles.replyToggleButtonPressed,
+                                  themeStyles.replyToggleButton,
+                                  pressed && themeStyles.replyToggleButtonActive,
                                 ]}
                                 accessibilityRole="button"
                               >
-                                <Text style={styles.replyToggleLabel}>Hide replies</Text>
+                                <Text style={[styles.replyToggleLabel, themeStyles.replyToggleLabel]}>
+                                  Hide replies
+                                </Text>
                               </Pressable>
                               {remainingReplies > 0 ? (
                                 <Pressable
                                   onPress={() => handleLoadMoreReplies(review.id, totalReplies)}
                                   style={({ pressed }) => [
                                     styles.replyToggleSecondaryButton,
-                                    pressed && styles.replyToggleSecondaryButtonPressed,
+                                    themeStyles.replyToggleButton,
+                                    pressed && themeStyles.replyToggleButtonActive,
                                   ]}
                                   accessibilityRole="button"
                                 >
-                                  <Text style={styles.replyToggleSecondaryLabel}>
+                                  <Text style={[styles.replyToggleSecondaryLabel, themeStyles.replyToggleLabel]}>
                                     See more replies (+{remainingReplies})
                                   </Text>
                                 </Pressable>
@@ -1664,11 +1821,12 @@ export function GameDetails({
                 onPress={shouldUseReviewModal ? handleOpenAllReviews : handleLoadMoreCommunityReviews}
                 style={({ pressed }) => [
                   styles.communityLoadMoreButton,
-                  pressed && styles.communityLoadMoreButtonPressed,
+                  themeStyles.communityLoadMoreButton,
+                  pressed && themeStyles.communityLoadMoreButtonActive,
                 ]}
                 accessibilityRole="button"
               >
-                <Text style={styles.communityLoadMoreLabel}>
+                <Text style={[styles.communityLoadMoreLabel, themeStyles.communityLoadMoreLabel]}>
                   {shouldUseReviewModal
                     ? `See all reviews (${reviews.length})`
                     : `See more reviews (+${remainingCommunityReviews})`}
@@ -1685,7 +1843,7 @@ export function GameDetails({
               isPhoneLayout ? styles.similarSectionPhone : styles.similarSectionDesktop,
             ]}
           >
-            <Text style={styles.sectionTitle}>Similar games</Text>
+            <Text style={[styles.sectionTitle, themeStyles.sectionTitle]}>Similar games</Text>
             <FlatList
               data={similarGames}
               keyExtractor={(item) => item.id.toString()}
@@ -1744,7 +1902,7 @@ export function GameDetails({
               ) : (
                 <View style={styles.heroTopBarButtonPlaceholder} />
               )}
-              <Text style={styles.heroTopBarTitle} numberOfLines={1}>
+              <Text style={[styles.heroTopBarTitle, themeStyles.heroTopBarTitle]} numberOfLines={1}>
                 {game.name}
               </Text>
               <View style={styles.heroTopBarButtonPlaceholder} />
@@ -1752,14 +1910,14 @@ export function GameDetails({
           ) : null}
         </SafeAreaView>
       ) : null}
-      <Modal
+     <Modal
         animationType="none"
         visible={showRateModal}
         presentationStyle={isPhoneLayout ? 'pageSheet' : 'overFullScreen'}
         transparent={!isPhoneLayout}
         onRequestClose={handleCloseRateModal}
       >
-        <SafeAreaView style={styles.rateModalSafeArea}>
+        <SafeAreaView style={[styles.rateModalSafeArea, themeStyles.rateModalSafeArea]}>
           <View
             style={[
               styles.rateModalFrame,
@@ -1769,6 +1927,7 @@ export function GameDetails({
             <View
               style={[
                 styles.rateModalSheet,
+                themeStyles.rateModalSheet,
                 !isPhoneLayout && styles.rateModalSheetDesktop,
               ]}
             >
@@ -1816,18 +1975,24 @@ export function GameDetails({
                     <Image source={{ uri: coverUri }} style={styles.rateModalCover} />
                   ) : (
                     <View style={styles.rateModalCoverFallback}>
-                      <Text style={styles.rateModalCoverFallbackText}>No art</Text>
+                      <Text style={[styles.rateModalCoverFallbackText, themeStyles.rateModalCoverFallbackText]}>
+                        No art
+                      </Text>
                     </View>
                   )}
                   <View style={styles.rateModalGameCopy}>
-                    <Text style={styles.rateModalGameTitle}>{game.name}</Text>
+                    <Text style={[styles.rateModalGameTitle, themeStyles.rateModalGameTitle]}>
+                      {game.name}
+                    </Text>
                     {releaseLine ? (
-                      <Text style={styles.rateModalGameMeta}>{releaseLine}</Text>
+                      <Text style={[styles.rateModalGameMeta, themeStyles.rateModalGameMeta]}>
+                        {releaseLine}
+                      </Text>
                     ) : null}
                   </View>
                 </View>
                 <View style={styles.rateModalSection}>
-                  <Text style={styles.rateModalLabel}>Rate</Text>
+                  <Text style={[styles.rateModalLabel, themeStyles.rateModalLabel]}>Rate</Text>
                   <View style={styles.ratingStarsRow}>
                     {ratingOptions.map((value) => {
                       const isActive = ratingInput !== null && value <= ratingInput;
@@ -1845,14 +2010,14 @@ export function GameDetails({
                           <Ionicons
                             name={isActive ? 'star' : 'star-outline'}
                             size={24}
-                            color={isActive ? '#fbbf24' : '#475569'}
+                            color={isActive ? themeStyles.ratingStarActive : themeStyles.ratingStarInactive}
                           />
                         </Pressable>
                       );
                     })}
                   </View>
                   <View style={styles.ratingMetaRow}>
-                    <Text style={styles.ratingSelectedValue}>
+                    <Text style={[styles.ratingSelectedValue, themeStyles.ratingSelectedValue]}>
                       {ratingInput === null ? 'No rating yet' : `${ratingInput}/10 selected`}
                     </Text>
                     {ratingInput !== null ? (
@@ -1860,17 +2025,18 @@ export function GameDetails({
                         onPress={handleClearRating}
                         style={({ pressed }) => [
                           styles.ratingClearButton,
-                          pressed && styles.ratingClearButtonPressed,
+                          themeStyles.ratingClearButton,
+                          pressed && themeStyles.ratingClearButtonActive,
                         ]}
                         accessibilityRole="button"
                       >
-                        <Text style={styles.ratingClearLabel}>Clear</Text>
+                        <Text style={[styles.ratingClearLabel, themeStyles.ratingClearLabel]}>Clear</Text>
                       </Pressable>
                     ) : null}
                   </View>
                 </View>
                 <View style={styles.rateModalSection}>
-                  <Text style={styles.rateModalLabel}>Add review</Text>
+                  <Text style={[styles.rateModalLabel, themeStyles.rateModalLabel]}>Add review</Text>
                   {reviewLimitLabel ? (
                     <Text style={styles.reviewLimitHelper}>{reviewLimitLabel}</Text>
                   ) : null}
@@ -1878,11 +2044,11 @@ export function GameDetails({
                     value={reviewInput}
                     onChangeText={setReviewInput}
                     placeholder={REVIEW_PLACEHOLDER}
-                    placeholderTextColor="#94a3b8"
+                    placeholderTextColor={colors.muted}
                     multiline
                     numberOfLines={4}
                     textAlignVertical="top"
-                    style={styles.rateModalTextarea}
+                    style={[styles.rateModalTextarea, themeStyles.rateModalTextarea]}
                   />
                 </View>
               </ScrollView>

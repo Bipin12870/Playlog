@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   Platform,
   Pressable,
@@ -9,8 +9,9 @@ import {
   StyleSheet,
   Text,
   View,
-  useColorScheme,
 } from 'react-native';
+
+import { useTheme, type ThemeColors, type ThemePreference } from '../../../lib/theme';
 
 const THEME_OPTIONS = [
   {
@@ -30,25 +31,28 @@ const THEME_OPTIONS = [
   },
 ] as const;
 
-type ThemeOption = (typeof THEME_OPTIONS)[number]['key'];
+type ThemeOption = ThemePreference;
 
 export default function PreferencesScreen() {
-  const scheme = useColorScheme();
-  const [selectedTheme, setSelectedTheme] = useState<ThemeOption>('system');
+  const { preference, resolved, setPreference, colors, statusBarStyle, isDark } = useTheme();
+  const selectedTheme = preference;
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const checkIconColor = colors.success;
+  const chevronColor = colors.muted;
   const helperText = useMemo(() => {
     if (selectedTheme === 'system') {
-      return `Currently following your system preference (${scheme ?? 'dark'}).`;
+      return `Following your device preference (${resolved}).`;
     }
     return `Using the ${selectedTheme} interface.`;
-  }, [scheme, selectedTheme]);
+  }, [resolved, selectedTheme]);
 
   const handleSelect = useCallback((value: ThemeOption) => {
-    setSelectedTheme(value);
-  }, []);
+    void setPreference(value);
+  }, [setPreference]);
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={statusBarStyle} />
       <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           <Ionicons name="contrast" size={32} color="#fbbf24" />
@@ -78,9 +82,9 @@ export default function PreferencesScreen() {
                   <Text style={styles.optionDescription}>{option.description}</Text>
                 </View>
                 {active ? (
-                  <Ionicons name="checkmark" size={20} color="#34d399" />
+                  <Ionicons name="checkmark" size={20} color={checkIconColor} />
                 ) : (
-                  <Ionicons name="chevron-forward" size={20} color="#94a3b8" />
+                  <Ionicons name="chevron-forward" size={20} color={chevronColor} />
                 )}
               </Pressable>
             );
@@ -89,8 +93,7 @@ export default function PreferencesScreen() {
         <View style={styles.noteCard}>
           <Text style={styles.noteLabel}>Note</Text>
           <Text style={styles.noteCopy}>
-            Theme selections are stored locally for now. The whole app will respect your preference
-            once the system-wide theme support is enabled.
+            Your preference is saved on this device and applied across the app instantly.
           </Text>
           {Platform.OS === 'web' ? (
             <Text style={styles.noteCopy}>
@@ -103,89 +106,92 @@ export default function PreferencesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  page: {
-    padding: 24,
-    gap: 16,
-  },
-  hero: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  heroCopy: {
-    flex: 1,
-  },
-  title: {
-    color: '#f8fafc',
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  subtitle: {
-    color: '#94a3b8',
-    fontSize: 14,
-  },
-  helperText: {
-    color: '#cbd5f5',
-    fontSize: 14,
-  },
-  optionList: {
-    gap: 12,
-  },
-  optionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 18,
-    backgroundColor: '#111827',
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.15)',
-  },
-  optionCardActive: {
-    borderColor: '#34d399',
-    backgroundColor: 'rgba(52,211,153,0.08)',
-  },
-  optionCardPressed: {
-    opacity: 0.9,
-  },
-  optionText: {
-    flex: 1,
-    gap: 4,
-  },
-  optionLabel: {
-    color: '#f8fafc',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  optionLabelActive: {
-    color: '#22c55e',
-  },
-  optionDescription: {
-    color: '#94a3b8',
-    fontSize: 13,
-  },
-  noteCard: {
-    marginTop: 8,
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: '#111827',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    gap: 6,
-  },
-  noteLabel: {
-    color: '#f8fafc',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  noteCopy: {
-    color: '#cbd5f5',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-});
+function createStyles(colors: ThemeColors, isDark: boolean) {
+  const successTint = `${colors.success}${isDark ? '26' : '1A'}`;
+  return StyleSheet.create({
+    safe: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    page: {
+      padding: 24,
+      gap: 16,
+    },
+    hero: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    heroCopy: {
+      flex: 1,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 22,
+      fontWeight: '700',
+    },
+    subtitle: {
+      color: colors.muted,
+      fontSize: 14,
+    },
+    helperText: {
+      color: colors.subtle,
+      fontSize: 14,
+    },
+    optionList: {
+      gap: 12,
+    },
+    optionCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 16,
+      borderRadius: 18,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    optionCardActive: {
+      borderColor: colors.success,
+      backgroundColor: successTint,
+    },
+    optionCardPressed: {
+      opacity: 0.9,
+    },
+    optionText: {
+      flex: 1,
+      gap: 4,
+    },
+    optionLabel: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    optionLabelActive: {
+      color: colors.success,
+    },
+    optionDescription: {
+      color: colors.muted,
+      fontSize: 13,
+    },
+    noteCard: {
+      marginTop: 8,
+      padding: 16,
+      borderRadius: 16,
+      backgroundColor: colors.surfaceSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 6,
+    },
+    noteLabel: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    noteCopy: {
+      color: colors.subtle,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+  });
+}

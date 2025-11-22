@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Image,
   ImageBackground,
   Pressable,
   ScrollView,
+  StatusBar,
   Text,
   View,
   useWindowDimensions,
@@ -15,8 +16,9 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import { EmailSignup } from '../components/auth/signup/EmailSignup';
 import { GoogleSignup } from '../components/auth/signup/GoogleSignup';
 import { PhoneSignup } from '../components/auth/signup/PhoneSignup';
-import { signupStyles as styles } from '../components/auth/signup/styles';
+import { createSignupStyles } from '../components/auth/signup/styles';
 import { SubscriptionOfferModal } from '../components/SubscriptionOfferModal';
+import { useTheme } from '../lib/theme';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -30,6 +32,11 @@ export default function SignupScreen() {
   const { width } = useWindowDimensions();
   const wide = width >= 900;
   const isMobile = !wide;
+  const { colors, isDark, statusBarStyle } = useTheme();
+  const styles = useMemo(() => createSignupStyles(colors, isDark), [colors, isDark]);
+  const accentColor = colors.accent;
+  const onAccentColor = isDark ? colors.text : '#0f172a';
+  const muted = colors.muted;
 
   const [method, setMethod] = useState<Method>('none');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -109,20 +116,20 @@ export default function SignupScreen() {
           onPress={() => pick(value)}
           accessibilityRole="button"
           accessibilityLabel={`${label} sign up`}
-          accessibilityHint={active ? `Collapse ${label} form` : `Expand ${label} form`}
-          accessibilityState={{ expanded: active, selected: active }}
-          hitSlop={10}
-        >
-          <Ionicons name={icon} size={18} color={active ? '#0f172a' : '#8b5cf6'} />
-          <Text style={styles.accordionLabel}>{label}</Text>
-          <Ionicons
-            name={active ? 'chevron-up' : 'chevron-down'}
-            size={16}
-            color={active ? '#0f172a' : '#94a3b8'}
-            style={styles.methodChevron}
-          />
-        </Pressable>
-        {active && <View style={styles.accordionBody}>{children}</View>}
+        accessibilityHint={active ? `Collapse ${label} form` : `Expand ${label} form`}
+        accessibilityState={{ expanded: active, selected: active }}
+        hitSlop={10}
+      >
+        <Ionicons name={icon} size={18} color={active ? onAccentColor : accentColor} />
+        <Text style={styles.accordionLabel}>{label}</Text>
+        <Ionicons
+          name={active ? 'chevron-up' : 'chevron-down'}
+          size={16}
+          color={active ? onAccentColor : muted}
+          style={styles.methodChevron}
+        />
+      </Pressable>
+      {active && <View style={styles.accordionBody}>{children}</View>}
       </View>
     );
   };
@@ -186,7 +193,7 @@ export default function SignupScreen() {
             accessibilityRole="button"
             accessibilityLabel="Close sign up and go back"
           >
-            <Ionicons name="close" size={18} color="#e2e8f0" />
+            <Ionicons name="close" size={18} color={muted} />
           </Pressable>
         </Link>
       </View>
@@ -213,6 +220,7 @@ export default function SignupScreen() {
         visible={showSubscriptionOffer}
         onClose={() => setShowSubscriptionOffer(false)}
       />
+      <StatusBar barStyle={statusBarStyle} />
       <ImageBackground source={BACKDROP} style={styles.background} imageStyle={styles.backgroundImage}>
         <View style={styles.scrim} />
         <ScrollView
