@@ -42,15 +42,31 @@ type ProfileAction = {
     | 'edit'
     | 'reviews'
     | 'visibility'
-    | 'delete';
+    | 'delete'
+    | 'preferences'
+    | 'change-password';
   title: string;
   description: string;
   icon: keyof typeof Ionicons.glyphMap;
-  section: 'Social' | 'Profile' | 'Content' | 'Privacy & Safety' | 'Account';
+  section: 'Profile' | 'Social' | 'Activity' | 'Preferences' | 'Privacy & Safety';
   variant?: 'destructive';
 };
 
 const ACTIONS: ProfileAction[] = [
+  {
+    key: 'edit',
+    title: 'Edit Profile',
+    description: 'Update your display name, avatar, and bio.',
+    icon: 'create',
+    section: 'Profile',
+  },
+  {
+    key: 'visibility',
+    title: 'Profile visibility',
+    description: 'Control who can follow, message, or see your activity.',
+    icon: 'eye',
+    section: 'Profile',
+  },
   {
     key: 'followers',
     title: 'Followers',
@@ -73,31 +89,31 @@ const ACTIONS: ProfileAction[] = [
     section: 'Social',
   },
   {
-    key: 'blocked',
-    title: 'Blocked users',
-    description: 'Review and manage your blocked list.',
-    icon: 'ban',
-    section: 'Social',
-  },
-  {
-    key: 'edit',
-    title: 'Edit Profile',
-    description: 'Update your display name, avatar, and bio.',
-    icon: 'create',
-    section: 'Profile',
-  },
-  {
     key: 'reviews',
     title: 'Reviews',
     description: 'Revisit and manage shared reviews.',
     icon: 'chatbubble-ellipses',
-    section: 'Content',
+    section: 'Activity',
   },
   {
-    key: 'visibility',
-    title: 'Visibility settings',
-    description: 'Control who can follow, message, or see your activity.',
-    icon: 'eye',
+    key: 'preferences',
+    title: 'Dark/Light mode',
+    description: 'Pick your preferred appearance.',
+    icon: 'contrast',
+    section: 'Preferences',
+  },
+  {
+    key: 'blocked',
+    title: 'Blocked users',
+    description: 'Review and manage your blocked list.',
+    icon: 'ban',
+    section: 'Privacy & Safety',
+  },
+  {
+    key: 'change-password',
+    title: 'Change password',
+    description: 'Update your account password.',
+    icon: 'key',
     section: 'Privacy & Safety',
   },
   {
@@ -105,7 +121,7 @@ const ACTIONS: ProfileAction[] = [
     title: 'Delete account',
     description: 'Permanently remove your account.',
     icon: 'trash',
-    section: 'Account',
+    section: 'Privacy & Safety',
     variant: 'destructive',
   },
 ];
@@ -116,38 +132,38 @@ const ACTION_SECTIONS: Array<{
   actions: ProfileAction[];
 }> = [
   {
-    key: 'social',
-    title: 'Social',
-    actions: ACTIONS.filter((action) => action.section === 'Social'),
-  },
-  {
     key: 'profile',
     title: 'Profile',
     actions: ACTIONS.filter((action) => action.section === 'Profile'),
   },
   {
-    key: 'content',
-    title: 'Content',
-    actions: ACTIONS.filter((action) => action.section === 'Content'),
+    key: 'social',
+    title: 'Social',
+    actions: ACTIONS.filter((action) => action.section === 'Social'),
+  },
+  {
+    key: 'activity',
+    title: 'Activity',
+    actions: ACTIONS.filter((action) => action.section === 'Activity'),
+  },
+  {
+    key: 'preferences',
+    title: 'Preferences',
+    actions: ACTIONS.filter((action) => action.section === 'Preferences'),
   },
   {
     key: 'privacy',
     title: 'Privacy & Safety',
     actions: ACTIONS.filter((action) => action.section === 'Privacy & Safety'),
   },
-  {
-    key: 'account',
-    title: 'Account',
-    actions: ACTIONS.filter((action) => action.section === 'Account'),
-  },
 ];
 
 const SECTION_ICON: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
-  social: { icon: 'people-circle', color: '#38bdf8' },
   profile: { icon: 'person-circle', color: '#a78bfa' },
-  content: { icon: 'albums', color: '#22d3ee' },
+  social: { icon: 'people-circle', color: '#38bdf8' },
+  activity: { icon: 'albums', color: '#22d3ee' },
+  preferences: { icon: 'contrast', color: '#fbbf24' },
   privacy: { icon: 'shield-checkmark', color: '#f97316' },
-  account: { icon: 'settings', color: '#f472b6' },
 };
 
 const STAT_KEYS = ['following', 'followers', 'blocked'] as const;
