@@ -8,7 +8,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -62,7 +61,6 @@ export default function EditProfileScreen() {
   const [photoUrl, setPhotoUrl] = useState('');
   const [bio, setBio] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null);
-  const [profileVisibility, setProfileVisibility] = useState<'public' | 'private'>('public');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null,
   );
@@ -74,14 +72,12 @@ export default function EditProfileScreen() {
       setPhotoUrl('');
       setBio('');
       setSelectedAvatar(null);
-      setProfileVisibility('public');
       return;
     }
     setDisplayName(profile.displayName ?? '');
     setPhotoUrl(profile.photoURL ?? '');
     setBio(profile.bio ?? '');
     setSelectedAvatar(profile.avatarKey ?? null);
-    setProfileVisibility(profile.profileVisibility === 'private' ? 'private' : 'public');
   }, [profile?.uid, profile?.displayName, profile?.photoURL, profile?.bio, profile?.avatarKey]);
 
   const trimmedDisplayName = displayName.trim();
@@ -107,15 +103,12 @@ export default function EditProfileScreen() {
   const originalBio = profile?.bio ?? '';
   const originalPhoto = profile?.photoURL ?? '';
   const originalAvatar = profile?.avatarKey ?? null;
-  const originalVisibility = profile?.profileVisibility ?? 'public';
-
   const hasChanges =
     !!profile &&
     (trimmedDisplayName !== originalDisplay ||
       trimmedBio !== originalBio ||
       trimmedPhoto !== originalPhoto ||
-      selectedAvatar !== originalAvatar ||
-      profileVisibility !== originalVisibility);
+      selectedAvatar !== originalAvatar);
 
   const canSubmit = hasChanges && !saving && trimmedDisplayName.length > 1;
 
@@ -132,7 +125,6 @@ export default function EditProfileScreen() {
         bio: trimmedBio,
         photoURL: selectedAvatar ? null : trimmedPhoto.length ? trimmedPhoto : null,
         avatarKey: selectedAvatar,
-        profileVisibility,
       });
       setFeedback({ type: 'success', message: 'Profile updated successfully.' });
     } catch (err) {
@@ -160,7 +152,6 @@ export default function EditProfileScreen() {
     setPhotoUrl(profile.photoURL ?? '');
     setBio(profile.bio ?? '');
     setSelectedAvatar(profile.avatarKey ?? null);
-    setProfileVisibility(profile.profileVisibility === 'private' ? 'private' : 'public');
     setFeedback(null);
   };
 
@@ -209,31 +200,6 @@ export default function EditProfileScreen() {
 
       <View style={styles.formCard}>
         <Text style={styles.sectionTitle}>Profile details</Text>
-
-        <View style={styles.fieldGroup}>
-          <View style={styles.visibilityRow}>
-            <View style={styles.visibilityCopy}>
-              <Text style={styles.fieldLabel}>Profile visibility</Text>
-              <Text style={styles.helperText}>
-                Choose who can see your favourites, followers, and reviews.
-              </Text>
-            </View>
-            <View style={styles.visibilityToggle}>
-              <Text style={styles.visibilityBadge}>
-                {profileVisibility === 'private' ? 'Private' : 'Public'}
-              </Text>
-              <Switch
-                value={profileVisibility === 'private'}
-                onValueChange={(value) => {
-                  setProfileVisibility(value ? 'private' : 'public');
-                  setFeedback(null);
-                }}
-                thumbColor={profileVisibility === 'private' ? '#f8fafc' : '#1f2937'}
-                trackColor={{ false: '#4b5563', true: '#6366f1' }}
-              />
-            </View>
-          </View>
-        </View>
 
         <View style={styles.fieldGroup}>
           <Text style={styles.fieldLabel}>Display name</Text>
