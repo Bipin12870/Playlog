@@ -636,15 +636,6 @@ export default function ProfileHomeScreen() {
           ))}
         </View>
 
-        <Pressable
-          onPress={confirmSignOut}
-          style={({ pressed }) => [
-            styles.signOutButton,
-            pressed && styles.signOutButtonPressed,
-          ]}
-        >
-          <Text style={styles.signOutLabel}>Sign out</Text>
-        </Pressable>
       </ScrollView>
     </>
   );
@@ -1030,18 +1021,6 @@ function createStyles(colors: ThemeColors, isDark: boolean) {
     actionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     actionTitle: { color: colors.text, fontWeight: '700' },
     actionDescription: { color: muted, fontSize: 13 },
-
-    signOutButton: {
-      marginTop: 14,
-      alignSelf: 'flex-start',
-      alignItems: 'center',
-      paddingHorizontal: 14,
-      paddingVertical: 8,
-      borderRadius: 999,
-      backgroundColor: accentSoft,
-    },
-    signOutButtonPressed: { opacity: 0.85 },
-    signOutLabel: { color: colors.text, fontWeight: '700' },
 
     badge: {
       minWidth: 28,

@@ -93,6 +93,7 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
 
   const placeholder = placeholderByScope[nextScope] ?? 'Search';
   const showSearch = activeRoute !== 'profile';
+  const showNavSignOut = Boolean(user && activeRoute === 'profile');
   const isDarkSurface = palette.isDark;
   const inputBackground = palette.input;
   const signOutTextColor = palette.text;
@@ -347,12 +348,14 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
         </Pressable>
         <View style={styles.authLinks}>
           {user ? (
-            <Pressable
-              onPress={confirmSignOut}
-              style={[styles.signOutButton, { borderColor: palette.border }]}
-            >
-              <Text style={[styles.signOutLabel, { color: signOutTextColor }]}>Sign out</Text>
-            </Pressable>
+            showNavSignOut ? (
+              <Pressable
+                onPress={confirmSignOut}
+                style={[styles.signOutButton, { borderColor: palette.border }]}
+              >
+                <Text style={[styles.signOutLabel, { color: signOutTextColor }]}>Sign out</Text>
+              </Pressable>
+            ) : null
           ) : (
             <>
               <Link href="/signup" style={[styles.loginLink, { color: palette.text }]}>Sign Up</Link>
