@@ -1,5 +1,7 @@
 import { Stack } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 
+WebBrowser.maybeCompleteAuthSession(); // <-- MUST be at module scope
 import { GameDetailsCacheProvider } from '../lib/hooks/useGameDetailsCache';
 import { DiscoveryCacheProvider } from '../lib/hooks/useDiscoveryCache';
 import { ThemeProvider, useTheme } from '../lib/theme';
