@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { signOut } from 'firebase/auth';
 import { useCallback, useEffect, useRef, useState } from 'react';
-
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
 import { auth } from '../../lib/firebase';
 import {
@@ -297,26 +296,44 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
       <View style={styles.rightSection}>
         {showSearch ? (
           <View style={styles.searchArea}>
-            <TextInput
-              placeholder={placeholder}
-              placeholderTextColor={palette.muted}
-              value={term}
-              onChangeText={handleChangeSearchTerm}
-              returnKeyType="search"
-              onSubmitEditing={() => handleSubmitSearch()}
-              autoCorrect={false}
-              autoCapitalize="none"
-              onFocus={handleSearchFocus}
-              onBlur={handleSearchBlur}
+            <View
               style={[
-                styles.searchInput,
-                {
-                  borderColor: palette.border,
-                  color: palette.text,
-                  backgroundColor: inputBackground,
-                },
+                styles.searchInputWrapper,
+                { borderColor: palette.border, backgroundColor: inputBackground },
               ]}
-            />
+            >
+              <TextInput
+                placeholder={placeholder}
+                placeholderTextColor={palette.muted}
+                value={term}
+                onChangeText={handleChangeSearchTerm}
+                returnKeyType="search"
+                onSubmitEditing={() => handleSubmitSearch()}
+                autoCorrect={false}
+                autoCapitalize="none"
+                onFocus={handleSearchFocus}
+                onBlur={handleSearchBlur}
+                style={[styles.searchInput, { color: palette.text }]}
+              />
+              <Pressable
+                onPress={handleCategoryOpen}
+                style={({ pressed }) => [
+                  styles.searchFilter,
+                  categoryActive && {
+                    borderColor: palette.accent,
+                    backgroundColor: `${palette.accent}26`,
+                  },
+                  pressed && styles.searchFilterPressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Open category filters"
+              >
+                <Ionicons name="options-outline" size={18} color={palette.text} />
+                {categoryActive ? (
+                  <View style={[styles.searchFilterDot, { backgroundColor: palette.accent }]} />
+                ) : null}
+              </Pressable>
+            </View>
             {historyDropdownVisible ? (
               <SearchHistoryDropdown
                 style={styles.historyDropdown}
@@ -329,23 +346,6 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
         ) : (
           <View style={styles.searchPlaceholder} />
         )}
-        <Pressable
-          onPress={handleCategoryOpen}
-          style={[
-            styles.categoryButton,
-            {
-              borderColor: palette.border,
-              backgroundColor: isDarkSurface ? 'rgba(15,23,42,0.8)' : 'rgba(255,255,255,0.9)',
-            },
-            categoryActive && {
-              borderColor: palette.accent,
-              backgroundColor: `${palette.accent}26`,
-            },
-          ]}
-          hitSlop={8}
-        >
-          <Ionicons name="options-outline" size={18} color={palette.text} />
-        </Pressable>
         <View style={styles.authLinks}>
           {user ? (
             showNavSignOut ? (
@@ -569,13 +569,20 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#f97316',
   },
+  searchInputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 18,
+    gap: 10,
+  },
   searchInput: {
     flex: 1,
     minHeight: 46,
-    paddingHorizontal: 18,
     paddingVertical: 10,
-    borderWidth: 1,
-    borderRadius: 999,
+    paddingHorizontal: 6,
     fontSize: 16,
   },
   searchArea: {
@@ -588,18 +595,25 @@ const styles = StyleSheet.create({
   searchPlaceholder: {
     flex: 1,
   },
-  categoryButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    backgroundColor: 'rgba(15,23,42,0.8)',
+  searchFilter: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  categoryButtonActive: {
-    borderColor: '#7c3aed',
-    backgroundColor: 'rgba(67,56,202,0.25)',
+  searchFilterPressed: {
+    opacity: 0.85,
+  },
+  searchFilterDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginLeft: 4,
   },
   loginLink: {
     fontSize: 16,
