@@ -71,6 +71,7 @@ type GameDetailsProps = {
 };
 
 const REVIEW_PLACEHOLDER = 'Share what stood out to you about this game (at least 20 characters).';
+const FAVORITE_ACCENT = '#f472b6';
 const INITIAL_REPLY_PREVIEW_COUNT = 1;
 const REPLY_LOAD_INCREMENT = 2;
 const INITIAL_COMMUNITY_PREVIEW_COUNT = 3;
@@ -464,8 +465,8 @@ export function GameDetails({
       surfaceCard: { backgroundColor: colors.surface, borderColor: colors.border },
       surfaceAltCard: { backgroundColor: colors.surfaceSecondary, borderColor: colors.border },
       factNavBorder: { borderColor: isDark ? 'rgba(16, 185, 129, 0.2)' : colors.border },
-      factNavLabel: { color: colors.accent },
-      factNavUnderline: { backgroundColor: colors.accent },
+      factNavLabel: { color: colors.success },
+      factNavUnderline: { backgroundColor: colors.success },
       factList: { color: colors.text },
       heroHeadline: { color: colors.text },
       heroEyebrow: { color: colors.muted },
@@ -510,11 +511,12 @@ export function GameDetails({
         borderColor: colors.border,
         backgroundColor: isDark ? 'rgba(15, 23, 42, 0.6)' : colors.surfaceSecondary,
       },
-      heroSecondaryButtonActive: {
-        borderColor: colors.accent,
-        backgroundColor: isDark ? 'rgba(248, 250, 252, 0.08)' : colors.accentSoft,
-      },
-      heroSecondaryButtonLabel: { color: colors.text },
+  heroSecondaryButtonActive: {
+    borderColor: '#f472b6',
+    backgroundColor: isDark ? 'rgba(248, 250, 252, 0.08)' : colors.accentSoft,
+  },
+  heroSecondaryButtonLabel: { color: colors.text },
+  heroSecondaryButtonLabelActive: { color: '#f472b6' },
       heroMetricsCard: { backgroundColor: colors.surfaceSecondary, borderColor: colors.border },
       heroPhoneSecondaryButton: {
         backgroundColor: colors.surface,
@@ -522,10 +524,11 @@ export function GameDetails({
         borderWidth: 1,
       },
       heroPhoneSecondaryActive: {
-        borderColor: colors.accent,
+        borderColor: '#f472b6',
         backgroundColor: isDark ? 'rgba(248, 250, 252, 0.12)' : colors.accentSoft,
       },
       heroPhoneSecondaryLabel: { color: colors.text },
+      heroPhoneSecondaryLabelActive: { color: '#f472b6' },
       heroPhoneTitle: { color: colors.text },
       heroPhoneMeta: { color: colors.muted },
       heroPhoneAccordionLabel: { color: colors.text },
@@ -1289,9 +1292,17 @@ export function GameDetails({
                       <ActivityIndicator size="small" color={colors.text} />
                     ) : (
                       <>
-                        <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={16} color={colors.text} />
+                        <Ionicons
+                          name={isFavorite ? 'heart' : 'heart-outline'}
+                          size={16}
+                          color={isFavorite ? FAVORITE_ACCENT : colors.text}
+                        />
                         <Text
-                          style={[styles.heroPhoneSecondaryLabel, themeStyles.heroPhoneSecondaryLabel]}
+                          style={[
+                            styles.heroPhoneSecondaryLabel,
+                            themeStyles.heroPhoneSecondaryLabel,
+                            isFavorite && styles.heroPhoneSecondaryLabelActive,
+                          ]}
                         >
                           {isFavorite ? 'Favourited' : 'Add to favourites'}
                         </Text>
@@ -1378,16 +1389,17 @@ export function GameDetails({
                               <Ionicons
                                 name={isFavorite ? 'heart' : 'heart-outline'}
                                 size={16}
-                                color={colors.text}
-                              />
-                              <Text
-                                style={[
-                                  styles.heroPhoneSecondaryLabel,
-                                  themeStyles.heroPhoneSecondaryLabel,
-                                ]}
-                              >
-                                {isFavorite ? 'Favourited' : 'Add to favourites'}
-                              </Text>
+                          color={isFavorite ? FAVORITE_ACCENT : colors.text}
+                        />
+                        <Text
+                          style={[
+                            styles.heroPhoneSecondaryLabel,
+                            themeStyles.heroPhoneSecondaryLabel,
+                            isFavorite && styles.heroPhoneSecondaryLabelActive,
+                          ]}
+                        >
+                          {isFavorite ? 'Favourited' : 'Add to favourites'}
+                        </Text>
                             </>
                           )}
                         </Pressable>
@@ -2760,13 +2772,16 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
   heroPhoneSecondaryActive: {
-    borderColor: '#f8fafc',
+    borderColor: '#f472b6',
     backgroundColor: 'rgba(248, 250, 252, 0.12)',
   },
   heroPhoneSecondaryLabel: {
     color: '#f8fafc',
     fontWeight: '600',
     fontSize: 13,
+  },
+  heroPhoneSecondaryLabelActive: {
+    color: '#f472b6',
   },
   heroPhoneAccordion: {
     borderTopWidth: 1,
@@ -3140,12 +3155,15 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
   heroSecondaryButtonActive: {
-    borderColor: '#f8fafc',
+    borderColor: '#f472b6',
     backgroundColor: 'rgba(248, 250, 252, 0.08)',
   },
   heroSecondaryButtonLabel: {
     color: '#f8fafc',
     fontWeight: '600',
+  },
+  heroSecondaryButtonLabelActive: {
+    color: '#f472b6',
   },
   heroActionDisabled: {
     opacity: 0.5,
