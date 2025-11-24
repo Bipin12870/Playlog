@@ -395,18 +395,19 @@ function NativeTabs({
   }, [resetSearch, setScope]);
 
   return (
-    <Tabs
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarActiveTintColor: accent,
-        tabBarInactiveTintColor: navMuted,
-        tabBarStyle: {
-          backgroundColor: navBackground,
-          borderTopColor: navBorder,
-        },
-        sceneContainerStyle: { backgroundColor: pageBackground },
-        tabBarIcon: ({ color, size }) => {
-          let icon: keyof typeof Ionicons.glyphMap = 'home';
+      <Tabs
+        screenOptions={({ route }) => ({
+          headerShown: false,
+          tabBarActiveTintColor: accent,
+          tabBarInactiveTintColor: navMuted,
+          tabBarStyle: {
+            backgroundColor: navBackground,
+            borderTopColor: navBorder,
+          },
+          sceneContainerStyle: { backgroundColor: pageBackground },
+          tabBarLabelPosition: 'below-icon',
+          tabBarIcon: ({ color, size }) => {
+            let icon: keyof typeof Ionicons.glyphMap = 'home';
           switch (route.name) {
             case 'home':
               icon = 'home';

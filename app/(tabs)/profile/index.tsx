@@ -682,7 +682,7 @@ function MobileProfile({
   profile,
   heroAvatar,
   stats,
-  visibility, // currently unused but kept for future
+  visibility,
   joinedLabel,
   pendingRequests,
   onNavigate,
@@ -733,6 +733,16 @@ function MobileProfile({
               <Text style={styles.displayName}>{profile.displayName}</Text>
               {profile.bio ? <Text style={styles.mobileBio}>{profile.bio}</Text> : null}
               {joinedLabel ? <Text style={styles.mobileJoined}>Joined {joinedLabel}</Text> : null}
+              <View style={styles.mobileVisibilityMeta}>
+                <Ionicons
+                  name={visibility === 'private' ? 'lock-closed' : 'globe'}
+                  size={12}
+                  color={visibility === 'private' ? warningColor : successColor}
+                />
+                <Text style={styles.mobileVisibilityLabel}>
+                  {visibility === 'private' ? 'Private profile' : 'Public profile'}
+                </Text>
+              </View>
             </View>
           </View>
           <View style={styles.mobileStatRow}>
@@ -760,32 +770,45 @@ function MobileProfile({
           </View>
         </View>
 
+        {/* Merged version of your richer mobile subscription card with theme colors */}
         <View style={styles.mobileSubscriptionCard}>
-          <Text style={styles.mobileSubscriptionLabel}>{isPremium ? 'Premium' : 'Free tier'}</Text>
-          <Text style={styles.mobileSubscriptionPlan}>{planTitle}</Text>
-          <Text style={styles.mobileSubscriptionStatus}>
-            {subscriptionStatus ?? 'Active membership'}
-          </Text>
-          {expirationLabel ? (
-            <Text style={styles.mobileSubscriptionHint}>Valid through {expirationLabel}</Text>
-          ) : null}
-          <Pressable
-            style={({ pressed }) => [
-              styles.mobileSubscriptionButton,
-              pressed && styles.mobileSubscriptionButtonPressed,
-            ]}
-            onPress={onManagePlan}
-          >
-            <Text style={styles.mobileSubscriptionButtonLabel}>
-              {isPremium ? 'Manage plan' : 'Choose plan'}
-            </Text>
-          </Pressable>
+          <View style={styles.mobileSubscriptionHeader}>
+            <Text style={styles.mobileSubscriptionLabel}>Plan</Text>
+            <View style={styles.mobileSubscriptionStatusBadge}>
+              <Text style={styles.mobileSubscriptionStatusText}>
+                {subscriptionStatus
+                  ? subscriptionStatus.toUpperCase()
+                  : isPremium
+                  ? 'ACTIVE'
+                  : 'FREE'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.mobileSubscriptionBody}>
+            <View>
+              <Text style={styles.mobileSubscriptionPlan}>{planTitle}</Text>
+              {expirationLabel ? (
+                <Text style={styles.mobileSubscriptionHint}>Valid through {expirationLabel}</Text>
+              ) : null}
+            </View>
+            <Pressable
+              style={({ pressed }) => [
+                styles.mobileSubscriptionButton,
+                pressed && styles.mobileSubscriptionButtonPressed,
+              ]}
+              onPress={onManagePlan}
+            >
+              <Text style={styles.mobileSubscriptionButtonLabel}>
+                {isPremium ? 'Manage plan' : 'Choose plan'}
+              </Text>
+            </Pressable>
+          </View>
           {billingError ? <Text style={styles.billingError}>{billingError}</Text> : null}
         </View>
 
         <View style={styles.mobileActionsBlock}>
           {ACTION_SECTIONS.map((section) => (
-            <View key={`mobile-${section.key}`}>
+            <View key={`mobile-${section.key}`} style={styles.mobileSectionCard}>
               <Pressable
                 style={({ pressed }) => [
                   styles.mobileSectionHeader,
@@ -809,14 +832,18 @@ function MobileProfile({
                   color={subtleIcon}
                 />
               </Pressable>
-              {openSections[section.key]
-                ? section.actions.map((action) => {
+              {openSections[section.key] ? (
+                <View style={styles.mobileSectionBody}>
+                  {section.actions.map((action, index) => {
                     const highlightColor =
                       action.variant === 'destructive' ? dangerColor : accentColor;
                     return (
                       <Pressable
                         key={`mobile-${action.key}`}
-                        style={styles.mobileActionRow}
+                        style={[
+                          styles.mobileActionRow,
+                          index > 0 && styles.mobileActionRowSpacing,
+                        ]}
                         onPress={() => onNavigate(action)}
                       >
                         <Ionicons name={action.icon} size={18} color={highlightColor} />
@@ -844,8 +871,9 @@ function MobileProfile({
                         <Ionicons name="chevron-forward" size={16} color={subtleIcon} />
                       </Pressable>
                     );
-                  })
-                : null}
+                  })}
+                </View>
+              ) : null}
             </View>
           ))}
         </View>
@@ -1097,6 +1125,18 @@ function createStyles(colors: ThemeColors, isDark: boolean) {
     mobileHeroDetails: { flex: 1 },
     mobileBio: { color: subtle, fontSize: 13, marginTop: 4 },
     mobileJoined: { color: muted, fontSize: 12, marginTop: 2 },
+    mobileVisibilityMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginTop: 4,
+    },
+    mobileVisibilityLabel: {
+      color: subtle,
+      fontSize: 11,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
 
     mobileSubscriptionCard: {
       backgroundColor: surfaceAlt,
@@ -1107,7 +1147,34 @@ function createStyles(colors: ThemeColors, isDark: boolean) {
       borderColor: border,
       gap: 8,
     },
+    mobileSubscriptionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
     mobileSubscriptionLabel: { color: subtle, fontSize: 12, fontWeight: '600' },
+    mobileSubscriptionStatusBadge: {
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: border,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      backgroundColor: surface,
+    },
+    mobileSubscriptionStatusText: {
+      color: subtle,
+      fontSize: 11,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      fontWeight: '600',
+    },
+    mobileSubscriptionBody: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      gap: 12,
+      marginTop: 6,
+    },
     mobileSubscriptionPlan: { color: colors.text, fontSize: 18, fontWeight: '700' },
     mobileSubscriptionStatus: { color: subtle, fontSize: 13 },
     mobileSubscriptionHint: { color: muted, fontSize: 12 },
@@ -1132,6 +1199,7 @@ function createStyles(colors: ThemeColors, isDark: boolean) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       gap: 12,
+      marginTop: 12,
     },
     mobileStatBlock: {
       flex: 1,
@@ -1151,6 +1219,21 @@ function createStyles(colors: ThemeColors, isDark: boolean) {
       backgroundColor: surface,
       borderWidth: 1,
       borderColor: border,
+      paddingHorizontal: 4,
+      gap: 12,
+    },
+    mobileSectionCard: {
+      borderRadius: 20,
+      backgroundColor: surfaceAlt,
+      borderWidth: 1,
+      borderColor: border,
+      overflow: 'hidden',
+    },
+    mobileSectionBody: {
+      paddingHorizontal: 12,
+      paddingBottom: 12,
+      backgroundColor: surface,
+      gap: 8,
     },
     mobileSectionHeader: {
       flexDirection: 'row',
@@ -1175,11 +1258,14 @@ function createStyles(colors: ThemeColors, isDark: boolean) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16,
+      paddingHorizontal: 18,
       paddingVertical: 14,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: border,
-      gap: 12,
+      borderRadius: 16,
+      backgroundColor: surface,
+      gap: 10,
+    },
+    mobileActionRowSpacing: {
+      marginTop: 10,
     },
     mobileActionLabelWrap: {
       flex: 1,
