@@ -4,12 +4,19 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import { FirebaseError } from 'firebase/app';
 import { useRouter } from 'expo-router';
 import * as Google from 'expo-auth-session/providers/google';
+import * as AuthSession from 'expo-auth-session';
 
 import { signInWithGoogleCredential } from '../../../lib/auth';
 import { useTheme } from '../../../lib/theme';
 import { createLoginStyles } from './styles';
 
 export function GoogleLogin() {
+  useEffect(() => {
+    const uri = AuthSession.makeRedirectUri(); // ← no options
+    console.log('REDIRECT URI >>>', uri);
+  }, []);
+
+
   const router = useRouter();
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createLoginStyles(colors, isDark), [colors, isDark]);

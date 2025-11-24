@@ -836,6 +836,7 @@ const [featured, trending, personalized] = await Promise.allSettled([
         onSelectHistoryTerm={handleSelectHistoryTerm}
         colors={colors}
         isDark={isDark}
+        onOpenCategoryDrawer={handleOpenCategoryDrawer}
       />
       {categoryDrawer}
     </>
@@ -1013,6 +1014,25 @@ function NativeHome({
             placeholderTextColor={colors.muted}
             selectionColor={colors.accent}
           />
+            <Pressable
+              onPress={onOpenCategoryDrawer}
+              style={({ pressed }) => [
+                nativeStyles.searchFilter,
+                filterControls.filtersActive && nativeStyles.searchFilterActive,
+                pressed && nativeStyles.searchFilterPressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Open category filters"
+            >
+              <Ionicons
+                name="options-outline"
+                size={16}
+                color={colors.text}
+              />
+              {filterControls.filtersActive ? (
+                <View style={nativeStyles.searchFilterDot} />
+              ) : null}
+            </Pressable>
         </View>
         {showHistoryDropdown ? (
           <SearchHistoryDropdown
@@ -1023,30 +1043,6 @@ function NativeHome({
           />
         ) : null}
       </View>
-      <Pressable
-        onPress={onOpenCategoryDrawer}
-        style={({ pressed }) => [
-          nativeStyles.categoryButton,
-          { backgroundColor: nativeTheme.surfaceAlt, borderColor: nativeTheme.border },
-          filterControls.filtersActive && {
-            borderColor: nativeTheme.accent,
-            backgroundColor: `${nativeTheme.accent}26`,
-          },
-          pressed && nativeStyles.categoryButtonPressed,
-        ]}
-        hitSlop={10}
-        accessibilityRole="button"
-        accessibilityLabel="Open category filters"
-      >
-        <Ionicons
-          name="options-outline"
-          size={18}
-          color={colors.text}
-          style={nativeStyles.categoryButtonIcon}
-        />
-       
-        {filterControls.filtersActive ? <View style={nativeStyles.categoryButtonDot} /> : null}
-      </Pressable>
       <Pressable
         onPress={() => router.push('/(tabs)/profile')}
         style={({ pressed }) => [
@@ -1075,7 +1071,12 @@ function NativeHome({
                 Results for “{searchResultsProps.query}”
               </Text>
             ) : null}
-            <SearchMetaBar tone={isDark ? 'dark' : 'light'} sortControls={sortControls} />
+            <SearchMetaBar
+              tone={isDark ? 'dark' : 'light'}
+              sortControls={sortControls}
+              filtersActive={filterControls.filtersActive}
+              onOpenFilters={onOpenCategoryDrawer}
+            />
           </View>
           {/* SearchResults contains FlatList and is now the ONLY vertical scroller */}
           <SearchResults {...searchResultsProps} />
@@ -1242,6 +1243,7 @@ type WebHomeProps = HomeSectionProps & {
   onSelectHistoryTerm: (term: string) => void;
   colors: ThemeColors;
   isDark: boolean;
+  onOpenCategoryDrawer: () => void;
 };
 
 function WebHome({
@@ -1261,6 +1263,8 @@ function WebHome({
   onSelectHistoryTerm,
   colors,
   isDark,
+  filterControls,
+  onOpenCategoryDrawer,
 }: WebHomeProps) {
   const textColor = colors.text;
   const heroGame = heroItems[heroIndex] ?? null;
@@ -1359,7 +1363,12 @@ function WebHome({
                   Results for “{searchResultsProps.query}”
                 </Text>
               ) : null}
-              <SearchMetaBar tone={isDark ? 'dark' : 'light'} sortControls={sortControls} />
+              <SearchMetaBar
+                tone={isDark ? 'dark' : 'light'}
+                sortControls={sortControls}
+                filtersActive={filterControls.filtersActive}
+                onOpenFilters={onOpenCategoryDrawer}
+              />
               <SearchResults {...searchResultsProps} />
             </View>
           ) : (
@@ -1779,9 +1788,13 @@ function IconPill({ name }: { name: keyof typeof Ionicons.glyphMap }) {
 function SearchMetaBar({
   tone = 'light',
   sortControls,
+  filtersActive = false,
+  onOpenFilters,
 }: {
   tone?: 'light' | 'dark';
   sortControls: SortControls;
+  filtersActive?: boolean;
+  onOpenFilters: () => void;
 }) {
   const {
     sortValue,
@@ -1790,6 +1803,7 @@ function SearchMetaBar({
   } = sortControls;
   const summary =
     total > 0 ? `Showing ${Math.min(showing, total)} of ${total} results` : 'No results yet';
+  const buttonIconColor = tone === 'dark' ? '#f8fafc' : '#0f172a';
 
   return (
     <View style={[metaStyles.wrapper, tone === 'dark' && metaStyles.wrapperDark]}>
@@ -1802,6 +1816,19 @@ function SearchMetaBar({
         containerStyle={metaStyles.dropdown}
       />
       <Text style={[metaStyles.countText, tone === 'dark' && metaStyles.countTextDark]}>{summary}</Text>
+      <Pressable
+        onPress={onOpenFilters}
+        style={({ pressed }) => [
+          metaStyles.filterButton,
+          filtersActive && metaStyles.filterButtonActive,
+          pressed && metaStyles.filterButtonPressed,
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="Open category filters"
+      >
+        <Ionicons name="options-outline" size={16} color={buttonIconColor} />
+        {filtersActive ? <View style={metaStyles.filterDot} /> : null}
+      </Pressable>
     </View>
   );
 }
@@ -2460,47 +2487,38 @@ const nativeStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
+    gap: 4,
   },
   historyDropdown: {
     zIndex: 20,
   },
   searchIcon: { marginRight: 6 },
   searchInput: { color: '#fff', flex: 1, fontSize: 14, paddingVertical: 6 },
-  categoryButton: {
+  searchFilter: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    height: 40,
-    borderRadius: 999,
-    backgroundColor: '#1c1f2f',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    marginLeft: 4,
-    marginRight: 8,
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    marginLeft: 6,
   },
-  categoryButtonIcon: {
-    marginRight: 2,
-  },
-  categoryButtonLabel: {
-    color: '#f8fafc',
-    fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: 0.2,
-  },
-  categoryButtonDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#60a5fa',
-    marginLeft: 2,
-  },
-  categoryButtonActive: {
+  searchFilterActive: {
     borderColor: '#60a5fa',
     backgroundColor: 'rgba(37,99,235,0.25)',
   },
-  categoryButtonPressed: {
+  searchFilterPressed: {
     opacity: 0.85,
+  },
+  searchFilterDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#60a5fa',
+    marginLeft: 4,
   },
   profileAvatarButton: {
     width: 38,
@@ -2919,6 +2937,30 @@ const metaStyles = StyleSheet.create({
   dropdown: { flexBasis: '40%', flexGrow: 0 },
   countText: { fontSize: 13, color: '#374151', fontWeight: '600' },
   countTextDark: { color: '#cbd5f5' },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  filterButtonActive: {
+    borderColor: '#60a5fa',
+    backgroundColor: 'rgba(37,99,235,0.25)',
+  },
+  filterButtonPressed: {
+    opacity: 0.85,
+  },
+  filterDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#60a5fa',
+  },
 });
 
 const searchMenuStyles = StyleSheet.create({
