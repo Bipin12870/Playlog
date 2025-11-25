@@ -502,32 +502,36 @@ export default function ProfileHomeScreen() {
                 </Text>
               </View>
 
-              <View style={styles.subscriptionRow}>
-                <View style={styles.subscriptionInfo}>
-                  <Text style={styles.subscriptionLabel}>
-                    {isPremium ? 'Premium access' : 'Free tier'}
-                  </Text>
-                  <Text style={styles.subscriptionStatus}>
-                    {subscriptionStatus ? `${subscriptionStatus} · ` : ''}
-                    {planTitle}
-                  </Text>
-                  {expirationLabel ? (
-                    <Text style={styles.subscriptionHint}>Valid through {expirationLabel}</Text>
-                  ) : null}
+              <View style={styles.subscriptionSection}>
+                <View style={styles.subscriptionPlanRow}>
+                  <View style={styles.subscriptionPlanCopy}>
+                    <Text style={styles.subscriptionPlanLabel}>Plan :</Text>
+                    <Text
+                      style={[
+                        styles.subscriptionPlanLine,
+                        isPremium && styles.subscriptionPlanPremium,
+                      ]}
+                    >
+                      {planTitle}
+                    </Text>
+                  </View>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.subscriptionButton,
+                      pressed && styles.subscriptionButtonPressed,
+                    ]}
+                    onPress={onManagePlan}
+                  >
+                    <Text style={styles.subscriptionButtonLabel}>
+                      {isPremium ? 'Manage plan' : 'Choose plan'}
+                    </Text>
+                  </Pressable>
                 </View>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.subscriptionButton,
-                    pressed && styles.subscriptionButtonPressed,
-                  ]}
-                  onPress={onManagePlan}
-                >
-                  <Text style={styles.subscriptionButtonLabel}>
-                    {isPremium ? 'Manage plan' : 'Choose plan'}
-                  </Text>
-                </Pressable>
+                {expirationLabel ? (
+                  <Text style={styles.subscriptionHint}>Valid through {expirationLabel}</Text>
+                ) : null}
+                {billingError ? <Text style={styles.billingError}>{billingError}</Text> : null}
               </View>
-              {billingError ? <Text style={styles.billingError}>{billingError}</Text> : null}
             </View>
           </View>
           <View style={styles.statRow}>
@@ -922,16 +926,30 @@ function createStyles(colors: ThemeColors, isDark: boolean) {
     visibilityLabel: { color: colors.text, fontSize: 12, fontWeight: '600' },
     visibilityHint: { color: muted, fontSize: 12 },
 
-    subscriptionRow: {
+    subscriptionSection: {
+      gap: 8,
+    },
+    subscriptionPlanRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: 12,
-      marginTop: 12,
+      flexWrap: 'wrap',
     },
-    subscriptionInfo: { flex: 1, gap: 4 },
-    subscriptionLabel: { color: subtle, fontSize: 12, fontWeight: '600' },
-    subscriptionStatus: { color: colors.text, fontSize: 14, fontWeight: '700' },
+    subscriptionPlanCopy: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: 6,
+    },
+    subscriptionPlanLabel: { color: subtle, fontSize: 14, fontWeight: '600' },
+    subscriptionPlanLine: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    subscriptionPlanPremium: {
+      color: '#ffd500',
+    },
     subscriptionHint: { color: muted, fontSize: 12 },
     subscriptionButton: {
       paddingVertical: 8,
