@@ -26,6 +26,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GameCard } from '../GameCard';
 import { getFriendlyModerationMessage } from '../../lib/errors';
 import type { GameDetailsData, GameReview, GameSummary } from '../../types/game';
+import type { AffiliateSuggestion } from '../../lib/affiliate';
 import { useTheme } from '../../lib/theme';
 
 type ReviewFormInput = {
@@ -68,6 +69,8 @@ type GameDetailsProps = {
   replyUpdatingIds?: string[];
   replyDeletingIds?: string[];
   onBack?: () => void;
+  onOpenAffiliate?: () => void;
+  affiliateSuggestions?: AffiliateSuggestion[];
 };
 
 const REVIEW_PLACEHOLDER = 'Share what stood out to you about this game (at least 20 characters).';
@@ -114,6 +117,8 @@ export function GameDetails({
   replyUpdatingIds = [],
   replyDeletingIds = [],
   onBack,
+  onOpenAffiliate,
+  affiliateSuggestions = [],
 }: GameDetailsProps) {
   const { width } = useWindowDimensions();
   const { colors, isDark } = useTheme();
@@ -450,7 +455,7 @@ export function GameDetails({
       : 0;
 
   const reviewLimitRemaining = useMemo(() => {
-    if (!Number.isFinite(reviewLimit)) return null;
+    if (typeof reviewLimit !== 'number' || !Number.isFinite(reviewLimit)) return null;
     return Math.max(0, reviewLimit - personalReviewCount);
   }, [reviewLimit, personalReviewCount]);
 
@@ -511,12 +516,12 @@ export function GameDetails({
         borderColor: colors.border,
         backgroundColor: isDark ? 'rgba(15, 23, 42, 0.6)' : colors.surfaceSecondary,
       },
-  heroSecondaryButtonActive: {
-    borderColor: '#f472b6',
-    backgroundColor: isDark ? 'rgba(248, 250, 252, 0.08)' : colors.accentSoft,
-  },
-  heroSecondaryButtonLabel: { color: colors.text },
-  heroSecondaryButtonLabelActive: { color: '#f472b6' },
+      heroSecondaryButtonActive: {
+        borderColor: '#f472b6',
+        backgroundColor: isDark ? 'rgba(248, 250, 252, 0.08)' : colors.accentSoft,
+      },
+      heroSecondaryButtonLabel: { color: colors.text },
+      heroSecondaryButtonLabelActive: { color: '#f472b6' },
       heroMetricsCard: { backgroundColor: colors.surfaceSecondary, borderColor: colors.border },
       heroPhoneSecondaryButton: {
         backgroundColor: colors.surface,
@@ -533,6 +538,34 @@ export function GameDetails({
       heroPhoneMeta: { color: colors.muted },
       heroPhoneAccordionLabel: { color: colors.text },
       heroTopBarTitle: { color: colors.text },
+      affiliateSection: {
+        backgroundColor: isDark ? 'rgba(15, 23, 42, 0.75)' : colors.surfaceSecondary,
+        borderColor: colors.border,
+      },
+      affiliateTitle: { color: colors.text },
+      affiliateSubtitle: { color: colors.subtle },
+      affiliateButton: {
+        borderColor: colors.border,
+        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'transparent',
+      },
+      affiliateButtonPressed: {
+        opacity: 0.8,
+      },
+      affiliateButtonLabel: { color: colors.text },
+      affiliateCard: {
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
+      },
+      affiliateCardPressed: {
+        opacity: 0.92,
+      },
+      affiliateCardHover: {
+        shadowColor: colors.border,
+        shadowOpacity: 0.55,
+        shadowRadius: 34,
+        elevation: 18,
+      },
+      affiliateCardLabel: { color: colors.text },
       communityLoadMoreButton: {
         backgroundColor: isDark ? 'rgba(99, 102, 241, 0.18)' : colors.surfaceSecondary,
         borderColor: colors.border,
@@ -1878,6 +1911,94 @@ export function GameDetails({
             />
           </View>
         )}
+        {onOpenAffiliate && (
+          <View style={[styles.affiliateSection, themeStyles.affiliateSection]}>
+            <View style={styles.affiliateHeader}>
+              <Text style={[styles.affiliateTitle, themeStyles.affiliateTitle]}>
+                You may want to buy
+              </Text>
+              <Text style={[styles.affiliateSubtitle, themeStyles.affiliateSubtitle]}>
+                We may earn a small commission if you purchase through these links.
+              </Text>
+            </View>
+
+            {affiliateSuggestions.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.affiliateList}
+              >
+                {affiliateSuggestions.map((suggestion, index) => {
+                  const isLast = index === affiliateSuggestions.length - 1;
+                  return (
+                    <Pressable
+                      key={suggestion.id}
+                      onPress={() => {
+                        Linking.openURL(suggestion.url).catch((err) => {
+                          console.error('Unable to open affiliate link', err);
+                        });
+                      }}
+                      style={({ pressed }) => [
+                        styles.affiliateCard,
+                        isPhoneLayout
+                          ? styles.similarCardPhone
+                          : isWide
+                            ? styles.similarCardDesktop
+                            : styles.similarCard,
+                        styles.affiliateCardWrap,
+                        isLast && styles.affiliateCardWrapLast,
+                        pressed && styles.affiliateCardPressed,
+                      ]}
+                    >
+                      <View style={styles.affiliateCardCover}>
+                        {suggestion.imageUrl ? (
+                          <Image
+                            source={{ uri: suggestion.imageUrl }}
+                            style={styles.affiliateCardImage}
+                            resizeMode="contain"
+                          />
+                        ) : (
+                          <View style={styles.affiliateCardFallback}>
+                            <Text style={styles.affiliateCardFallbackText}>No image</Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.affiliateCardLabelWrap}>
+                        <Text
+                          style={[
+                            styles.affiliateCardLabel,
+                            themeStyles.affiliateCardLabel,
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {suggestion.label}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            ) : (
+              <View style={styles.affiliateList}>
+                <Pressable
+                  onPress={onOpenAffiliate}
+                  style={({ pressed }) => [
+                    styles.affiliateButton,
+                    styles.affiliateItem,
+                    themeStyles.affiliateButton,
+                    pressed && styles.affiliateButtonPressed,
+                    pressed && themeStyles.affiliateButtonPressed,
+                  ]}
+                >
+                  <Text style={[styles.affiliateButtonLabel, themeStyles.affiliateButtonLabel]}>
+                    View "{game.name}" on Amazon
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        )}
+
       </Animated.ScrollView>
       {shouldShowNativeBackControls ? (
         <SafeAreaView
@@ -4083,5 +4204,129 @@ const styles = StyleSheet.create({
     maxWidth: 1100,
     width: '100%',
     alignSelf: 'center',
+  },
+  affiliateSection: {
+    marginTop: 24,
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#374151',
+    backgroundColor: '#020617',
+    gap: 16,
+  },
+  affiliateHeader: {
+    gap: 4,
+  },
+  affiliateList: {
+    paddingTop: 12,
+    paddingBottom: 6,
+    paddingLeft: 12,
+  },
+  affiliateTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  affiliateSubtitle: {
+    fontSize: 12,
+    opacity: 0.7,
+  },
+  affiliateButton: {
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+  },
+  affiliateItem: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#475569',
+    paddingVertical: 12,
+    backgroundColor: 'transparent',
+    width: '100%',
+  },
+  affiliateItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  affiliateItemImage: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    marginRight: 8,
+    backgroundColor: '#111827',
+  },
+  affiliateItemText: {
+    flex: 1,
+    gap: 2,
+  },
+  affiliateItemSubtitle: {
+    fontSize: 12,
+    opacity: 0.7,
+  },
+  affiliateCard: {
+    borderRadius: 20,
+    backgroundColor: '#070b14',
+    overflow: 'hidden',
+    elevation: 10,
+    shadowColor: '#020617',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.35,
+    shadowRadius: 26,
+  },
+  affiliateCardPressed: {
+    opacity: 0.92,
+  },
+  affiliateCardHover: {
+    transform: [{ scale: 1.035 }],
+    shadowOpacity: 0.55,
+    shadowRadius: 34,
+    elevation: 18,
+  },
+  affiliateCardWrap: {
+    marginRight: 16,
+  },
+  affiliateCardWrapLast: {
+    marginRight: 0,
+  },
+  affiliateCardCover: {
+    width: '100%',
+    aspectRatio: 3/3,
+    overflow: 'hidden',
+    backgroundColor: '#ffffff',
+  },
+  affiliateCardImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  affiliateCardFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8fafc',
+  },
+  affiliateCardFallbackText: {
+    color: '#94a3b8',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  affiliateCardLabelWrap: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  affiliateCardLabel: {
+    fontSize: 16,
+    lineHeight: 18,
+    fontWeight: '600',
+    color: '#f8fafc',
+  },
+  affiliateButtonPressed: {
+    opacity: 0.8,
+  },
+  affiliateButtonLabel: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

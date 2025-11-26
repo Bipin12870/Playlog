@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Linking,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { GameDetails } from '../../components/home';
@@ -27,6 +34,14 @@ import {
   subscribeToUserReviewStats,
 } from '../../lib/community';
 import { useBlockRelationships } from '../../lib/hooks/useBlockRelationships';
+import { useAffiliateOverrides } from '../../lib/hooks/useAffiliateOverrides';
+import {
+  getAmazonAffiliateUrl,
+  getAffiliateSuggestionsForGame,
+  type AffiliateSuggestion,
+} from '../../lib/affiliate';
+// import { seedAffiliateDefaults } from '../../lib/seedAffiliateDefaults';
+// import { seedAffiliateDefaults } from '../../lib/seedAffiliateDefaults';
 
 type IgdbCompany = {
   developer?: boolean;
@@ -558,6 +573,79 @@ export default function GameDetailsScreen() {
     [router]
   );
 
+  const affiliateOverrides = useAffiliateOverrides();
+
+  const handleOpenAffiliate = useCallback(() => {
+    if (!game) {
+      return;
+    }
+    const platforms = game.platforms ?? [];
+    let primaryPlatform: string | null = null;
+    for (const entry of platforms) {
+      if (entry?.abbreviation) {
+        primaryPlatform = entry.abbreviation;
+        break;
+      }
+    }
+    if (!primaryPlatform) {
+      for (const entry of platforms) {
+        if (entry?.slug) {
+          primaryPlatform = entry.slug;
+          break;
+        }
+      }
+    }
+    const url = getAmazonAffiliateUrl(game.name, primaryPlatform);
+    Linking.openURL(url).catch((err) => {
+      console.error('Unable to open affiliate link', err);
+    });
+  }, [game]);
+
+  const affiliateSuggestions = useMemo<AffiliateSuggestion[]>(() => {
+    if (!game) {
+      return [];
+    }
+    const base = getAffiliateSuggestionsForGame(game);
+    const baseById = new Map(base.map((item) => [item.id, item]));
+    const merged = base.map((item) => {
+      const override = affiliateOverrides[item.id];
+      if (!override) {
+        return item;
+      }
+      return {
+        ...item,
+        url: override.url,
+        label: override.label ?? item.label,
+        imageUrl: override.imageUrl ?? item.imageUrl,
+      };
+    });
+
+    if (affiliateOverrides) {
+      Object.values(affiliateOverrides).forEach((override) => {
+        if (!override || !override.id || baseById.has(override.id)) {
+          return;
+        }
+        merged.push({
+          id: override.id,
+          label: override.label ?? override.id,
+          url: override.url,
+          imageUrl: override.imageUrl ?? null,
+        });
+      });
+    }
+
+    return merged;
+  }, [affiliateOverrides, game]);
+
+  useEffect(() => {
+    console.log('[AFF SUGGESTIONS MERGED]', affiliateSuggestions);
+  }, [affiliateSuggestions]);
+
+  // TEMP: run once to seed defaults if needed
+  // useEffect(() => {
+  //   seedAffiliateDefaults();
+  // }, []);
+
   return (
     <View style={styles.page}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -608,6 +696,8 @@ export default function GameDetailsScreen() {
           replyDeletingIds={replyDeletingIds}
           similarGames={similarGames}
           onSelectSimilar={handleSelectSimilar}
+          onOpenAffiliate={handleOpenAffiliate}
+          affiliateSuggestions={affiliateSuggestions}
           onBack={handleGoBack}
         />
       ) : null}
