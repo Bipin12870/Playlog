@@ -15,7 +15,7 @@ import {
 import { BlockButton, FollowButton } from '../../../components/profile';
 import { useAuthUser } from '../../../lib/hooks/useAuthUser';
 import { useFollowers, useFollowing } from '../../../lib/hooks/useFollowList';
-import { canViewerAccessProfile, getProfileVisibility } from '../../../lib/profileVisibility';
+import { canViewerAccessProfile } from '../../../lib/profileVisibility';
 import { useFollowState } from '../../../lib/hooks/useFollowState';
 import { useBlockRelationships } from '../../../lib/hooks/useBlockRelationships';
 import { useUserProfile } from '../../../lib/userProfile';
@@ -85,7 +85,6 @@ export default function PublicProfileScreen() {
   const blockRelationships = useBlockRelationships(viewerUid);
 
   const { profile, loading, error } = useUserProfile(targetUid);
-  const visibility = getProfileVisibility(profile ?? undefined);
   const { isFollowing, hasPendingRequest } = useFollowState({
     currentUid: viewerUid,
     targetUid,
@@ -121,29 +120,20 @@ export default function PublicProfileScreen() {
   const stats = profile?.stats ?? {};
   const followerCount = canView ? followers.edges.length : formatCount(stats.followers);
   const followingCount = canView ? following.edges.length : formatCount(stats.following);
-  const statItems = [
+  const statItems: Array<{ key: 'followers' | 'following'; label: string; value: number }> = [
     { key: 'following', label: 'Following', value: followingCount },
     { key: 'followers', label: 'Followers', value: followerCount },
-    { key: 'blocked', label: 'Blocked', value: formatCount(stats.blocked) },
   ];
-  const visibilityIcon = visibility === 'private' ? 'lock-closed' : 'globe';
-  const visibilityLabel = visibility === 'private' ? 'Private profile' : 'Public profile';
-  const visibilityHint =
-    visibility === 'private'
-      ? 'Only approved followers see their favourites and reviews.'
-      : 'Anyone on Playlog can see their favourites and reviews.';
   const accentColor = colors.accent;
   const subtleIcon = colors.subtle;
   const mutedIcon = colors.muted;
-  const warningColor = colors.warning;
-  const successColor = colors.success;
   const dangerColor = colors.danger;
 
   const handleNavigate = (action: ProfileAction) => {
     if (!targetUid) return;
     router.push(`/profile/${targetUid}/${action.key}`);
   };
-  const handleStatPress = (key: 'followers' | 'following' | 'blocked') => {
+  const handleStatPress = (key: 'followers' | 'following') => {
     if (!targetUid) return;
     if (key === 'followers') {
       router.push(`/profile/${targetUid}/followers`);
@@ -151,14 +141,6 @@ export default function PublicProfileScreen() {
     }
     if (key === 'following') {
       router.push(`/profile/${targetUid}/following`);
-      return;
-    }
-    if (key === 'blocked' && isSelf) {
-      router.push(`/profile/${targetUid}/blocked`);
-      return;
-    }
-    if (key === 'blocked' && !isSelf) {
-      router.push(`/profile/${targetUid}/blocked`);
     }
   };
 
@@ -221,22 +203,14 @@ export default function PublicProfileScreen() {
               <Text style={styles.username}>@{profile.username}</Text>
             ) : null}
             {profile.bio ? <Text style={styles.bioText}>{profile.bio}</Text> : null}
-            <View style={styles.heroChips}>
-              <View style={styles.heroChip}>
-                <Ionicons
-                  name={visibilityIcon}
-                  size={14}
-                  color={visibility === 'private' ? warningColor : successColor}
-                />
-                <Text style={styles.heroChipText}>{visibilityLabel}</Text>
-              </View>
-              {joinedLabel ? (
+            {joinedLabel ? (
+              <View style={styles.heroChips}>
                 <View style={styles.heroChip}>
                   <Ionicons name="calendar" size={14} color={subtleIcon} />
                   <Text style={styles.heroChipText}>Joined {joinedLabel}</Text>
                 </View>
-              ) : null}
-            </View>
+              </View>
+            ) : null}
             {!isSelf ? (
               <View style={styles.heroActions}>
                 <FollowButton
@@ -263,16 +237,14 @@ export default function PublicProfileScreen() {
                 styles.statCard,
                 pressed && styles.statCardPressed,
               ]}
-              disabled={!['followers', 'following', 'blocked'].includes(stat.key)}
               hitSlop={6}
-              onPress={() => handleStatPress(stat.key as 'followers' | 'following' | 'blocked')}
+              onPress={() => handleStatPress(stat.key)}
             >
               <Text style={styles.statValue}>{stat.value}</Text>
               <Text style={styles.statLabel}>{stat.label}</Text>
             </Pressable>
           ))}
         </View>
-        <Text style={styles.visibilityHint}>{visibilityHint}</Text>
       </View>
 
       {!canView ? (
@@ -429,9 +401,6 @@ function createStyles(colors: ThemeColors, isDark: boolean) {
     statCardPressed: {
       backgroundColor: accentSoft,
     },
-    statCardDisabled: {
-      opacity: 0.65,
-    },
     statValue: {
       fontSize: 20,
       fontWeight: '700',
@@ -443,11 +412,6 @@ function createStyles(colors: ThemeColors, isDark: boolean) {
       color: subtle,
       letterSpacing: 0.5,
       textTransform: 'uppercase',
-    },
-    visibilityHint: {
-      color: muted,
-      fontSize: 12,
-      marginTop: 4,
     },
     actionsCard: {
       backgroundColor: surfaceAlt,
