@@ -46,11 +46,12 @@ type ProfileAction = {
     | 'visibility'
     | 'delete'
     | 'preferences'
-    | 'change-password';
+    | 'change-password'
+    | 'notifications';
   title: string;
   description: string;
   icon: keyof typeof Ionicons.glyphMap;
-  section: 'Profile' | 'Social' | 'Activity' | 'Preferences' | 'Privacy & Safety';
+  section: 'Profile' | 'Social' | 'Activity' | 'Preferences' | 'Privacy & Safety' | 'Notifications';
   variant?: 'destructive';
 };
 

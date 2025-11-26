@@ -3,18 +3,17 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  ColorSchemeName,
   FlatList,
   Pressable,
   StyleSheet,
   Text,
-  useColorScheme,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuthUser } from '../lib/hooks/useAuthUser';
 import { useNotifications } from '../lib/hooks/useNotifications';
+import { useTheme, type ThemeColors } from '../lib/theme';
 
 export type NotificationRow = {
   id: string;
@@ -26,8 +25,8 @@ export type NotificationRow = {
 
 export default function NotificationsScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const { styles, palette } = useMemo(() => themedStyles(colorScheme), [colorScheme]);
+  const { colors, isDark } = useTheme();
+  const { styles, palette } = useMemo(() => themedStyles(colors, isDark), [colors, isDark]);
   const { user } = useAuthUser();
   const { notifications, loading, error, markAsRead } = useNotifications(user?.uid ?? null);
 
@@ -155,19 +154,18 @@ function formatRelativeTime(date: Date | null): string {
   return date.toLocaleDateString();
 }
 
-function themedStyles(colorScheme: ColorSchemeName) {
-  const isDark = colorScheme === 'dark';
+function themedStyles(colors: ThemeColors, isDark: boolean) {
   const palette = {
-    background: isDark ? '#020617' : '#f9fafb',
-    card: isDark ? '#0b1220' : '#ffffff',
-    border: isDark ? '#111827' : '#e5e7eb',
-    text: isDark ? '#e5e7eb' : '#0f172a',
-    muted: isDark ? '#94a3b8' : '#475569',
-    subText: isDark ? '#cbd5e1' : '#64748b',
-    accent: isDark ? '#22c55e' : '#16a34a',
-    unreadBg: isDark ? '#0f172a' : '#f3f4f6',
-    pressed: isDark ? '#0f172a' : '#e5e7eb',
-    error: '#ef4444',
+    background: colors.background,
+    card: colors.surface,
+    border: colors.border,
+    text: colors.text,
+    muted: colors.muted,
+    subText: colors.subtle,
+    accent: colors.accent,
+    unreadBg: colors.surfaceSecondary,
+    pressed: isDark ? colors.surfaceSecondary : '#e5e7eb',
+    error: colors.danger,
   };
 
   const styles = StyleSheet.create({
