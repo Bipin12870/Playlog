@@ -26,6 +26,7 @@ import {
   subscribeToCategoryDrawerEvents,
 } from '../../lib/events/categoryDrawer';
 import { useSearchHistory, type SearchHistoryItem } from '../../lib/hooks/useSearchHistory';
+import { useNotifications } from '../../lib/hooks/useNotifications';
 import { SearchHistoryDropdown } from '../../components/search/SearchHistoryDropdown';
 import { useTheme } from '../../lib/theme';
 
@@ -52,9 +53,16 @@ type WebNavBarProps = {
   };
   user: ReturnType<typeof useAuthUser>['user'];
   pendingRequests: number;
+  unreadNotifications: number;
 };
 
-function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarProps) {
+function WebNavBar({
+  activeRoute,
+  palette,
+  user,
+  pendingRequests,
+  unreadNotifications,
+}: WebNavBarProps) {
   const router = useRouter();
   const { term, setTerm, submit, resetSearch, setScope } = useGameSearch();
   const { addEntry, filterByPrefix } = useSearchHistory();
@@ -267,7 +275,8 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
         <View style={styles.links}>
           {NAV_ITEMS.map(({ name, label }, index) => {
             const isActive = name === activeRoute;
-            const showRequestBadge = name === 'profile' && pendingRequests > 0;
+            const profileBadgeCount = name === 'profile' ? pendingRequests : 0;
+            const showProfileBadge = profileBadgeCount > 0;
             return (
               <View key={name} style={styles.linkWrapper}>
                 <Link
@@ -287,7 +296,13 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
                 >
                   {label}
                 </Link>
-                {showRequestBadge ? <View style={styles.navBadge} /> : null}
+                {showProfileBadge ? (
+                  <View style={styles.navBadge}>
+                    <Text style={[styles.navBadgeText, { color: '#fff' }]}>
+                      {profileBadgeCount > 99 ? '99+' : profileBadgeCount}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             );
           })}
@@ -398,19 +413,19 @@ function NativeTabs({
   }, [resetSearch, setScope]);
 
   return (
-      <Tabs
-        screenOptions={({ route }) => ({
-          headerShown: false,
-          tabBarActiveTintColor: accent,
-          tabBarInactiveTintColor: navMuted,
-          tabBarStyle: {
-            backgroundColor: navBackground,
-            borderTopColor: navBorder,
-          },
-          sceneContainerStyle: { backgroundColor: pageBackground },
-          tabBarLabelPosition: 'below-icon',
-          tabBarIcon: ({ color, size }) => {
-            let icon: keyof typeof Ionicons.glyphMap = 'home';
+    <Tabs
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarActiveTintColor: accent,
+        tabBarInactiveTintColor: navMuted,
+        tabBarStyle: {
+          backgroundColor: navBackground,
+          borderTopColor: navBorder,
+        },
+        sceneContainerStyle: { backgroundColor: pageBackground },
+        tabBarLabelPosition: 'below-icon',
+        tabBarIcon: ({ color, size }) => {
+          let icon: keyof typeof Ionicons.glyphMap = 'home';
           switch (route.name) {
             case 'home':
               icon = 'home';
@@ -450,15 +465,17 @@ function NativeTabs({
     </Tabs>
   );
 }
-
 export default function TabsLayout() {
   const { colors, isDark } = useTheme();
   const accent = colors.accent;
   const { user } = useAuthUser();
   const followRequests = useFollowRequests(user?.uid ?? null);
   const pendingRequests = followRequests.requests.length;
+  const { notifications } = useNotifications(user?.uid ?? null);
+  const unreadNotifications = notifications.filter((n) => !n.read).length;
+  const profileBadgeCount = pendingRequests;
   const profileBadge =
-    pendingRequests > 0 ? (pendingRequests > 99 ? '99+' : String(pendingRequests)) : undefined;
+    profileBadgeCount > 0 ? (profileBadgeCount > 99 ? '99+' : String(profileBadgeCount)) : undefined;
   const pageBackground = colors.background;
   const navBackground = colors.surface;
   const navBorder = colors.border;
@@ -485,6 +502,7 @@ export default function TabsLayout() {
                   palette={palette}
                   user={user}
                   pendingRequests={pendingRequests}
+                  unreadNotifications={unreadNotifications}
                 />
               ),
               contentStyle: { backgroundColor: pageBackground },
@@ -494,6 +512,7 @@ export default function TabsLayout() {
             <Stack.Screen name="fav" />
             <Stack.Screen name="friends" />
             <Stack.Screen name="profile" />
+            <Stack.Screen name="notifications" />
           </Stack>
         </GameSearchProvider>
       </GameFavoritesProvider>
@@ -562,13 +581,17 @@ const styles = StyleSheet.create({
   },
   navBadge: {
     position: 'absolute',
-    top: -4,
-    right: -6,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: -10,
+    right: -14,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
     backgroundColor: '#f97316',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  navBadgeText: { fontSize: 11, fontWeight: '700' },
   searchInputWrapper: {
     flex: 1,
     flexDirection: 'row',

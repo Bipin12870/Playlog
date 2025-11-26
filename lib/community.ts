@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   onSnapshot,
   orderBy,
   query,
@@ -14,6 +15,7 @@ import {
 
 import { db } from './firebase';
 import { moderateText } from './moderation';
+import { createNotification } from './notifications';
 import type { GameDetailsData, GameReview, GameReviewReply } from '../types/game';
 
 export const MAX_REVIEWS_PER_USER = 10;
@@ -387,6 +389,19 @@ export async function submitReviewReply(
       updatedAt: now,
     });
   });
+
+  try {
+    const reviewAuthorId = (await getDoc(reviewRef)).data()?.userId;
+    if (reviewAuthorId && reviewAuthorId !== user.uid) {
+      const authorName = user.displayName ?? user.email ?? 'Someone';
+      await createNotification(reviewAuthorId, {
+        type: 'review_comment',
+        message: `${authorName} replied to your review.`,
+      });
+    }
+  } catch (err) {
+    console.warn('Failed to send review reply notification', err);
+  }
 }
 
 export async function updateReviewReply(

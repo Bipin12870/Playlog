@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -25,6 +25,7 @@ import { useFollowRequests } from '../../../lib/hooks/useFollowRequests';
 import { getProfileVisibility } from '../../../lib/profileVisibility';
 import { resolveAvatarSource } from '../../../lib/avatar';
 import { useFollowAlertsContext } from '../../../lib/hooks/useFollowAlerts';
+import { useNotifications } from '../../../lib/hooks/useNotifications';
 import { SubscriptionOfferModal } from '../../../components/SubscriptionOfferModal';
 import {
   planCatalog,
@@ -90,6 +91,13 @@ const ACTIONS: ProfileAction[] = [
     section: 'Social',
   },
   {
+    key: 'notifications',
+    title: 'Notifications',
+    description: 'View all your alerts.',
+    icon: 'notifications',
+    section: 'Notifications',
+  },
+  {
     key: 'reviews',
     title: 'Reviews',
     description: 'Revisit and manage shared reviews.',
@@ -143,6 +151,11 @@ const ACTION_SECTIONS: Array<{
     actions: ACTIONS.filter((action) => action.section === 'Social'),
   },
   {
+    key: 'notifications',
+    title: 'Notifications',
+    actions: ACTIONS.filter((action) => action.section === 'Notifications'),
+  },
+  {
     key: 'activity',
     title: 'Activity',
     actions: ACTIONS.filter((action) => action.section === 'Activity'),
@@ -162,6 +175,7 @@ const ACTION_SECTIONS: Array<{
 const SECTION_ICON: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
   profile: { icon: 'person-circle', color: '#a78bfa' },
   social: { icon: 'people-circle', color: '#38bdf8' },
+  notifications: { icon: 'notifications', color: '#3b82f6' },
   activity: { icon: 'albums', color: '#22d3ee' },
   preferences: { icon: 'contrast', color: '#fbbf24' },
   privacy: { icon: 'shield-checkmark', color: '#f97316' },
@@ -203,6 +217,7 @@ export default function ProfileHomeScreen() {
   const visibility = getProfileVisibility(profile ?? undefined);
   const isMobile = Platform.OS !== 'web';
   const followAlerts = useFollowAlertsContext();
+  const { notifications } = useNotifications(uid);
 
   const [subscriptionModalVisible, setSubscriptionModalVisible] = useState(false);
   const [billingLoadingPlanId, setBillingLoadingPlanId] = useState<PlanId | null>(null);
@@ -288,6 +303,10 @@ export default function ProfileHomeScreen() {
   const dangerColor = colors.danger;
   const successColor = colors.success;
   const warningColor = colors.warning;
+  const unreadNotificationCount = useMemo(
+    () => notifications.filter((n) => !n.read).length,
+    [notifications],
+  );
 
   const handleSignOut = async () => {
     try {
@@ -319,6 +338,10 @@ export default function ProfileHomeScreen() {
   }, []);
 
   const handleNavigate = (action: ProfileAction) => {
+    if (action.key === 'notifications') {
+      router.push('/notifications');
+      return;
+    }
     router.push(`/(tabs)/profile/${action.key}`);
   };
 
@@ -450,6 +473,7 @@ export default function ProfileHomeScreen() {
           onManagePlan={onManagePlan}
           openSections={openSections}
           onToggleSection={toggleSection}
+          unreadNotificationCount={unreadNotificationCount}
           statusBarStyle={statusBarStyle}
           styles={styles}
           subtleIcon={subtleIcon}
@@ -593,6 +617,12 @@ export default function ProfileHomeScreen() {
                       action.variant === 'destructive'
                         ? `${dangerColor}14`
                         : `${accentColor}14`;
+                    const badgeCount =
+                      action.key === 'requests'
+                        ? pendingRequests
+                        : action.key === 'notifications'
+                        ? unreadNotificationCount
+                        : 0;
                     return (
                       <Pressable
                         key={action.key}
@@ -624,9 +654,11 @@ export default function ProfileHomeScreen() {
                           </View>
                           <Text style={styles.actionDescription}>{action.description}</Text>
                         </View>
-                        {action.key === 'requests' && pendingRequests > 0 ? (
+                        {badgeCount > 0 ? (
                           <View style={styles.badge}>
-                            <Text style={styles.badgeLabel}>{pendingRequests}</Text>
+                            <Text style={styles.badgeLabel}>
+                              {badgeCount > 99 ? '99+' : badgeCount}
+                            </Text>
                           </View>
                         ) : null}
                         <Ionicons name="chevron-forward" size={18} color={subtleIcon} />
@@ -662,6 +694,7 @@ type MobileProfileProps = {
   onManagePlan: () => void;
   openSections: Record<string, boolean>;
   onToggleSection: (key: string) => void;
+  unreadNotificationCount: number;
   statusBarStyle: 'light-content' | 'dark-content';
   styles: ReturnType<typeof createStyles>;
   subtleIcon: string;
@@ -690,6 +723,7 @@ function MobileProfile({
   onManagePlan,
   openSections,
   onToggleSection,
+  unreadNotificationCount,
   statusBarStyle,
   styles,
   subtleIcon,
@@ -831,6 +865,12 @@ function MobileProfile({
                   {section.actions.map((action, index) => {
                     const highlightColor =
                       action.variant === 'destructive' ? dangerColor : accentColor;
+                    const badgeCount =
+                      action.key === 'requests'
+                        ? pendingRequests
+                        : action.key === 'notifications'
+                        ? unreadNotificationCount
+                        : 0;
                     return (
                       <Pressable
                         key={`mobile-${action.key}`}
@@ -857,9 +897,11 @@ function MobileProfile({
                             <View style={styles.inlineAlertDot} />
                           ) : null}
                         </View>
-                        {action.key === 'requests' && pendingRequests > 0 ? (
+                        {badgeCount > 0 ? (
                           <View style={styles.badge}>
-                            <Text style={styles.badgeLabel}>{pendingRequests}</Text>
+                            <Text style={styles.badgeLabel}>
+                              {badgeCount > 99 ? '99+' : badgeCount}
+                            </Text>
                           </View>
                         ) : null}
                         <Ionicons name="chevron-forward" size={16} color={subtleIcon} />
@@ -1008,6 +1050,7 @@ function createStyles(colors: ThemeColors, isDark: boolean) {
     },
     sectionHeaderPressed: { opacity: 0.9 },
     sectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    sectionHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     sectionIconWrap: {
       width: 28,
       height: 28,
@@ -1038,7 +1081,6 @@ function createStyles(colors: ThemeColors, isDark: boolean) {
     actionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     actionTitle: { color: colors.text, fontWeight: '700' },
     actionDescription: { color: muted, fontSize: 13 },
-
     badge: {
       minWidth: 28,
       paddingHorizontal: 8,
