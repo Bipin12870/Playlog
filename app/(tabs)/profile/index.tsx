@@ -167,13 +167,12 @@ const SECTION_ICON: Record<string, { icon: keyof typeof Ionicons.glyphMap; color
   privacy: { icon: 'shield-checkmark', color: '#f97316' },
 };
 
-const STAT_KEYS = ['following', 'followers', 'blocked'] as const;
+const STAT_KEYS = ['following', 'followers'] as const;
 type StatKey = (typeof STAT_KEYS)[number];
 
 const STAT_LABELS: Record<StatKey, string> = {
   followers: 'Followers',
   following: 'Following',
-  blocked: 'Blocked',
 };
 
 function formatCount(value?: number | null) {
