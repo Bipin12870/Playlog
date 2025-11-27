@@ -308,12 +308,19 @@ export default function ProfileHomeScreen() {
     () => notifications.filter((n) => !n.read).length,
     [notifications],
   );
+  const followerBadgeCount = useMemo(() => {
+    if (pendingRequests > 0) return pendingRequests;
+    if (followAlerts.hasFollowerAlerts) return Math.max(followAlerts.pendingRequests, 1);
+    return 0;
+  }, [pendingRequests, followAlerts.hasFollowerAlerts, followAlerts.pendingRequests]);
+  const followingBadgeCount = followAlerts.hasFollowingAlerts ? 1 : 0;
+  const socialBadgeCount = Math.max(followerBadgeCount, followingBadgeCount);
   const sectionBadgeCounts = useMemo(
     () => ({
-      social: pendingRequests,
+      social: socialBadgeCount,
       notifications: unreadNotificationCount,
     }),
-    [pendingRequests, unreadNotificationCount],
+    [socialBadgeCount, unreadNotificationCount],
   );
 
   const handleSignOut = async () => {
@@ -483,6 +490,7 @@ export default function ProfileHomeScreen() {
           onToggleSection={toggleSection}
           unreadNotificationCount={unreadNotificationCount}
           sectionBadgeCounts={sectionBadgeCounts}
+          followerBadgeCount={followerBadgeCount}
           statusBarStyle={statusBarStyle}
           styles={styles}
           subtleIcon={subtleIcon}
@@ -640,6 +648,8 @@ export default function ProfileHomeScreen() {
                     const badgeCount =
                       action.key === 'requests'
                         ? pendingRequests
+                        : action.key === 'followers'
+                        ? followerBadgeCount
                         : action.key === 'notifications'
                         ? unreadNotificationCount
                         : 0;
@@ -716,6 +726,7 @@ type MobileProfileProps = {
   onToggleSection: (key: string) => void;
   unreadNotificationCount: number;
   sectionBadgeCounts: Record<string, number>;
+  followerBadgeCount: number;
   statusBarStyle: 'light-content' | 'dark-content';
   styles: ReturnType<typeof createStyles>;
   subtleIcon: string;
@@ -746,6 +757,7 @@ function MobileProfile({
   onToggleSection,
   unreadNotificationCount,
   sectionBadgeCounts,
+  followerBadgeCount,
   statusBarStyle,
   styles,
   subtleIcon,
@@ -901,6 +913,8 @@ function MobileProfile({
                     const badgeCount =
                       action.key === 'requests'
                         ? pendingRequests
+                        : action.key === 'followers'
+                        ? followerBadgeCount
                         : action.key === 'notifications'
                         ? unreadNotificationCount
                         : 0;
