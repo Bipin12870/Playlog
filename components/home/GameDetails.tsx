@@ -55,6 +55,8 @@ type GameDetailsProps = {
   userReviewCount?: number;
   favoriteDisabled?: boolean;
   favoriteError?: string | null;
+  favoriteLimitReached?: boolean;
+  maxFavorites?: number | null;
   onToggleFavorite?: () => void;
   isFavorite?: boolean;
   currentUserId?: string | null;
@@ -107,6 +109,8 @@ export function GameDetails({
   userReviewCount = 0,
   favoriteDisabled = false,
   favoriteError = null,
+  favoriteLimitReached = false,
+  maxFavorites = null,
   onToggleFavorite,
   isFavorite = false,
   currentUserId = null,
@@ -954,11 +958,11 @@ export function GameDetails({
   }, [onSubmitReview, ratingInput, reviewInput, userReview]);
 
   const handleFavoritePress = useCallback(() => {
-    if (!onToggleFavorite) {
+    if (favoriteDisabled || !onToggleFavorite) {
       return;
     }
     onToggleFavorite();
-  }, [onToggleFavorite]);
+  }, [favoriteDisabled, onToggleFavorite]);
 
   const reviewCtaDisabled =
     !canSubmitReview || reviewSubmitting || ratingInput === null || reviewLimitReached;
@@ -1312,18 +1316,19 @@ export function GameDetails({
                     </Text>
                   </Pressable>
                   <Pressable
-                    onPress={handleFavoritePress}
+                    onPress={favoriteDisabled ? undefined : handleFavoritePress}
                     style={({ pressed }) => [
                       styles.heroPhoneSecondaryButton,
                       themeStyles.heroPhoneSecondaryButton,
                       isFavorite && styles.heroPhoneSecondaryActive,
                       isFavorite && themeStyles.heroPhoneSecondaryActive,
-                      (favoriteDisabled || pressed) && styles.heroPhoneSecondaryPressed,
+                      pressed && !favoriteDisabled && styles.heroPhoneSecondaryPressed,
+                      favoriteDisabled && styles.heroActionDisabled,
                     ]}
                     accessibilityRole="button"
                     disabled={favoriteDisabled}
                   >
-                    {favoriteDisabled ? (
+                    {favoriteDisabled && !favoriteLimitReached ? (
                       <ActivityIndicator size="small" color={colors.text} />
                     ) : (
                       <>
@@ -1346,6 +1351,11 @@ export function GameDetails({
                   </Pressable>
                 </View>
                 {favoriteError ? <Text style={styles.favoriteError}>{favoriteError}</Text> : null}
+                {favoriteLimitReached ? (
+                  <Text style={[styles.favoriteLimitText, styles.heroOverviewFavoriteError]}>
+                    You have reached the maximum number of favourite games on the free plan.
+                  </Text>
+                ) : null}
               </View>
               <View style={styles.heroPhoneAccordionWrapper}>
               <View style={styles.heroPhoneAccordion}>
@@ -1406,35 +1416,36 @@ export function GameDetails({
                           </Text>
                         </Pressable>
                         <Pressable
-                          onPress={handleFavoritePress}
+                          onPress={favoriteDisabled ? undefined : handleFavoritePress}
                           style={({ pressed }) => [
                             styles.heroPhoneSecondaryButton,
                             themeStyles.heroPhoneSecondaryButton,
                             isFavorite && styles.heroPhoneSecondaryActive,
                             isFavorite && themeStyles.heroPhoneSecondaryActive,
-                            (favoriteDisabled || pressed) && styles.heroPhoneSecondaryPressed,
+                            pressed && !favoriteDisabled && styles.heroPhoneSecondaryPressed,
+                            favoriteDisabled && styles.heroActionDisabled,
                           ]}
                           accessibilityRole="button"
                           disabled={favoriteDisabled}
                         >
-                          {favoriteDisabled ? (
+                          {favoriteDisabled && !favoriteLimitReached ? (
                             <ActivityIndicator size="small" color={colors.text} />
                           ) : (
                             <>
                               <Ionicons
                                 name={isFavorite ? 'heart' : 'heart-outline'}
                                 size={16}
-                          color={isFavorite ? FAVORITE_ACCENT : colors.text}
-                        />
-                        <Text
-                          style={[
-                            styles.heroPhoneSecondaryLabel,
-                            themeStyles.heroPhoneSecondaryLabel,
-                            isFavorite && styles.heroPhoneSecondaryLabelActive,
-                          ]}
-                        >
-                          {isFavorite ? 'Favourited' : 'Add to favourites'}
-                        </Text>
+                                color={isFavorite ? FAVORITE_ACCENT : colors.text}
+                              />
+                              <Text
+                                style={[
+                                  styles.heroPhoneSecondaryLabel,
+                                  themeStyles.heroPhoneSecondaryLabel,
+                                  isFavorite && styles.heroPhoneSecondaryLabelActive,
+                                ]}
+                              >
+                                {isFavorite ? 'Favourited' : 'Add to favourites'}
+                              </Text>
                             </>
                           )}
                         </Pressable>
@@ -1442,6 +1453,11 @@ export function GameDetails({
                       {favoriteError ? (
                         <Text style={[styles.favoriteError, styles.heroOverviewFavoriteError]}>
                           {favoriteError}
+                        </Text>
+                      ) : null}
+                      {favoriteLimitReached ? (
+                        <Text style={[styles.favoriteLimitText, styles.heroOverviewFavoriteError]}>
+                          You have reached the maximum number of favourite games on the free plan.
                         </Text>
                       ) : null}
                       {desktopMetaRow}
@@ -3311,6 +3327,11 @@ const styles = StyleSheet.create({
   favoriteError: {
     color: '#fca5a5',
     fontSize: 13,
+  },
+  favoriteLimitText: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#fca5a5',
   },
   heroMetrics: {
     flexDirection: 'row',

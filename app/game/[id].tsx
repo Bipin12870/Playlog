@@ -35,6 +35,7 @@ import {
 } from '../../lib/community';
 import { useBlockRelationships } from '../../lib/hooks/useBlockRelationships';
 import { useAffiliateOverrides } from '../../lib/hooks/useAffiliateOverrides';
+import { useFavoriteLimit } from '../../lib/hooks/useFavoriteLimit';
 import {
   getAmazonAffiliateUrl,
   getAffiliateSuggestionsForGame,
@@ -111,8 +112,16 @@ export default function GameDetailsScreen() {
     profile?.currentPlanId ??
     (profile?.premium ? 'PREMIUM' : 'FREE');
   const isPremium = planId === 'PREMIUM';
+  const { favoriteCount, favoriteLimitReached, maxFavorites } = useFavoriteLimit(
+    user?.uid ?? null,
+    isPremium,
+  );
+ 
 
-  useEffect(() => {
+  // For UI: hard cap only matters for non-premium users
+  const favoriteLimitReachedForUI = !isPremium && favoriteLimitReached;
+  const favoriteDisabled = favoriteBusy || (!isFavorite && favoriteLimitReachedForUI);
+    useEffect(() => {
     if (idMissing) {
       setError('Missing game identifier.');
       setGame(null);
@@ -389,17 +398,43 @@ export default function GameDetailsScreen() {
     if (!game || numericId === null) {
       return;
     }
+
+
+    // Frontend hard guard: if free user is already at cap, don't even try
+    const isAdding = !isFavorite;
+
+    if (isAdding && favoriteLimitReachedForUI) {
+      setFavoriteError('You have reached the maximum number of favourite games on the free plan.');
+      return;
+    }
+
     try {
       setFavoriteError(null);
       setFavoriteBusy(true);
-      await setGameFavorite(user.uid, game, !isFavorite);
+
+      await setGameFavorite(user.uid, game, !isFavorite, {
+        skipFavoriteLimit: isPremium,
+      });
     } catch (err) {
       console.error(err);
-      setFavoriteError('Unable to update favourites right now.');
+
+      if (err instanceof Error && err.message === 'FAVORITE_LIMIT_REACHED') {
+        setFavoriteError('You have reached the maximum number of favourite games on the free plan.');
+      } else {
+        setFavoriteError('Unable to update favourites right now.');
+      }
     } finally {
       setFavoriteBusy(false);
     }
-  }, [user, router, game, numericId, isFavorite]);
+  }, [
+    user,
+    router,
+    game,
+    numericId,
+    isFavorite,
+    isPremium,
+    favoriteLimitReachedForUI,
+  ]);
 
   const handleSubmitReview = useCallback(
     async (input: { rating: number; body: string }) => {
@@ -683,10 +718,12 @@ export default function GameDetailsScreen() {
           onSubmitReview={handleSubmitReview}
           userReview={userReview}
           userReviewCount={userReviewCount ?? 0}
-          favoriteDisabled={favoriteBusy}
+          favoriteDisabled={favoriteDisabled}
           favoriteError={favoriteError}
           onToggleFavorite={handleToggleFavorite}
           isFavorite={isFavorite}
+          favoriteLimitReached={favoriteLimitReachedForUI}
+          maxFavorites={maxFavorites}
           currentUserId={user?.uid ?? null}
           onSubmitReply={handleSubmitReply}
           replySubmittingIds={replySubmittingIds}
