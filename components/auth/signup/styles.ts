@@ -181,7 +181,7 @@ export function createSignupStyles(colors: ThemeColors, isDark: boolean) {
     },
     validationTitle: { color: muted, fontSize: 13, fontWeight: '600', letterSpacing: 1 },
     validationRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    validationText: { color: muted, fontSize: 13 },
+    validationText: { color: colors.subtle, fontSize: 13 },
     validationTextPassed: { color: colors.success },
 
     checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
