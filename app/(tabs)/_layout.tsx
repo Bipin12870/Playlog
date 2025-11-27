@@ -275,7 +275,8 @@ function WebNavBar({
         <View style={styles.links}>
           {NAV_ITEMS.map(({ name, label }, index) => {
             const isActive = name === activeRoute;
-            const profileBadgeCount = name === 'profile' ? pendingRequests : 0;
+            const profileBadgeCount =
+              name === 'profile' ? pendingRequests + unreadNotifications : 0;
             const showProfileBadge = profileBadgeCount > 0;
             return (
               <View key={name} style={styles.linkWrapper}>
@@ -473,7 +474,7 @@ export default function TabsLayout() {
   const pendingRequests = followRequests.requests.length;
   const { notifications } = useNotifications(user?.uid ?? null);
   const unreadNotifications = notifications.filter((n) => !n.read).length;
-  const profileBadgeCount = pendingRequests;
+  const profileBadgeCount = pendingRequests + unreadNotifications;
   const profileBadge =
     profileBadgeCount > 0 ? (profileBadgeCount > 99 ? '99+' : String(profileBadgeCount)) : undefined;
   const pageBackground = colors.background;
