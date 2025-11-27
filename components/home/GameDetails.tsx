@@ -197,6 +197,8 @@ export function GameDetails({
       ? { transform: [{ translateY: heroTranslateY }, { scale: heroScale }] }
       : undefined;
 
+  const affiliateFallbackUri = resolveCoverUri(game.cover?.url ?? null);
+
   useEffect(() => {
     setRatingInput(typeof userReview?.rating === 'number' ? userReview.rating : null);
     setReviewInput(userReview?.body ?? '');
@@ -1912,7 +1914,13 @@ export function GameDetails({
           </View>
         )}
         {onOpenAffiliate && (
-          <View style={[styles.affiliateSection, themeStyles.affiliateSection]}>
+            <View
+              style={[
+                styles.affiliateSection,
+                themeStyles.affiliateSection,
+                !isPhoneLayout && styles.similarSectionDesktop,
+              ]}
+            >
             <View style={styles.affiliateHeader}>
               <Text style={[styles.affiliateTitle, themeStyles.affiliateTitle]}>
                 You may want to buy
@@ -1926,7 +1934,12 @@ export function GameDetails({
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.affiliateList}
+                contentContainerStyle={[
+                  styles.affiliateList,
+                  isPhoneLayout
+                    ? styles.similarListContentPhone
+                    : styles.similarListContentDesktop,
+                ]}
               >
                 {affiliateSuggestions.map((suggestion, index) => {
                   const isLast = index === affiliateSuggestions.length - 1;
@@ -1951,17 +1964,23 @@ export function GameDetails({
                       ]}
                     >
                       <View style={styles.affiliateCardCover}>
-                        {suggestion.imageUrl ? (
-                          <Image
-                            source={{ uri: suggestion.imageUrl }}
-                            style={styles.affiliateCardImage}
-                            resizeMode="contain"
-                          />
-                        ) : (
-                          <View style={styles.affiliateCardFallback}>
-                            <Text style={styles.affiliateCardFallbackText}>No image</Text>
-                          </View>
-                        )}
+                        {(() => {
+                          const imageUri = suggestion.imageUrl ?? affiliateFallbackUri;
+                          if (imageUri) {
+                            return (
+                              <Image
+                                source={{ uri: imageUri }}
+                                style={styles.affiliateCardImage}
+                                resizeMode="contain"
+                              />
+                            );
+                          }
+                          return (
+                            <View style={styles.affiliateCardFallback}>
+                              <Text style={styles.affiliateCardFallbackText}>No image</Text>
+                            </View>
+                          );
+                        })()}
                       </View>
                       <View style={styles.affiliateCardLabelWrap}>
                         <Text
@@ -4209,9 +4228,8 @@ const styles = StyleSheet.create({
     marginTop: 24,
     padding: 20,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#374151',
-    backgroundColor: '#020617',
+    borderWidth: 0,
+    backgroundColor: 'transparent',
     gap: 16,
   },
   affiliateHeader: {
@@ -4320,7 +4338,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 18,
     fontWeight: '600',
-    color: '#f8fafc',
   },
   affiliateButtonPressed: {
     opacity: 0.8,
