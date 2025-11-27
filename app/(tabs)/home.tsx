@@ -1720,9 +1720,9 @@ function Footer({ sizes }: { sizes: ReturnType<typeof useHomeScreen>['sizes'] })
           </View>
           <View style={webStyles.footerCol}>
             <Text style={webStyles.footerHeading}>Quick Links</Text>
-            <FooterLink label="Home" />
-            <FooterLink label="Favourites" />
-            <FooterLink label="Profile" />
+            <FooterLink label="Home" href="/(tabs)/home" />
+            <FooterLink label="Favourites" href="/(tabs)/fav" />
+            <FooterLink label="Profile" href="/(tabs)/profile" />
           </View>
           <View style={webStyles.footerCol}>
             <Text style={webStyles.footerHeading}>Company</Text>
@@ -1757,10 +1757,18 @@ function Footer({ sizes }: { sizes: ReturnType<typeof useHomeScreen>['sizes'] })
 }
 
 function FooterLink({ label, href }: { label: string; href?: string }) {
+  const router = useRouter();
+  const isExternal =
+    href?.startsWith('http') || href?.startsWith('mailto:') || href?.startsWith('tel:');
+
   const handlePress = useCallback(() => {
     if (!href) return;
-    void Linking.openURL(href);
-  }, [href]);
+    if (isExternal) {
+      void Linking.openURL(href);
+      return;
+    }
+    router.push(href);
+  }, [href, isExternal, router]);
 
   if (!href) {
     return <Text style={webStyles.footerLink}>{label}</Text>;
