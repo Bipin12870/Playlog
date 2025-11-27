@@ -308,6 +308,13 @@ export default function ProfileHomeScreen() {
     () => notifications.filter((n) => !n.read).length,
     [notifications],
   );
+  const sectionBadgeCounts = useMemo(
+    () => ({
+      social: pendingRequests,
+      notifications: unreadNotificationCount,
+    }),
+    [pendingRequests, unreadNotificationCount],
+  );
 
   const handleSignOut = async () => {
     try {
@@ -475,6 +482,7 @@ export default function ProfileHomeScreen() {
           openSections={openSections}
           onToggleSection={toggleSection}
           unreadNotificationCount={unreadNotificationCount}
+          sectionBadgeCounts={sectionBadgeCounts}
           statusBarStyle={statusBarStyle}
           styles={styles}
           subtleIcon={subtleIcon}
@@ -603,11 +611,22 @@ export default function ProfileHomeScreen() {
                   </View>
                   <Text style={styles.actionsTitle}>{section.title}</Text>
                 </View>
-                <Ionicons
-                  name={openSections[section.key] ? 'chevron-up' : 'chevron-down'}
-                  size={16}
-                  color={subtleIcon}
-                />
+                <View style={styles.sectionHeaderRight}>
+                  {sectionBadgeCounts[section.key] ? (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeLabel}>
+                        {sectionBadgeCounts[section.key] > 99
+                          ? '99+'
+                          : sectionBadgeCounts[section.key]}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <Ionicons
+                    name={openSections[section.key] ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color={subtleIcon}
+                  />
+                </View>
               </Pressable>
               {openSections[section.key] ? (
                 <View style={styles.actionList}>
@@ -696,6 +715,7 @@ type MobileProfileProps = {
   openSections: Record<string, boolean>;
   onToggleSection: (key: string) => void;
   unreadNotificationCount: number;
+  sectionBadgeCounts: Record<string, number>;
   statusBarStyle: 'light-content' | 'dark-content';
   styles: ReturnType<typeof createStyles>;
   subtleIcon: string;
@@ -725,6 +745,7 @@ function MobileProfile({
   openSections,
   onToggleSection,
   unreadNotificationCount,
+  sectionBadgeCounts,
   statusBarStyle,
   styles,
   subtleIcon,
@@ -855,11 +876,22 @@ function MobileProfile({
                   </View>
                   <Text style={styles.mobileSectionTitle}>{section.title}</Text>
                 </View>
-                <Ionicons
-                  name={openSections[section.key] ? 'chevron-up' : 'chevron-down'}
-                  size={16}
-                  color={subtleIcon}
-                />
+                <View style={styles.mobileSectionHeaderRight}>
+                  {sectionBadgeCounts[section.key] ? (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeLabel}>
+                        {sectionBadgeCounts[section.key] > 99
+                          ? '99+'
+                          : sectionBadgeCounts[section.key]}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <Ionicons
+                    name={openSections[section.key] ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color={subtleIcon}
+                  />
+                </View>
               </Pressable>
               {openSections[section.key] ? (
                 <View style={styles.mobileSectionBody}>
@@ -1284,6 +1316,7 @@ function createStyles(colors: ThemeColors, isDark: boolean) {
     },
     mobileSectionHeaderPressed: { opacity: 0.85 },
     mobileSectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    mobileSectionHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     mobileSectionIcon: {
       width: 26,
       height: 26,

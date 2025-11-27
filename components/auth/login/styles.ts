@@ -272,6 +272,9 @@ export function createLoginStyles(colors: ThemeColors, isDark: boolean) {
       borderColor: border,
     },
     inputField: { flex: 1, height: 52, color: text },
+    validationRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    validationText: { color: colors.subtle, fontSize: 13 },
+    validationTextPassed: { color: colors.success },
     primaryButton: {
       height: 52,
       borderRadius: 18,
@@ -300,6 +303,8 @@ export function createLoginStyles(colors: ThemeColors, isDark: boolean) {
     helper: { color: muted, fontSize: 12 },
     helperRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     helperLink: { color: accent, fontWeight: '700' },
+    forgotRow: { marginTop: 10, alignSelf: 'flex-start' },
+    forgotText: { color: accent, fontWeight: '700', fontSize: 13 },
     formError: {
       color: colors.danger,
       fontSize: 13,
