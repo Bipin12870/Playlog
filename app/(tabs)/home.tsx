@@ -1705,6 +1705,7 @@ function Carousel({
 }
 
 function Footer({ sizes }: { sizes: ReturnType<typeof useHomeScreen>['sizes'] }) {
+  const router = useRouter();
   return (
     <View style={webStyles.footerOuter}>
       <View style={[webStyles.footer, { maxWidth: sizes.MAX_WIDTH, paddingHorizontal: sizes.SHELL_PADDING }]}>
@@ -1726,7 +1727,13 @@ function Footer({ sizes }: { sizes: ReturnType<typeof useHomeScreen>['sizes'] })
           </View>
           <View style={webStyles.footerCol}>
             <Text style={webStyles.footerHeading}>Company</Text>
-            <FooterLink label="About us" />
+            <Pressable
+              onPress={() => router.push('/about')}
+              accessibilityRole="link"
+              style={({ pressed }) => (pressed ? { opacity: 0.6 } : undefined)}
+            >
+              <Text style={webStyles.footerLink}>About Us</Text>
+            </Pressable>
             <FooterLink
               label="Terms & Conditions"
               href="https://bipin12870.github.io/playlog-legal/terms.html"
