@@ -21,6 +21,7 @@ import {
 import { auth, db } from '../../../lib/firebase';
 import { useTheme } from '../../../lib/theme';
 import { createSignupStyles } from './styles';
+import type { SignupStyles } from './styles';
 
 interface EmailSignupProps {
   onSuccess: (payload: { email: string; verificationError?: string | null }) => void;
@@ -209,12 +210,12 @@ export function EmailSignup({ onSuccess, onError }: EmailSignupProps) {
 
       <View style={styles.validationPanel}>
         <Text style={styles.validationTitle}>Password requirements</Text>
-        <ValidationStatus passed={passwordChecks.length} text="At least 8 characters" />
-        <ValidationStatus passed={passwordChecks.upper} text="One uppercase letter" />
-        <ValidationStatus passed={passwordChecks.lower} text="One lowercase letter" />
-        <ValidationStatus passed={passwordChecks.number} text="One number" />
-        <ValidationStatus passed={passwordChecks.special} text="One special symbol" />
-        <ValidationStatus passed={passwordsMatch} text="Passwords match" />
+        <ValidationStatus styles={styles} passed={passwordChecks.length} text="At least 8 characters" />
+        <ValidationStatus styles={styles} passed={passwordChecks.upper} text="One uppercase letter" />
+        <ValidationStatus styles={styles} passed={passwordChecks.lower} text="One lowercase letter" />
+        <ValidationStatus styles={styles} passed={passwordChecks.number} text="One number" />
+        <ValidationStatus styles={styles} passed={passwordChecks.special} text="One special symbol" />
+        <ValidationStatus styles={styles} passed={passwordsMatch} text="Passwords match" />
       </View>
 
       <Pressable style={styles.checkboxRow} onPress={() => setTermsAccepted((prev) => !prev)}>
@@ -247,7 +248,15 @@ export function EmailSignup({ onSuccess, onError }: EmailSignupProps) {
   );
 }
 
-function ValidationStatus({ passed, text }: { passed: boolean; text: string }) {
+function ValidationStatus({
+  passed,
+  text,
+  styles,
+}: {
+  passed: boolean;
+  text: string;
+  styles: SignupStyles;
+}) {
   const { colors } = useTheme();
   return (
     <View style={styles.validationRow}>
