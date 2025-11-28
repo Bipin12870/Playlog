@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Linking,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { GameDetails } from '../../components/home';
@@ -9,6 +16,7 @@ import {
   fetchSimilarGamesByGenres,
   fetchTrendingGames,
 } from '../../lib/igdb';
+import { useTheme, type ThemeColors } from '../../lib/theme';
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
 import { useUserProfile } from '../../lib/userProfile';
 import { useGameDetailsCache } from '../../lib/hooks/useGameDetailsCache';
@@ -26,6 +34,15 @@ import {
   subscribeToUserReviewStats,
 } from '../../lib/community';
 import { useBlockRelationships } from '../../lib/hooks/useBlockRelationships';
+import { useAffiliateOverrides } from '../../lib/hooks/useAffiliateOverrides';
+import { useFavoriteLimit } from '../../lib/hooks/useFavoriteLimit';
+import {
+  getAmazonAffiliateUrl,
+  getAffiliateSuggestionsForGame,
+  type AffiliateSuggestion,
+} from '../../lib/affiliate';
+// import { seedAffiliateDefaults } from '../../lib/seedAffiliateDefaults';
+// import { seedAffiliateDefaults } from '../../lib/seedAffiliateDefaults';
 
 type IgdbCompany = {
   developer?: boolean;
@@ -56,6 +73,10 @@ type IgdbGame = {
 export default function GameDetailsScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const accentColor = colors.accent;
+  const dangerColor = colors.danger;
   const { user } = useAuthUser();
   const { profile } = useUserProfile(user?.uid ?? null);
   const blockRelationships = useBlockRelationships(user?.uid ?? null);
@@ -91,8 +112,16 @@ export default function GameDetailsScreen() {
     profile?.currentPlanId ??
     (profile?.premium ? 'PREMIUM' : 'FREE');
   const isPremium = planId === 'PREMIUM';
+  const { favoriteCount, favoriteLimitReached, maxFavorites } = useFavoriteLimit(
+    user?.uid ?? null,
+    isPremium,
+  );
+ 
 
-  useEffect(() => {
+  // For UI: hard cap only matters for non-premium users
+  const favoriteLimitReachedForUI = !isPremium && favoriteLimitReached;
+  const favoriteDisabled = favoriteBusy || (!isFavorite && favoriteLimitReachedForUI);
+    useEffect(() => {
     if (idMissing) {
       setError('Missing game identifier.');
       setGame(null);
@@ -369,17 +398,43 @@ export default function GameDetailsScreen() {
     if (!game || numericId === null) {
       return;
     }
+
+
+    // Frontend hard guard: if free user is already at cap, don't even try
+    const isAdding = !isFavorite;
+
+    if (isAdding && favoriteLimitReachedForUI) {
+      setFavoriteError('You have reached the maximum number of favourite games on the free plan.');
+      return;
+    }
+
     try {
       setFavoriteError(null);
       setFavoriteBusy(true);
-      await setGameFavorite(user.uid, game, !isFavorite);
+
+      await setGameFavorite(user.uid, game, !isFavorite, {
+        skipFavoriteLimit: isPremium,
+      });
     } catch (err) {
       console.error(err);
-      setFavoriteError('Unable to update favourites right now.');
+
+      if (err instanceof Error && err.message === 'FAVORITE_LIMIT_REACHED') {
+        setFavoriteError('You have reached the maximum number of favourite games on the free plan.');
+      } else {
+        setFavoriteError('Unable to update favourites right now.');
+      }
     } finally {
       setFavoriteBusy(false);
     }
-  }, [user, router, game, numericId, isFavorite]);
+  }, [
+    user,
+    router,
+    game,
+    numericId,
+    isFavorite,
+    isPremium,
+    favoriteLimitReachedForUI,
+  ]);
 
   const handleSubmitReview = useCallback(
     async (input: { rating: number; body: string }) => {
@@ -553,13 +608,86 @@ export default function GameDetailsScreen() {
     [router]
   );
 
+  const affiliateOverrides = useAffiliateOverrides();
+
+  const handleOpenAffiliate = useCallback(() => {
+    if (!game) {
+      return;
+    }
+    const platforms = game.platforms ?? [];
+    let primaryPlatform: string | null = null;
+    for (const entry of platforms) {
+      if (entry?.abbreviation) {
+        primaryPlatform = entry.abbreviation;
+        break;
+      }
+    }
+    if (!primaryPlatform) {
+      for (const entry of platforms) {
+        if (entry?.slug) {
+          primaryPlatform = entry.slug;
+          break;
+        }
+      }
+    }
+    const url = getAmazonAffiliateUrl(game.name, primaryPlatform);
+    Linking.openURL(url).catch((err) => {
+      console.error('Unable to open affiliate link', err);
+    });
+  }, [game]);
+
+  const affiliateSuggestions = useMemo<AffiliateSuggestion[]>(() => {
+    if (!game) {
+      return [];
+    }
+    const base = getAffiliateSuggestionsForGame(game);
+    const baseById = new Map(base.map((item) => [item.id, item]));
+    const merged = base.map((item) => {
+      const override = affiliateOverrides[item.id];
+      if (!override) {
+        return item;
+      }
+      return {
+        ...item,
+        url: override.url,
+        label: override.label ?? item.label,
+        imageUrl: override.imageUrl ?? item.imageUrl,
+      };
+    });
+
+    if (affiliateOverrides) {
+      Object.values(affiliateOverrides).forEach((override) => {
+        if (!override || !override.id || baseById.has(override.id)) {
+          return;
+        }
+        merged.push({
+          id: override.id,
+          label: override.label ?? override.id,
+          url: override.url,
+          imageUrl: override.imageUrl ?? null,
+        });
+      });
+    }
+
+    return merged;
+  }, [affiliateOverrides, game]);
+
+  useEffect(() => {
+    console.log('[AFF SUGGESTIONS MERGED]', affiliateSuggestions);
+  }, [affiliateSuggestions]);
+
+  // TEMP: run once to seed defaults if needed
+  // useEffect(() => {
+  //   seedAffiliateDefaults();
+  // }, []);
+
   return (
     <View style={styles.page}>
       <Stack.Screen options={{ headerShown: false }} />
 
       {loading ? (
         <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color="#6366f1" />
+          <ActivityIndicator size="large" color={accentColor} />
         </View>
       ) : error ? (
         <View style={styles.centerContent}>
@@ -590,10 +718,12 @@ export default function GameDetailsScreen() {
           onSubmitReview={handleSubmitReview}
           userReview={userReview}
           userReviewCount={userReviewCount ?? 0}
-          favoriteDisabled={favoriteBusy}
+          favoriteDisabled={favoriteDisabled}
           favoriteError={favoriteError}
           onToggleFavorite={handleToggleFavorite}
           isFavorite={isFavorite}
+          favoriteLimitReached={favoriteLimitReachedForUI}
+          maxFavorites={maxFavorites}
           currentUserId={user?.uid ?? null}
           onSubmitReply={handleSubmitReply}
           replySubmittingIds={replySubmittingIds}
@@ -603,6 +733,8 @@ export default function GameDetailsScreen() {
           replyDeletingIds={replyDeletingIds}
           similarGames={similarGames}
           onSelectSimilar={handleSelectSimilar}
+          onOpenAffiliate={handleOpenAffiliate}
+          affiliateSuggestions={affiliateSuggestions}
           onBack={handleGoBack}
         />
       ) : null}
@@ -681,34 +813,39 @@ function mapToSummary(raw: IgdbGame | GameSummary): GameSummary {
   };
 }
 
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  centerContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  errorText: {
-    color: '#fca5a5',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  retryButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    borderRadius: 999,
-    backgroundColor: '#6366f1',
-  },
-  retryButtonPressed: {
-    backgroundColor: '#4f46e5',
-  },
-  retryLabel: {
-    color: '#f8fafc',
-    fontWeight: '600',
-  },
-});
+function createStyles(colors: ThemeColors, isDark: boolean) {
+  const accent = colors.accent;
+  const danger = colors.danger;
+
+  return StyleSheet.create({
+    page: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    centerContent: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+    },
+    errorText: {
+      color: danger,
+      fontSize: 16,
+      textAlign: 'center',
+      marginBottom: 12,
+    },
+    retryButton: {
+      paddingVertical: 10,
+      paddingHorizontal: 24,
+      borderRadius: 999,
+      backgroundColor: accent,
+    },
+    retryButtonPressed: {
+      backgroundColor: isDark ? `${accent}cc` : `${accent}e6`,
+    },
+    retryLabel: {
+      color: isDark ? colors.text : '#ffffff',
+      fontWeight: '600',
+    },
+  });
+}

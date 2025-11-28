@@ -15,6 +15,7 @@ import { useBlockRelationships } from '../../../lib/hooks/useBlockRelationships'
 import { useUserReviews } from '../../../lib/userReviews';
 import { useUserProfile } from '../../../lib/userProfile';
 import type { UserReviewSummary } from '../../../types/game';
+import { useTheme, type ThemeColors } from '../../../lib/theme';
 
 function formatReviewTimestamp(value?: string | null) {
   if (!value) return 'Unknown date';
@@ -31,6 +32,8 @@ export default function PublicReviewsScreen() {
   const params = useLocalSearchParams<{ uid?: string }>();
   const targetUid = params.uid ?? null;
   const { user, initializing } = useAuthUser();
+  const { colors, isDark } = useTheme();
+  const styles = createStyles(colors);
   const viewerUid = user?.uid ?? null;
   const {
     profile,
@@ -59,7 +62,7 @@ export default function PublicReviewsScreen() {
   if (initializing || profileLoading || (canView && reviewsLoading)) {
     return (
       <View style={styles.loadingState}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
@@ -67,7 +70,7 @@ export default function PublicReviewsScreen() {
   if (!targetUid || !profile) {
     return (
       <View style={styles.emptyState}>
-        <Ionicons name="alert-circle-outline" size={40} color="#94a3b8" />
+        <Ionicons name="alert-circle-outline" size={40} color={colors.muted} />
         <Text style={styles.emptyTitle}>Profile unavailable</Text>
         {profileError ? <Text style={styles.emptyCopy}>{profileError.message}</Text> : null}
       </View>
@@ -77,7 +80,7 @@ export default function PublicReviewsScreen() {
   if (viewerBlockedTarget || viewerIsBlockedByTarget) {
     return (
       <View style={styles.privateState}>
-        <Ionicons name="ban" size={36} color="#f9fafb" />
+        <Ionicons name="ban" size={36} color={colors.text} />
         <Text style={styles.privateTitle}>User not available</Text>
         <Text style={styles.privateCopy}>
           {viewerBlockedTarget
@@ -91,7 +94,7 @@ export default function PublicReviewsScreen() {
   if (!canView) {
     return (
       <View style={styles.privateState}>
-        <Ionicons name="lock-closed" size={36} color="#f9fafb" />
+        <Ionicons name="lock-closed" size={36} color={colors.text} />
         <Text style={styles.privateTitle}>Reviews are hidden</Text>
         <Text style={styles.privateCopy}>
           {hasPendingRequest
@@ -116,147 +119,153 @@ export default function PublicReviewsScreen() {
           </Text>
         </View>
       ) : null}
-      {reviews.map((review) => {
-        return (
-          <View key={review.id} style={styles.reviewItem}>
-            <View style={styles.reviewHeaderRow}>
-              <View style={styles.reviewHeaderCopy}>
-                <Text style={styles.reviewGame}>{review.gameName}</Text>
-                <Text style={styles.reviewDate}>
-                  {formatReviewTimestamp(review.createdAt ?? review.updatedAt)}
-                </Text>
-              </View>
+      {reviews.map((review) => (
+        <View key={review.id} style={styles.reviewItem}>
+          <View style={styles.reviewHeaderRow}>
+            <View style={styles.reviewHeaderCopy}>
+              <Text style={styles.reviewGame}>{review.gameName}</Text>
+              <Text style={styles.reviewDate}>
+                {formatReviewTimestamp(review.createdAt ?? review.updatedAt)}
+              </Text>
             </View>
-            <View style={styles.reviewRatingRow}>
-              <Ionicons name="star" size={16} color="#facc15" />
-              <Text style={styles.reviewRatingValue}>{review.rating.toFixed(1)}/10</Text>
-            </View>
-            <Text style={styles.reviewBody} numberOfLines={4}>
-              {review.body}
-            </Text>
           </View>
-        );
-      })}
+          <View style={styles.reviewRatingRow}>
+            <Ionicons name="star" size={16} color="#facc15" />
+            <Text style={styles.reviewRatingValue}>{review.rating.toFixed(1)}/10</Text>
+          </View>
+          <Text style={styles.reviewBody} numberOfLines={4}>
+            {review.body}
+          </Text>
+        </View>
+      ))}
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  page: {
-    padding: 16,
-    gap: 16,
-    backgroundColor: '#0f172a',
-    flexGrow: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  title: {
-    color: '#f9fafb',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  errorText: {
-    color: '#fca5a5',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-    gap: 16,
-    backgroundColor: '#0f172a',
-  },
-  emptyTitle: {
-    color: '#f9fafb',
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  emptyCopy: {
-    color: '#cbd5f5',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  privateState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-    gap: 16,
-    backgroundColor: '#0f172a',
-  },
-  privateTitle: {
-    color: '#f9fafb',
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  privateCopy: {
-    color: '#cbd5f5',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  emptyCard: {
-    backgroundColor: '#1f2937',
-    borderRadius: 16,
-    padding: 24,
-    gap: 8,
-  },
-  emptyCardTitle: {
-    color: '#f9fafb',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  emptyCardCopy: {
-    color: '#cbd5f5',
-    fontSize: 14,
-  },
-  reviewItem: {
-    backgroundColor: '#1f2937',
-    borderRadius: 16,
-    padding: 16,
-    gap: 12,
-  },
-  reviewHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  reviewHeaderCopy: {
-    gap: 4,
-    flex: 1,
-  },
-  reviewGame: {
-    color: '#f9fafb',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  reviewDate: {
-    color: '#cbd5f5',
-    fontSize: 12,
-  },
-  reviewRatingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  reviewRatingValue: {
-    color: '#f9fafb',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  reviewBody: {
-    color: '#e2e8f0',
-    fontSize: 14,
-  },
-  loadingState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0f172a',
-  },
-});
+function createStyles(colors: ThemeColors) {
+  const card = colors.surface;
+  const cardAlt = colors.surfaceSecondary;
+  return StyleSheet.create({
+    page: {
+      padding: 16,
+      gap: 16,
+      backgroundColor: colors.background,
+      flexGrow: 1,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    title: {
+      color: colors.text,
+      fontSize: 20,
+      fontWeight: '700',
+    },
+    errorText: {
+      color: colors.danger,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    emptyState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 32,
+      gap: 16,
+      backgroundColor: colors.background,
+    },
+    emptyTitle: {
+      color: colors.text,
+      fontSize: 22,
+      fontWeight: '700',
+    },
+    emptyCopy: {
+      color: colors.muted,
+      fontSize: 14,
+      textAlign: 'center',
+    },
+    privateState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 32,
+      gap: 16,
+      backgroundColor: colors.background,
+    },
+    privateTitle: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '700',
+      textAlign: 'center',
+    },
+    privateCopy: {
+      color: colors.muted,
+      fontSize: 14,
+      textAlign: 'center',
+    },
+    emptyCard: {
+      backgroundColor: cardAlt,
+      borderRadius: 16,
+      padding: 24,
+      gap: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    emptyCardTitle: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    emptyCardCopy: {
+      color: colors.muted,
+      fontSize: 14,
+    },
+    reviewItem: {
+      backgroundColor: card,
+      borderRadius: 16,
+      padding: 16,
+      gap: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    reviewHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    reviewHeaderCopy: {
+      gap: 4,
+      flex: 1,
+    },
+    reviewGame: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    reviewDate: {
+      color: colors.muted,
+      fontSize: 12,
+    },
+    reviewRatingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    reviewRatingValue: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    reviewBody: {
+      color: colors.text,
+      fontSize: 14,
+    },
+    loadingState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.background,
+    },
+  });
+}

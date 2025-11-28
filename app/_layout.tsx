@@ -1,23 +1,37 @@
 import { Stack } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 
+WebBrowser.maybeCompleteAuthSession(); // <-- MUST be at module scope
 import { GameDetailsCacheProvider } from '../lib/hooks/useGameDetailsCache';
 import { DiscoveryCacheProvider } from '../lib/hooks/useDiscoveryCache';
+import { ThemeProvider, useTheme } from '../lib/theme';
+
+function ThemedRootStack() {
+  const { colors } = useTheme();
+
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="game/[id]" />
+      <Stack.Screen name="search-history" />
+      <Stack.Screen name="notifications" />
+    </Stack>
+  );
+}
 
 export default function RootLayout() {
   return (
-    <GameDetailsCacheProvider>
-      <DiscoveryCacheProvider>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: '#0f172a' },
-          }}
-        >
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="game/[id]" />
-          <Stack.Screen name="search-history" />
-        </Stack>
-      </DiscoveryCacheProvider>
-    </GameDetailsCacheProvider>
+    <ThemeProvider>
+      <GameDetailsCacheProvider>
+        <DiscoveryCacheProvider>
+          <ThemedRootStack />
+        </DiscoveryCacheProvider>
+      </GameDetailsCacheProvider>
+    </ThemeProvider>
   );
 }

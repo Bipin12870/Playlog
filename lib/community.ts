@@ -3,6 +3,8 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
+  getCountFromServer,
   onSnapshot,
   orderBy,
   query,
@@ -14,9 +16,11 @@ import {
 
 import { db } from './firebase';
 import { moderateText } from './moderation';
+import { createNotification } from './notifications';
 import type { GameDetailsData, GameReview, GameReviewReply } from '../types/game';
 
 export const MAX_REVIEWS_PER_USER = 10;
+export const MAX_FAVORITES_PER_USER = 10;
 
 type SubmitReviewOptions = {
   skipReviewLimit?: boolean;
@@ -60,6 +64,15 @@ export async function assertContentAllowed(body: string) {
 
 function resolveGameDocId(gameId: number) {
   return gameId.toString();
+}
+
+export function getUserFavoritesCollectionRef(userId: string) {
+  return collection(db, 'users', userId, 'favorites');
+}
+
+export function getUserFavoriteDocRef(userId: string, gameId: number | string) {
+  const docId = typeof gameId === 'number' ? resolveGameDocId(gameId) : gameId;
+  return doc(getUserFavoritesCollectionRef(userId), docId);
 }
 
 function mapReviewDocument(id: string, data: any): GameReview {
@@ -387,6 +400,19 @@ export async function submitReviewReply(
       updatedAt: now,
     });
   });
+
+  try {
+    const reviewAuthorId = (await getDoc(reviewRef)).data()?.userId;
+    if (reviewAuthorId && reviewAuthorId !== user.uid) {
+      const authorName = user.displayName ?? user.email ?? 'Someone';
+      await createNotification(reviewAuthorId, {
+        type: 'review_comment',
+        message: `${authorName} replied to your review.`,
+      });
+    }
+  } catch (err) {
+    console.warn('Failed to send review reply notification', err);
+  }
 }
 
 export async function updateReviewReply(
@@ -513,28 +539,64 @@ export async function deleteGameReview(gameId: number, user: User) {
 export async function setGameFavorite(
   userId: string,
   game: GameDetailsData,
-  shouldFavorite: boolean,
+  isFavorite: boolean,
+  options?: { skipFavoriteLimit?: boolean },
 ) {
-  const favoriteRef = doc(db, 'users', userId, 'favorites', resolveGameDocId(game.id));
-
-  if (shouldFavorite) {
-    const now = serverTimestamp();
-    await setDoc(
-      favoriteRef,
-      {
-        id: game.id,
-        name: game.name,
-        cover: game.cover ?? null,
-        summary: game.summary ?? null,
-        rating: typeof game.rating === 'number' ? game.rating : null,
-        savedAt: now,
-        addedAt: now,
-      },
-      { merge: true },
-    );
-  } else {
-    await deleteDoc(favoriteRef);
+  if (!userId || !game) {
+    throw new Error('MISSING_FAVORITE_CONTEXT');
   }
+
+  const skipLimit = options?.skipFavoriteLimit === true;
+
+  console.log('[FAV] setGameFavorite called', {
+    userId,
+    gameId: game?.id,
+    isFavorite,
+    skipFavoriteLimit: skipLimit,
+  });
+
+  const favoriteRef = getUserFavoriteDocRef(userId, game.id);
+
+  if (!isFavorite) {
+    console.log('[FAV] removing favourite', { userId, gameId: game.id });
+    await deleteDoc(favoriteRef);
+    return;
+  }
+
+  if (!skipLimit) {
+    console.log('[FAV] checking favourite limit for free user', { userId });
+    const favoritesCollection = getUserFavoritesCollectionRef(userId);
+    const countSnapshot = await getCountFromServer(favoritesCollection);
+    const count = countSnapshot.data().count ?? 0;
+    console.log('[FAV] favourite count result', {
+      userId,
+      count,
+      MAX_FAVORITES_PER_USER,
+    });
+    if (count >= MAX_FAVORITES_PER_USER) {
+      console.log('[FAV] throwing FAVORITE_LIMIT_REACHED', {
+        userId,
+        gameId: game.id,
+      });
+      throw new Error('FAVORITE_LIMIT_REACHED');
+    }
+  }
+
+  console.log('[FAV] writing favourite document', { userId, gameId: game.id });
+  const now = serverTimestamp();
+  await setDoc(
+    favoriteRef,
+    {
+      id: game.id,
+      name: game.name,
+      cover: game.cover ?? null,
+      summary: game.summary ?? null,
+      rating: typeof game.rating === 'number' ? game.rating : null,
+      savedAt: now,
+      addedAt: now,
+    },
+    { merge: true },
+  );
 }
 
 export function subscribeToFavoriteStatus(
@@ -543,10 +605,20 @@ export function subscribeToFavoriteStatus(
   callback: (isFavorite: boolean) => void,
   onError?: (error: Error) => void,
 ) {
-  const favoriteRef = doc(db, 'users', userId, 'favorites', resolveGameDocId(gameId));
+  const favoriteRef = getUserFavoriteDocRef(userId, gameId);
+
   return onSnapshot(
     favoriteRef,
     (snapshot) => {
+      // Ignore optimistic local writes; only trust server-confirmed state
+      if (snapshot.metadata.hasPendingWrites) {
+        console.log('[FAV] pending write snapshot ignored', {
+          userId,
+          gameId,
+        });
+        return;
+      }
+
       callback(snapshot.exists());
     },
     (error) => {

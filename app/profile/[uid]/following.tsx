@@ -9,12 +9,15 @@ import { useFollowState } from '../../../lib/hooks/useFollowState';
 import { useBlockRelationships } from '../../../lib/hooks/useBlockRelationships';
 import { canViewerAccessProfile } from '../../../lib/profileVisibility';
 import { useUserProfile } from '../../../lib/userProfile';
+import { useTheme, type ThemeColors } from '../../../lib/theme';
 
 export default function PublicFollowingScreen() {
   const params = useLocalSearchParams<{ uid?: string }>();
   const targetUid = params.uid ?? null;
   const router = useRouter();
   const { user, initializing } = useAuthUser();
+  const { colors, isDark } = useTheme();
+  const styles = createStyles(colors);
   const viewerUid = user?.uid ?? null;
 
   const { profile, loading: profileLoading, error } = useUserProfile(targetUid);
@@ -35,7 +38,7 @@ export default function PublicFollowingScreen() {
   if (initializing || profileLoading) {
     return (
       <View style={styles.loadingState}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
@@ -89,65 +92,67 @@ export default function PublicFollowingScreen() {
         showBlockAction={viewerUid === targetUid}
         onAuthRequired={() => router.push('/login')}
         onSelectUser={(selected) => router.push(`/profile/${selected.uid}`)}
-        theme="dark"
+        theme={isDark ? 'dark' : 'light'}
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-    padding: 16,
-  },
-  loadingState: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyState: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#f9fafb',
-    textAlign: 'center',
-  },
-  emptyCopy: {
-    fontSize: 14,
-    color: '#cbd5f5',
-    textAlign: 'center',
-  },
-  privateState: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-  privateTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#f9fafb',
-    textAlign: 'center',
-  },
-  privateCopy: {
-    fontSize: 14,
-    color: '#cbd5f5',
-    textAlign: 'center',
-  },
-  errorText: {
-    color: '#fca5a5',
-    fontSize: 14,
-    marginBottom: 8,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    page: {
+      flex: 1,
+      backgroundColor: colors.background,
+      padding: 16,
+    },
+    loadingState: {
+      flex: 1,
+      backgroundColor: colors.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    emptyState: {
+      flex: 1,
+      backgroundColor: colors.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+      gap: 12,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text,
+      textAlign: 'center',
+    },
+    emptyCopy: {
+      fontSize: 14,
+      color: colors.muted,
+      textAlign: 'center',
+    },
+    privateState: {
+      flex: 1,
+      backgroundColor: colors.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+      gap: 12,
+    },
+    privateTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text,
+      textAlign: 'center',
+    },
+    privateCopy: {
+      fontSize: 14,
+      color: colors.muted,
+      textAlign: 'center',
+    },
+    errorText: {
+      color: colors.danger,
+      fontSize: 14,
+      marginBottom: 8,
+    },
+  });
+}

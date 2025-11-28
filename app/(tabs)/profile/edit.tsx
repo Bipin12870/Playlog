@@ -8,7 +8,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -16,6 +15,7 @@ import {
 
 import { useAuthUser } from '../../../lib/hooks/useAuthUser';
 import { updateUserProfile, useUserProfile } from '../../../lib/userProfile';
+import { useTheme, type ThemeColors } from '../../../lib/theme';
 
 type AvatarOption = {
   key: string;
@@ -52,6 +52,8 @@ function formatJoined(dateValue?: Timestamp | Date | null) {
 
 export default function EditProfileScreen() {
   const { user, initializing } = useAuthUser();
+  const { colors, isDark } = useTheme();
+  const styles = createStyles(colors, isDark);
   const uid = user?.uid ?? null;
   const { profile, loading, error } = useUserProfile(uid);
 
@@ -59,7 +61,6 @@ export default function EditProfileScreen() {
   const [photoUrl, setPhotoUrl] = useState('');
   const [bio, setBio] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null);
-  const [profileVisibility, setProfileVisibility] = useState<'public' | 'private'>('public');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null,
   );
@@ -71,14 +72,12 @@ export default function EditProfileScreen() {
       setPhotoUrl('');
       setBio('');
       setSelectedAvatar(null);
-      setProfileVisibility('public');
       return;
     }
     setDisplayName(profile.displayName ?? '');
     setPhotoUrl(profile.photoURL ?? '');
     setBio(profile.bio ?? '');
     setSelectedAvatar(profile.avatarKey ?? null);
-    setProfileVisibility(profile.profileVisibility === 'private' ? 'private' : 'public');
   }, [profile?.uid, profile?.displayName, profile?.photoURL, profile?.bio, profile?.avatarKey]);
 
   const trimmedDisplayName = displayName.trim();
@@ -104,15 +103,12 @@ export default function EditProfileScreen() {
   const originalBio = profile?.bio ?? '';
   const originalPhoto = profile?.photoURL ?? '';
   const originalAvatar = profile?.avatarKey ?? null;
-  const originalVisibility = profile?.profileVisibility ?? 'public';
-
   const hasChanges =
     !!profile &&
     (trimmedDisplayName !== originalDisplay ||
       trimmedBio !== originalBio ||
       trimmedPhoto !== originalPhoto ||
-      selectedAvatar !== originalAvatar ||
-      profileVisibility !== originalVisibility);
+      selectedAvatar !== originalAvatar);
 
   const canSubmit = hasChanges && !saving && trimmedDisplayName.length > 1;
 
@@ -129,7 +125,6 @@ export default function EditProfileScreen() {
         bio: trimmedBio,
         photoURL: selectedAvatar ? null : trimmedPhoto.length ? trimmedPhoto : null,
         avatarKey: selectedAvatar,
-        profileVisibility,
       });
       setFeedback({ type: 'success', message: 'Profile updated successfully.' });
     } catch (err) {
@@ -157,7 +152,6 @@ export default function EditProfileScreen() {
     setPhotoUrl(profile.photoURL ?? '');
     setBio(profile.bio ?? '');
     setSelectedAvatar(profile.avatarKey ?? null);
-    setProfileVisibility(profile.profileVisibility === 'private' ? 'private' : 'public');
     setFeedback(null);
   };
 
@@ -206,31 +200,6 @@ export default function EditProfileScreen() {
 
       <View style={styles.formCard}>
         <Text style={styles.sectionTitle}>Profile details</Text>
-
-        <View style={styles.fieldGroup}>
-          <View style={styles.visibilityRow}>
-            <View style={styles.visibilityCopy}>
-              <Text style={styles.fieldLabel}>Profile visibility</Text>
-              <Text style={styles.helperText}>
-                Choose who can see your favourites, followers, and reviews.
-              </Text>
-            </View>
-            <View style={styles.visibilityToggle}>
-              <Text style={styles.visibilityBadge}>
-                {profileVisibility === 'private' ? 'Private' : 'Public'}
-              </Text>
-              <Switch
-                value={profileVisibility === 'private'}
-                onValueChange={(value) => {
-                  setProfileVisibility(value ? 'private' : 'public');
-                  setFeedback(null);
-                }}
-                thumbColor={profileVisibility === 'private' ? '#f8fafc' : '#1f2937'}
-                trackColor={{ false: '#4b5563', true: '#6366f1' }}
-              />
-            </View>
-          </View>
-        </View>
 
         <View style={styles.fieldGroup}>
           <Text style={styles.fieldLabel}>Display name</Text>
@@ -399,215 +368,223 @@ export default function EditProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  page: {
-    padding: 24,
-    gap: 24,
-    backgroundColor: '#0f172a',
-  },
-  heroCard: {
-    backgroundColor: '#374151',
-    borderRadius: 24,
-    padding: 24,
-  },
-  heroRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  avatarWrapper: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#d1d5db',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  heroDetails: {
-    flex: 1,
-    gap: 6,
-  },
-  displayName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#f9fafb',
-  },
-  heroSubtitle: {
-    fontSize: 13,
-    color: '#cbd5f5',
-  },
-  formCard: {
-    backgroundColor: '#1f2937',
-    borderRadius: 24,
-    padding: 24,
-    gap: 20,
-  },
-  sectionTitle: {
-    color: '#f9fafb',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  fieldGroup: {
-    gap: 8,
-  },
-  fieldLabel: {
-    color: '#cbd5f5',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  input: {
-    backgroundColor: '#111827',
-    color: '#f9fafb',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#374151',
-    fontSize: 16,
-  },
-  multilineInput: {
-    minHeight: 96,
-    textAlignVertical: 'top',
-  },
-  helperText: {
-    color: '#94a3b8',
-    fontSize: 12,
-  },
-  visibilityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 16,
-  },
-  visibilityCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  visibilityToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  visibilityBadge: {
-    color: '#f9fafb',
-    fontSize: 13,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  presetGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-  },
-  presetChoice: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  presetOption: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#111827',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-    overflow: 'hidden',
-  },
-  presetOptionActive: {
-    borderColor: '#6366f1',
-    backgroundColor: '#1d1f2f',
-  },
-  presetImage: {
-    width: '100%',
-    height: '100%',
-  },
-  presetLabel: {
-    color: '#94a3b8',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  presetLabelActive: {
-    color: '#e0e7ff',
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
-  },
-  button: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 120,
-  },
-  primaryButton: {
-    backgroundColor: '#6366f1',
-  },
-  secondaryButton: {
-    backgroundColor: 'rgba(148, 163, 184, 0.2)',
-  },
-  buttonPressed: {
-    transform: [{ scale: 0.98 }],
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  primaryLabel: {
-    color: '#f8fafc',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  secondaryLabel: {
-    color: '#e2e8f0',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  successText: {
-    color: '#34d399',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  errorText: {
-    color: '#fca5a5',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  loadingState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0f172a',
-    gap: 12,
-  },
-  loadingText: {
-    color: '#e2e8f0',
-    fontSize: 16,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-    gap: 16,
-    backgroundColor: '#0f172a',
-  },
-  emptyTitle: {
-    color: '#f9fafb',
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  emptyCopy: {
-    color: '#cbd5f5',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-});
+function createStyles(colors: ThemeColors, isDark: boolean) {
+  const surface = colors.surface;
+  const surfaceAlt = colors.surfaceSecondary;
+  return StyleSheet.create({
+    page: {
+      padding: 24,
+      gap: 24,
+      backgroundColor: colors.background,
+    },
+    heroCard: {
+      backgroundColor: surface,
+      borderRadius: 24,
+      padding: 24,
+    },
+    heroRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+    },
+    avatarWrapper: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: surfaceAlt,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    avatarImage: {
+      width: '100%',
+      height: '100%',
+    },
+    heroDetails: {
+      flex: 1,
+      gap: 6,
+    },
+    displayName: {
+      fontSize: 24,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    heroSubtitle: {
+      fontSize: 13,
+      color: colors.muted,
+    },
+    formCard: {
+      backgroundColor: surface,
+      borderRadius: 24,
+      padding: 24,
+      gap: 20,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    sectionTitle: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    fieldGroup: {
+      gap: 8,
+    },
+    fieldLabel: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    input: {
+      backgroundColor: surfaceAlt,
+      color: colors.text,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      fontSize: 16,
+    },
+    multilineInput: {
+      minHeight: 96,
+      textAlignVertical: 'top',
+    },
+    helperText: {
+      color: colors.muted,
+      fontSize: 12,
+    },
+    visibilityRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 16,
+    },
+    visibilityCopy: {
+      flex: 1,
+      gap: 4,
+    },
+    visibilityToggle: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    visibilityBadge: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    presetGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 16,
+    },
+    presetChoice: {
+      alignItems: 'center',
+      gap: 8,
+    },
+    presetOption: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: surfaceAlt,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: 'transparent',
+      overflow: 'hidden',
+    },
+    presetOptionActive: {
+      borderColor: colors.accent,
+      backgroundColor: isDark ? '#1d1f2f' : colors.accentSoft,
+    },
+    presetImage: {
+      width: '100%',
+      height: '100%',
+    },
+    presetLabel: {
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    presetLabelActive: {
+      color: colors.text,
+    },
+    actionsRow: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 12,
+    },
+    button: {
+      paddingVertical: 12,
+      paddingHorizontal: 24,
+      borderRadius: 999,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: 120,
+    },
+    primaryButton: {
+      backgroundColor: colors.accent,
+    },
+    secondaryButton: {
+      backgroundColor: surfaceAlt,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    buttonPressed: {
+      transform: [{ scale: 0.98 }],
+    },
+    buttonDisabled: {
+      opacity: 0.6,
+    },
+    primaryLabel: {
+      color: isDark ? colors.text : '#ffffff',
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    secondaryLabel: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    successText: {
+      color: colors.success,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    errorText: {
+      color: colors.danger,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    loadingState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.background,
+      gap: 12,
+    },
+    loadingText: {
+      color: colors.text,
+      fontSize: 16,
+    },
+    emptyState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 32,
+      gap: 16,
+      backgroundColor: colors.background,
+    },
+    emptyTitle: {
+      color: colors.text,
+      fontSize: 22,
+      fontWeight: '700',
+    },
+    emptyCopy: {
+      color: colors.muted,
+      fontSize: 14,
+      textAlign: 'center',
+    },
+  });
+}

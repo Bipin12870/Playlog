@@ -14,30 +14,42 @@ import { useRouter } from 'expo-router';
 
 import { ensureUserProfile } from '../../../lib/auth';
 import { auth, db } from '../../../lib/firebase';
-import { loginStyles as styles } from './styles';
+import { useTheme } from '../../../lib/theme';
+import { createLoginStyles } from './styles';
 
 declare global {
   // eslint-disable-next-line no-var
   var _playlogLoginRecaptcha: RecaptchaVerifier | undefined;
 }
 
-const descriptionStyle = {
-  color: '#94a3b8',
-  fontSize: 14,
-  lineHeight: 20,
-};
-
-const recaptchaWrapperStyle: ViewStyle = {
-  alignSelf: 'flex-start',
-  padding: 6,
-  borderRadius: 12,
-  backgroundColor: 'rgba(15, 23, 42, 0.45)',
-  borderWidth: 1,
-  borderColor: 'rgba(148, 163, 184, 0.35)',
-};
-
 export function PhoneLogin() {
   const router = useRouter();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createLoginStyles(colors, isDark), [colors, isDark]);
+  const descriptionStyle = useMemo(
+    () => ({
+      color: colors.muted,
+      fontSize: 14,
+      lineHeight: 20,
+    }),
+    [colors.muted],
+  );
+  const recaptchaWrapperStyle: ViewStyle = useMemo(
+    () => ({
+      alignSelf: 'flex-start',
+      padding: 6,
+      borderRadius: 12,
+      backgroundColor: isDark ? 'rgba(15, 23, 42, 0.45)' : 'rgba(148, 163, 184, 0.12)',
+      borderWidth: 1,
+      borderColor: colors.border,
+    }),
+    [colors.border, isDark],
+  );
+  const placeholderColor = colors.muted;
+  const primaryContentColor = isDark ? colors.text : '#0f172a';
+  const disabledContentColor = colors.muted;
+  const infoAccent = colors.accent;
+  const errorAccent = colors.danger;
 
   const [phone, setPhone] = useState('');
   const [smsCode, setSmsCode] = useState('');
@@ -208,8 +220,9 @@ export function PhoneLogin() {
 
   return (
     <View style={styles.formCard}>
-      <Text style={descriptionStyle}>We’ll send a 6-digit code to the phone number linked to your Playlog account.</Text>
-
+      <Text style={descriptionStyle}>
+        We’ll send a 6-digit code to the phone number linked to your Playlog account.
+      </Text>
       {Platform.OS === 'web' && (
         <View style={recaptchaWrapperStyle}>
           <View id="recaptcha-login-container" />
@@ -223,7 +236,7 @@ export function PhoneLogin() {
             value={phone}
             onChangeText={setPhone}
             placeholder="+61412345678"
-            placeholderTextColor="#475569"
+            placeholderTextColor={placeholderColor}
             style={styles.input}
             keyboardType="phone-pad"
             autoComplete="tel"
@@ -269,7 +282,7 @@ export function PhoneLogin() {
                 value={smsCode}
                 onChangeText={setSmsCode}
                 placeholder="123456"
-                placeholderTextColor="#475569"
+                placeholderTextColor={placeholderColor}
                 style={styles.input}
                 keyboardType="number-pad"
                 autoComplete="one-time-code"
@@ -288,16 +301,21 @@ export function PhoneLogin() {
               ]}
             >
               {verifyingCode ? (
-                <ActivityIndicator color={codeReady ? '#0f172a' : '#475569'} />
+                <ActivityIndicator
+                  color={codeReady ? primaryContentColor : disabledContentColor}
+                />
               ) : (
                 <>
                   <Ionicons
                     name="shield-checkmark"
                     size={18}
-                    color={!codeReady ? '#475569' : '#0f172a'}
+                    color={!codeReady ? disabledContentColor : primaryContentColor}
                   />
                   <Text
-                    style={[styles.primaryButtonText, (!codeReady || verifyingCode) && styles.primaryButtonTextDisabled]}
+                    style={[
+                      styles.primaryButtonText,
+                      (!codeReady || verifyingCode) && styles.primaryButtonTextDisabled,
+                    ]}
                   >
                     Verify & sign in
                   </Text>
@@ -309,14 +327,14 @@ export function PhoneLogin() {
 
         {errorMessage && (
           <View style={styles.errorBanner}>
-            <Feather name="alert-triangle" size={16} color="#f87171" />
+            <Feather name="alert-triangle" size={16} color={errorAccent} />
             <Text style={styles.errorText}>{errorMessage}</Text>
           </View>
         )}
 
         {infoMessage && (
           <View style={styles.infoBanner}>
-            <Feather name="info" size={16} color="#38bdf8" />
+            <Feather name="info" size={16} color={infoAccent} />
             <Text style={styles.infoText}>{infoMessage}</Text>
           </View>
         )}

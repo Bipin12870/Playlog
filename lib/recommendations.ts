@@ -9,6 +9,15 @@ export type RecommendationMap = Record<string, RecommendationEntry[]>;
 // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
 const bundled: RecommendationMap = require('../assets/recommendations.json');
 
+function normalizeEntry(entry: any): RecommendationEntry | null {
+  const gameId = Number(entry?.game_id ?? entry?.gameId);
+  const score = Number(entry?.score);
+  if (!Number.isFinite(gameId) || !Number.isFinite(score)) {
+    return null;
+  }
+  return { game_id: gameId, score };
+}
+
 function mapRawToSummary(raw: any): GameSummary | null {
   if (!raw || typeof raw?.id !== 'number' || typeof raw?.name !== 'string') {
     return null;
@@ -37,11 +46,14 @@ function mapRawToSummary(raw: any): GameSummary | null {
 
 export function getTopRecommendationEntries(userId: string, limit = 12): RecommendationEntry[] {
   if (!userId) return [];
-  const entries = Array.isArray((bundled as RecommendationMap)[userId])
+  const rawEntries = Array.isArray((bundled as RecommendationMap)[userId])
     ? (bundled as RecommendationMap)[userId]
     : [];
+  const normalized = rawEntries
+    .map((entry) => normalizeEntry(entry))
+    .filter((entry): entry is RecommendationEntry => Boolean(entry));
   // Already sorted by score in the export; trim for safety.
-  return entries.slice(0, limit);
+  return normalized.slice(0, limit);
 }
 
 export async function fetchRecommendedGames(

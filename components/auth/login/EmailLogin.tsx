@@ -12,10 +12,13 @@ import {
 
 import { auth } from '../../../lib/firebase';
 import { ensureUserProfile } from '../../../lib/auth';
-import { loginStyles as styles } from './styles';
+import { useTheme } from '../../../lib/theme';
+import { createLoginStyles } from './styles';
 
 export function EmailLogin() {
   const router = useRouter();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createLoginStyles(colors, isDark), [colors, isDark]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,6 +33,11 @@ export function EmailLogin() {
   const emailValid = useMemo(() => /.+@.+\..+/.test(email.trim()), [email]);
   const passwordValid = password.length >= 6;
   const canSubmit = emailValid && passwordValid && !loading;
+  const placeholderColor = colors.muted;
+  const primaryContentColor = isDark ? colors.text : '#0f172a';
+  const disabledContentColor = colors.muted;
+  const infoAccent = colors.accent;
+  const errorAccent = colors.danger;
 
   const handleEmailLogin = async () => {
     if (!canSubmit) return;
@@ -161,7 +169,7 @@ export function EmailLogin() {
             value={email}
             onChangeText={setEmail}
             placeholder="user@playlog.gg"
-            placeholderTextColor="#475569"
+            placeholderTextColor={placeholderColor}
             style={styles.input}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -175,13 +183,13 @@ export function EmailLogin() {
               value={password}
               onChangeText={setPassword}
               placeholder="Enter your password"
-              placeholderTextColor="#475569"
+              placeholderTextColor={placeholderColor}
               secureTextEntry={!showPassword}
               style={styles.inputField}
               autoCapitalize="none"
             />
             <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)}>
-              <Feather name={showPassword ? 'eye-off' : 'eye'} size={18} color="#94a3b8" />
+              <Feather name={showPassword ? 'eye-off' : 'eye'} size={18} color={colors.muted} />
             </TouchableOpacity>
           </View>
         </View>
@@ -192,10 +200,14 @@ export function EmailLogin() {
           onPress={handleEmailLogin}
         >
           {loading ? (
-            <ActivityIndicator color={canSubmit ? '#0f172a' : '#475569'} />
+            <ActivityIndicator color={canSubmit ? primaryContentColor : disabledContentColor} />
           ) : (
             <>
-              <Ionicons name="enter-outline" size={18} color={canSubmit ? '#0f172a' : '#475569'} />
+              <Ionicons
+                name="enter-outline"
+                size={18}
+                color={canSubmit ? primaryContentColor : disabledContentColor}
+              />
               <Text style={[styles.primaryButtonText, !canSubmit && styles.primaryButtonTextDisabled]}>
                 Sign in
               </Text>
@@ -205,7 +217,7 @@ export function EmailLogin() {
 
         <Pressable style={styles.forgotRow} onPress={handlePasswordReset} disabled={resetLoading}>
           {resetLoading ? (
-            <ActivityIndicator color="#38bdf8" />
+            <ActivityIndicator color={infoAccent} />
           ) : (
             <Text style={styles.forgotText}>Forgot password?</Text>
           )}
@@ -213,14 +225,14 @@ export function EmailLogin() {
 
         {errorMessage && (
           <View style={styles.errorBanner}>
-            <Feather name="alert-triangle" size={16} color="#f87171" />
+            <Feather name="alert-triangle" size={16} color={errorAccent} />
             <Text style={styles.errorText}>{errorMessage}</Text>
           </View>
         )}
 
         {infoMessage && (
           <View style={styles.infoBanner}>
-            <Feather name="info" size={16} color="#38bdf8" />
+            <Feather name="info" size={16} color={infoAccent} />
             <Text style={styles.infoText}>{infoMessage}</Text>
           </View>
         )}
@@ -232,10 +244,10 @@ export function EmailLogin() {
             disabled={resendLoading}
           >
             {resendLoading ? (
-              <ActivityIndicator color="#38bdf8" />
+              <ActivityIndicator color={infoAccent} />
             ) : (
               <>
-                <Feather name="mail" size={16} color="#38bdf8" />
+                <Feather name="mail" size={16} color={infoAccent} />
                 <Text style={styles.secondaryButtonText}>Resend verification</Text>
               </>
             )}
@@ -247,9 +259,18 @@ export function EmailLogin() {
 }
 
 function ValidationStatus({ passed, text }: { passed: boolean; text: string }) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createLoginStyles(colors, isDark), [colors, isDark]);
+  const success = colors.success;
+  const muted = colors.muted;
+
   return (
     <View style={styles.validationRow}>
-      <Feather name={passed ? 'check-circle' : 'circle'} size={16} color={passed ? '#22c55e' : '#475569'} />
+      <Feather
+        name={passed ? 'check-circle' : 'circle'}
+        size={16}
+        color={passed ? success : muted}
+      />
       <Text style={[styles.validationText, passed && styles.validationTextPassed]}>{text}</Text>
     </View>
   );

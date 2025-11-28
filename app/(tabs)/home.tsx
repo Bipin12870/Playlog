@@ -52,6 +52,7 @@ import {
   subscribeToCategoryDrawerEvents,
 } from '../../lib/events/categoryDrawer';
 import { resolveAvatarSource } from '../../lib/avatar';
+import { useTheme, type ThemeColors } from '../../lib/theme';
 
 const LOGO = require('../../assets/logo.png');
 const PAGE_SIZE = 12;
@@ -168,6 +169,7 @@ const HOME_AD_SLOTS: HomeAdSlotConfig[] = [
 export default function HomeScreen() {
   const router = useRouter();
   const { sizes, placeholders } = useHomeScreen();
+  const { colors, statusBarStyle, isDark } = useTheme();
   const isWeb = Platform.OS === 'web';
   const { user: currentUser, initializing: authInitializing } = useAuthUser();
   
@@ -814,11 +816,11 @@ const [featured, trending, personalized] = await Promise.allSettled([
   );
 
   if (isWeb) {
-    return (
-      <>
-        <WebHome
-          sizes={sizes}
-          placeholders={placeholders}
+  return (
+    <>
+      <WebHome
+        sizes={sizes}
+        placeholders={placeholders}
           sections={sections}
           hasActiveSearch={hasActiveSearch}
           searchResultsProps={searchResultsProps}
@@ -827,16 +829,19 @@ const [featured, trending, personalized] = await Promise.allSettled([
           heroItems={heroItems}
           heroIndex={heroIndex}
           heroAnimatedStyle={heroAnimatedStyle}
-          filterControls={filterControls}
-          sortControls={sortControls}
-          showRecentSearches={showRecentSearches}
-          recentHistory={recentHistory}
-          onSelectHistoryTerm={handleSelectHistoryTerm}
-        />
-        {categoryDrawer}
-      </>
-    );
-  }
+        filterControls={filterControls}
+        sortControls={sortControls}
+        showRecentSearches={showRecentSearches}
+        recentHistory={recentHistory}
+        onSelectHistoryTerm={handleSelectHistoryTerm}
+        colors={colors}
+        isDark={isDark}
+        onOpenCategoryDrawer={handleOpenCategoryDrawer}
+      />
+      {categoryDrawer}
+    </>
+  );
+}
 
   const handleLogoPress = useCallback(() => {
     resetSearch();
@@ -958,6 +963,19 @@ function NativeHome({
   showRecentSearches,
   profileAvatar,
 }: NativeHomeProps) {
+  const { colors, statusBarStyle, isDark } = useTheme();
+  const nativeTheme = useMemo(
+    () => ({
+      text: { color: colors.text },
+      muted: { color: colors.muted },
+      border: colors.border,
+      inputBg: colors.inputBackground,
+      accent: colors.accent,
+      surface: colors.surface,
+      surfaceAlt: colors.surfaceSecondary,
+    }),
+    [colors],
+  );
   const [hideGate, setHideGate] = useState(false);
   const showGate = !authInitializing && !currentUser && !hideGate;
   const heroGame = heroItems[heroIndex] ?? null;
@@ -978,13 +996,43 @@ function NativeHome({
         <Image source={LOGO} style={nativeStyles.logoMark} resizeMode="contain" />
       </Pressable>
       <View style={nativeStyles.searchArea}>
-        <View style={nativeStyles.searchBox}>
-          <Ionicons name="search" size={16} color="#9ca3af" style={nativeStyles.searchIcon} />
+        <View
+          style={[
+            nativeStyles.searchBox,
+            { backgroundColor: nativeTheme.surfaceAlt, borderColor: nativeTheme.border, borderWidth: 1 },
+          ]}
+        >
+          <Ionicons
+            name="search"
+            size={16}
+            color={colors.muted}
+            style={nativeStyles.searchIcon}
+          />
           <TextInput
             {...searchInputProps}
-            style={nativeStyles.searchInput}
-            placeholderTextColor="#9ca3af"
+            style={[nativeStyles.searchInput, nativeTheme.text]}
+            placeholderTextColor={colors.muted}
+            selectionColor={colors.accent}
           />
+            <Pressable
+              onPress={onOpenCategoryDrawer}
+              style={({ pressed }) => [
+                nativeStyles.searchFilter,
+                filterControls.filtersActive && nativeStyles.searchFilterActive,
+                pressed && nativeStyles.searchFilterPressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Open category filters"
+            >
+              <Ionicons
+                name="options-outline"
+                size={16}
+                color={colors.text}
+              />
+              {filterControls.filtersActive ? (
+                <View style={nativeStyles.searchFilterDot} />
+              ) : null}
+            </Pressable>
         </View>
         {showHistoryDropdown ? (
           <SearchHistoryDropdown
@@ -995,26 +1043,6 @@ function NativeHome({
           />
         ) : null}
       </View>
-      <Pressable
-        onPress={onOpenCategoryDrawer}
-        style={({ pressed }) => [
-          nativeStyles.categoryButton,
-          filterControls.filtersActive && nativeStyles.categoryButtonActive,
-          pressed && nativeStyles.categoryButtonPressed,
-        ]}
-        hitSlop={10}
-        accessibilityRole="button"
-        accessibilityLabel="Open category filters"
-      >
-        <Ionicons
-          name="options-outline"
-          size={18}
-          color="#f8fafc"
-          style={nativeStyles.categoryButtonIcon}
-        />
-       
-        {filterControls.filtersActive ? <View style={nativeStyles.categoryButtonDot} /> : null}
-      </Pressable>
       <Pressable
         onPress={() => router.push('/(tabs)/profile')}
         style={({ pressed }) => [
@@ -1030,8 +1058,8 @@ function NativeHome({
   );
 
   return (
-    <SafeAreaView style={nativeStyles.container}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={[nativeStyles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={statusBarStyle} />
 
       {hasActiveSearch ? (
         // 🔹 SEARCH MODE: NO ScrollView around FlatList
@@ -1039,11 +1067,16 @@ function NativeHome({
           {header}
           <View style={nativeStyles.searchResults}>
             {searchResultsProps.query ? (
-              <Text style={nativeStyles.resultsHeading}>
+              <Text style={[nativeStyles.resultsHeading, nativeTheme.text]}>
                 Results for “{searchResultsProps.query}”
               </Text>
             ) : null}
-            <SearchMetaBar tone="dark" sortControls={sortControls} />
+            <SearchMetaBar
+              tone={isDark ? 'dark' : 'light'}
+              sortControls={sortControls}
+              filtersActive={filterControls.filtersActive}
+              onOpenFilters={onOpenCategoryDrawer}
+            />
           </View>
           {/* SearchResults contains FlatList and is now the ONLY vertical scroller */}
           <SearchResults {...searchResultsProps} />
@@ -1208,6 +1241,9 @@ type WebHomeProps = HomeSectionProps & {
   recentHistory: SearchHistoryItem[];
   showRecentSearches: boolean;
   onSelectHistoryTerm: (term: string) => void;
+  colors: ThemeColors;
+  isDark: boolean;
+  onOpenCategoryDrawer: () => void;
 };
 
 function WebHome({
@@ -1225,7 +1261,12 @@ function WebHome({
   recentHistory,
   showRecentSearches,
   onSelectHistoryTerm,
+  colors,
+  isDark,
+  filterControls,
+  onOpenCategoryDrawer,
 }: WebHomeProps) {
+  const textColor = colors.text;
   const heroGame = heroItems[heroIndex] ?? null;
   const heroCover = resolveHeroUri(heroGame);
   const secondaryGame = heroItems.length > 1 ? heroItems[(heroIndex + 1) % heroItems.length] : null;
@@ -1234,7 +1275,7 @@ function WebHome({
   const heroPosterWidth = Math.max(200, Math.min(sizes.heroH * 0.6, 340));
 
   return (
-    <View style={webStyles.container}>
+    <View style={[webStyles.container, { backgroundColor: colors.background }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={webStyles.scroll}>
         <View style={[webStyles.shell, { maxWidth: sizes.MAX_WIDTH, paddingHorizontal: sizes.SHELL_PADDING }]}>
           {!hasActiveSearch && (
@@ -1318,11 +1359,16 @@ function WebHome({
           {hasActiveSearch ? (
             <View style={webStyles.searchResults}>
               {searchResultsProps.query ? (
-                <Text style={webStyles.resultsHeading}>
+                <Text style={[webStyles.resultsHeading, { color: textColor }]}>
                   Results for “{searchResultsProps.query}”
                 </Text>
               ) : null}
-              <SearchMetaBar tone="dark" sortControls={sortControls} />
+              <SearchMetaBar
+                tone={isDark ? 'dark' : 'light'}
+                sortControls={sortControls}
+                filtersActive={filterControls.filtersActive}
+                onOpenFilters={onOpenCategoryDrawer}
+              />
               <SearchResults {...searchResultsProps} />
             </View>
           ) : (
@@ -1380,11 +1426,12 @@ function NativeSection({
   itemGap: number;
   onSelectGame: (game: GameSummary) => void;
 }) {
+  const { colors } = useTheme();
   const data = resolveGames(section, placeholders);
 
   return (
     <View style={nativeStyles.section}>
-      <Text style={nativeStyles.sectionTitle}>{section.title}</Text>
+      <Text style={[nativeStyles.sectionTitle, { color: colors.text }]}>{section.title}</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -1429,7 +1476,7 @@ function NativeGameCard({
       <View style={{ width }}>
         {friendLabel ? (
           <View style={nativeStyles.friendLabel}>
-            <Ionicons name="people" size={12} color="#fbbf24" />
+            <Ionicons name="people" size={12} color="#f8fafc" />
             <Text style={nativeStyles.friendLabelText}>{friendLabel}</Text>
           </View>
         ) : null}
@@ -1545,7 +1592,7 @@ function WebGameCard({
       <View style={[webStyles.cardWrap, { width }]}>
         {friendLabel ? (
           <View style={webStyles.friendLabel}>
-            <Ionicons name="people" size={12} color="#fbbf24" />
+            <Ionicons name="people" size={12} color="#f8fafc" />
             <Text style={webStyles.friendLabelText}>{friendLabel}</Text>
           </View>
         ) : null}
@@ -1605,11 +1652,20 @@ function WebAdSlot({ slot }: { slot: HomeAdSlotConfig }) {
 }
 
 function SectionTitle({ title, tight }: { title: string; tight?: boolean }) {
+  const { colors } = useTheme();
   return (
     <View style={[webStyles.sectionTitleWrap, tight && { marginTop: 2, marginBottom: 8 }]}>
-      <View style={webStyles.sectionDivider} />
-      <Text style={[webStyles.sectionTitle, tight && { fontSize: 18 }]}>{title}</Text>
-      <View style={webStyles.sectionDivider} />
+      <View style={[webStyles.sectionDivider, { backgroundColor: colors.border }]} />
+      <Text
+        style={[
+          webStyles.sectionTitle,
+          { color: colors.text },
+          tight && { fontSize: 18 },
+        ]}
+      >
+        {title}
+      </Text>
+      <View style={[webStyles.sectionDivider, { backgroundColor: colors.border }]} />
     </View>
   );
 }
@@ -1649,6 +1705,7 @@ function Carousel({
 }
 
 function Footer({ sizes }: { sizes: ReturnType<typeof useHomeScreen>['sizes'] }) {
+  const router = useRouter();
   return (
     <View style={webStyles.footerOuter}>
       <View style={[webStyles.footer, { maxWidth: sizes.MAX_WIDTH, paddingHorizontal: sizes.SHELL_PADDING }]}>
@@ -1664,13 +1721,19 @@ function Footer({ sizes }: { sizes: ReturnType<typeof useHomeScreen>['sizes'] })
           </View>
           <View style={webStyles.footerCol}>
             <Text style={webStyles.footerHeading}>Quick Links</Text>
-            <FooterLink label="Home" />
-            <FooterLink label="Favourites" />
-            <FooterLink label="Profile" />
+            <FooterLink label="Home" href="/(tabs)/home" />
+            <FooterLink label="Favourites" href="/(tabs)/fav" />
+            <FooterLink label="Profile" href="/(tabs)/profile" />
           </View>
           <View style={webStyles.footerCol}>
             <Text style={webStyles.footerHeading}>Company</Text>
-            <FooterLink label="About us" />
+            <Pressable
+              onPress={() => router.push('/about')}
+              accessibilityRole="link"
+              style={({ pressed }) => (pressed ? { opacity: 0.6 } : undefined)}
+            >
+              <Text style={webStyles.footerLink}>About Us</Text>
+            </Pressable>
             <FooterLink
               label="Terms & Conditions"
               href="https://bipin12870.github.io/playlog-legal/terms.html"
@@ -1701,10 +1764,18 @@ function Footer({ sizes }: { sizes: ReturnType<typeof useHomeScreen>['sizes'] })
 }
 
 function FooterLink({ label, href }: { label: string; href?: string }) {
+  const router = useRouter();
+  const isExternal =
+    href?.startsWith('http') || href?.startsWith('mailto:') || href?.startsWith('tel:');
+
   const handlePress = useCallback(() => {
     if (!href) return;
-    void Linking.openURL(href);
-  }, [href]);
+    if (isExternal) {
+      void Linking.openURL(href);
+      return;
+    }
+    router.push(href);
+  }, [href, isExternal, router]);
 
   if (!href) {
     return <Text style={webStyles.footerLink}>{label}</Text>;
@@ -1732,9 +1803,13 @@ function IconPill({ name }: { name: keyof typeof Ionicons.glyphMap }) {
 function SearchMetaBar({
   tone = 'light',
   sortControls,
+  filtersActive = false,
+  onOpenFilters,
 }: {
   tone?: 'light' | 'dark';
   sortControls: SortControls;
+  filtersActive?: boolean;
+  onOpenFilters: () => void;
 }) {
   const {
     sortValue,
@@ -1743,6 +1818,7 @@ function SearchMetaBar({
   } = sortControls;
   const summary =
     total > 0 ? `Showing ${Math.min(showing, total)} of ${total} results` : 'No results yet';
+  const buttonIconColor = tone === 'dark' ? '#f8fafc' : '#0f172a';
 
   return (
     <View style={[metaStyles.wrapper, tone === 'dark' && metaStyles.wrapperDark]}>
@@ -1755,6 +1831,19 @@ function SearchMetaBar({
         containerStyle={metaStyles.dropdown}
       />
       <Text style={[metaStyles.countText, tone === 'dark' && metaStyles.countTextDark]}>{summary}</Text>
+      <Pressable
+        onPress={onOpenFilters}
+        style={({ pressed }) => [
+          metaStyles.filterButton,
+          filtersActive && metaStyles.filterButtonActive,
+          pressed && metaStyles.filterButtonPressed,
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="Open category filters"
+      >
+        <Ionicons name="options-outline" size={16} color={buttonIconColor} />
+        {filtersActive ? <View style={metaStyles.filterDot} /> : null}
+      </Pressable>
     </View>
   );
 }
@@ -1771,6 +1860,47 @@ function CategoryDrawer({ visible, onClose, onSelectCategory, filterControls }: 
   const [renderDrawer, setRenderDrawer] = useState(visible);
   const slideAnim = useRef(new Animated.Value(0)).current;
   const drawerWidth = Math.min(CATEGORY_DRAWER_WIDTH, Dimensions.get('window').width * 0.9);
+  const { colors, isDark } = useTheme();
+  const themeStyles = useMemo(
+    () => ({
+      panel: {
+        backgroundColor: colors.surface,
+        borderRightColor: colors.border,
+      },
+      title: { color: colors.text },
+      subtitle: { color: colors.muted },
+      close: { color: colors.text },
+      parentTab: {
+        backgroundColor: colors.surfaceSecondary,
+        borderColor: colors.border,
+        borderWidth: 1,
+      },
+      parentTabActive: {
+        borderColor: colors.accent,
+        backgroundColor: isDark ? 'rgba(59,130,246,0.18)' : colors.accentSoft,
+      },
+      parentLabel: { color: colors.text },
+      parentDescription: { color: colors.muted },
+      badgeDot: { backgroundColor: colors.accent },
+      childSection: {
+        backgroundColor: colors.surfaceSecondary,
+        borderColor: colors.border,
+      },
+      childTitle: { color: colors.text },
+      clearLink: { color: colors.accent },
+      childItem: {
+        backgroundColor: colors.surface,
+        borderColor: colors.border,
+      },
+      childItemSelected: {
+        borderColor: colors.accent,
+        backgroundColor: isDark ? 'rgba(37,99,235,0.18)' : colors.accentSoft,
+      },
+      childLabel: { color: colors.text },
+      childLabelSelected: { color: colors.text },
+    }),
+    [colors, isDark],
+  );
 
   useEffect(() => {
     if (visible) {
@@ -1910,6 +2040,7 @@ function CategoryDrawer({ visible, onClose, onSelectCategory, filterControls }: 
         <Animated.View
           style={[
             drawerStyles.panel,
+            themeStyles.panel,
             {
               width: drawerWidth,
               transform: [{ translateX }],
@@ -1918,13 +2049,13 @@ function CategoryDrawer({ visible, onClose, onSelectCategory, filterControls }: 
         >
           <View style={drawerStyles.header}>
             <View style={drawerStyles.headerCopy}>
-              <Text style={drawerStyles.title}>Categories</Text>
-              <Text style={drawerStyles.subtitle}>
+              <Text style={[drawerStyles.title, themeStyles.title]}>Categories</Text>
+              <Text style={[drawerStyles.subtitle, themeStyles.subtitle]}>
                 {filtersActive ? summary : 'Choose a platform, genre, or release window'}
               </Text>
             </View>
             <Pressable onPress={onClose} style={drawerStyles.closeBtn} hitSlop={8}>
-              <Ionicons name="close" size={18} color="#f8fafc" />
+              <Ionicons name="close" size={18} color={themeStyles.close.color} />
             </Pressable>
           </View>
           <View style={drawerStyles.menuBody}>
@@ -1941,28 +2072,35 @@ function CategoryDrawer({ visible, onClose, onSelectCategory, filterControls }: 
                     onPress={() => setActiveCategory(item.key as 'platform' | 'genre' | 'release')}
                     style={[
                       searchMenuStyles.parentTab,
+                      themeStyles.parentTab,
                       isActive && searchMenuStyles.parentTabActive,
+                      isActive && themeStyles.parentTabActive,
                     ]}
                   >
                     <View style={searchMenuStyles.parentTabHeader}>
                       <Text
                         style={[
                           searchMenuStyles.parentLabel,
+                          themeStyles.parentLabel,
                           isActive && searchMenuStyles.parentLabelActive,
                         ]}
                       >
                         {item.label}
                       </Text>
-                      {hasSelection ? <View style={searchMenuStyles.badgeDot} /> : null}
+                      {hasSelection ? (
+                        <View style={[searchMenuStyles.badgeDot, themeStyles.badgeDot]} />
+                      ) : null}
                     </View>
-                    <Text style={searchMenuStyles.parentDescription}>{item.description}</Text>
+                    <Text style={[searchMenuStyles.parentDescription, themeStyles.parentDescription]}>
+                      {item.description}
+                    </Text>
                   </Pressable>
                 );
               })}
             </View>
             <View style={searchMenuStyles.childSection}>
               <View style={searchMenuStyles.childHeader}>
-                <Text style={searchMenuStyles.childTitle}>
+                <Text style={[searchMenuStyles.childTitle, themeStyles.childTitle]}>
                   {activeCategory === 'platform'
                     ? 'Select a platform'
                     : activeCategory === 'genre'
@@ -1970,7 +2108,7 @@ function CategoryDrawer({ visible, onClose, onSelectCategory, filterControls }: 
                     : 'Select a release window'}
                 </Text>
                 <Pressable onPress={handleClear} hitSlop={8}>
-                  <Text style={searchMenuStyles.clearLink}>Clear</Text>
+                  <Text style={[searchMenuStyles.clearLink, themeStyles.clearLink]}>Clear</Text>
                 </Pressable>
               </View>
               <ScrollView
@@ -1990,14 +2128,18 @@ function CategoryDrawer({ visible, onClose, onSelectCategory, filterControls }: 
                       key={`${activeCategory}-${String(option.value ?? 'all')}`}
                       style={[
                         searchMenuStyles.childItem,
+                        themeStyles.childItem,
                         isSelected && searchMenuStyles.childItemSelected,
+                        isSelected && themeStyles.childItemSelected,
                       ]}
                       onPress={() => handleChildSelect(option)}
                     >
                       <Text
                         style={[
                           searchMenuStyles.childLabel,
+                          themeStyles.childLabel,
                           isSelected && searchMenuStyles.childLabelSelected,
+                          isSelected && themeStyles.childLabelSelected,
                         ]}
                       >
                         {option.label}
@@ -2360,47 +2502,38 @@ const nativeStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
+    gap: 4,
   },
   historyDropdown: {
     zIndex: 20,
   },
   searchIcon: { marginRight: 6 },
   searchInput: { color: '#fff', flex: 1, fontSize: 14, paddingVertical: 6 },
-  categoryButton: {
+  searchFilter: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    height: 40,
-    borderRadius: 999,
-    backgroundColor: '#1c1f2f',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    marginLeft: 4,
-    marginRight: 8,
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    marginLeft: 6,
   },
-  categoryButtonIcon: {
-    marginRight: 2,
-  },
-  categoryButtonLabel: {
-    color: '#f8fafc',
-    fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: 0.2,
-  },
-  categoryButtonDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#60a5fa',
-    marginLeft: 2,
-  },
-  categoryButtonActive: {
+  searchFilterActive: {
     borderColor: '#60a5fa',
     backgroundColor: 'rgba(37,99,235,0.25)',
   },
-  categoryButtonPressed: {
+  searchFilterPressed: {
     opacity: 0.85,
+  },
+  searchFilterDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#60a5fa',
+    marginLeft: 4,
   },
   profileAvatarButton: {
     width: 38,
@@ -2484,11 +2617,13 @@ const nativeStyles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: 'rgba(251,191,36,0.15)',
+    backgroundColor: '#2563eb',
+    borderWidth: 1,
+    borderColor: '#1d4ed8',
     marginBottom: 6,
     gap: 6,
   },
-  friendLabelText: { color: '#fbbf24', fontSize: 12, fontWeight: '700' },
+  friendLabelText: { color: '#f8fafc', fontSize: 12, fontWeight: '700' },
   thumbnail: {
     width: '100%',
     aspectRatio: 2 / 3,
@@ -2683,10 +2818,12 @@ const webStyles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 999,
-    backgroundColor: 'rgba(251,191,36,0.15)',
+    backgroundColor: '#2563eb',
+    borderWidth: 1,
+    borderColor: '#1d4ed8',
     marginBottom: 8,
   },
-  friendLabelText: { color: '#fde68a', fontSize: 12, fontWeight: '700' },
+  friendLabelText: { color: '#f8fafc', fontSize: 12, fontWeight: '700' },
   thumbWrap: {
     width: '100%',
     aspectRatio: 2 / 3,
@@ -2815,6 +2952,30 @@ const metaStyles = StyleSheet.create({
   dropdown: { flexBasis: '40%', flexGrow: 0 },
   countText: { fontSize: 13, color: '#374151', fontWeight: '600' },
   countTextDark: { color: '#cbd5f5' },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  filterButtonActive: {
+    borderColor: '#60a5fa',
+    backgroundColor: 'rgba(37,99,235,0.25)',
+  },
+  filterButtonPressed: {
+    opacity: 0.85,
+  },
+  filterDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#60a5fa',
+  },
 });
 
 const searchMenuStyles = StyleSheet.create({

@@ -7,6 +7,7 @@ import {
   SectionList,
   SectionListData,
   SectionListRenderItem,
+  StatusBar,
   StyleSheet,
   Text,
   View,
@@ -14,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useSearchHistory, type SearchHistoryItem } from '../lib/hooks/useSearchHistory';
+import { useTheme, type ThemeColors } from '../lib/theme';
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
@@ -22,6 +24,8 @@ type HistorySection = SectionListData<SearchHistoryItem> & { title: string };
 export default function SearchHistoryScreen() {
   const router = useRouter();
   const { history, clearHistory, removeEntry } = useSearchHistory();
+  const { colors, statusBarStyle, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const sections = useMemo(() => buildSections(history), [history]);
   const hasHistory = history.length > 0;
@@ -66,7 +70,7 @@ export default function SearchHistoryScreen() {
         hitSlop={12}
         style={({ pressed }) => [styles.removeButton, pressed && styles.removeButtonPressed]}
       >
-        <Ionicons name="close-circle" size={18} color="#94a3b8" />
+        <Ionicons name="close-circle" size={18} color={mutedIcon} />
       </Pressable>
     </Pressable>
   );
@@ -75,15 +79,20 @@ export default function SearchHistoryScreen() {
     <Text style={styles.sectionTitle}>{section.title}</Text>
   );
 
+  const mutedIcon = colors.muted;
+  const emptyIcon = colors.subtle;
+
   return (
     <>
       <Stack.Screen
         options={{
           title: 'Search history',
-          headerStyle: { backgroundColor: '#0f172a' },
-          headerTintColor: '#f8fafc',
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.text,
+          headerTitleStyle: { color: colors.text },
         }}
       />
+      <StatusBar barStyle={statusBarStyle} />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.backRow}>
           <Pressable
@@ -91,7 +100,7 @@ export default function SearchHistoryScreen() {
             style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
             hitSlop={6}
           >
-            <Ionicons name="chevron-back" size={18} color="#60a5fa" />
+            <Ionicons name="chevron-back" size={18} color={colors.accent} />
             <Text style={styles.backLabel}>Back</Text>
           </Pressable>
         </View>
@@ -125,7 +134,7 @@ export default function SearchHistoryScreen() {
           </View>
         ) : (
           <View style={styles.emptyState}>
-            <Ionicons name="time-outline" size={40} color="#94a3b8" />
+            <Ionicons name="time-outline" size={40} color={emptyIcon} />
             <Text style={styles.emptyTitle}>No recent searches</Text>
             <Text style={styles.emptyCopy}>Your searches will appear here for quick access.</Text>
           </View>
@@ -184,137 +193,145 @@ function formatTime(input: string) {
   return `${hours}:${paddedMinutes} ${suffix}`;
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-    paddingTop: 12,
-  },
-  backRow: {
-    paddingHorizontal: 20,
-    paddingBottom: 8,
-    alignItems: 'flex-start',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-  },
-  backButtonPressed: {
-    opacity: 0.6,
-  },
-  backLabel: {
-    color: '#60a5fa',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  titleRow: {
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  headerTitle: {
-    color: '#f8fafc',
-    fontSize: 22,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  controlsRow: {
-    paddingHorizontal: 20,
-    alignItems: 'flex-end',
-    marginBottom: 8,
-  },
-  historySection: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  listContent: {
-    paddingTop: 4,
-    paddingBottom: 48,
-  },
-  clearButton: {
-    alignSelf: 'flex-end',
-    paddingVertical: 4,
-    paddingHorizontal: 4,
-  },
-  clearButtonPressed: {
-    opacity: 0.6,
-  },
-  clearButtonDisabled: {
-    opacity: 1,
-  },
-  clearText: {
-    color: '#60a5fa',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  clearTextDisabled: {
-    color: '#475569',
-  },
-  sectionTitle: {
-    color: '#cbd5f5',
-    fontSize: 12,
-    textTransform: 'uppercase',
-    marginTop: 22,
-    marginBottom: 12,
-    letterSpacing: 0.6,
-  },
-  row: {
-    backgroundColor: 'rgba(15,23,42,0.85)',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: 'rgba(51,65,85,0.7)',
-    minHeight: 68,
-  },
-  rowPressed: {
-    backgroundColor: 'rgba(30,41,59,0.95)',
-  },
-  rowContent: {
-    flex: 1,
-    marginRight: 16,
-  },
-  term: {
-    color: '#f8fafc',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  timestamp: {
-    color: '#9ca3af',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  removeButton: {
-    padding: 6,
-    borderRadius: 999,
-  },
-  removeButtonPressed: {
-    backgroundColor: '#1f2937',
-  },
-  separator: {
-    height: 16,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-    gap: 12,
-  },
-  emptyTitle: {
-    color: '#f8fafc',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  emptyCopy: {
-    color: '#cbd5f5',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-});
+function createStyles(colors: ThemeColors, isDark: boolean) {
+  const borderColor = colors.border;
+  const surface = colors.surface;
+  const surfaceSecondary = colors.surfaceSecondary;
+  const rowBackground = isDark ? 'rgba(15,23,42,0.85)' : surfaceSecondary;
+  const rowPressedBackground = isDark ? 'rgba(30,41,59,0.95)' : surface;
+
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+      paddingTop: 12,
+    },
+    backRow: {
+      paddingHorizontal: 20,
+      paddingBottom: 8,
+      alignItems: 'flex-start',
+    },
+    backButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 4,
+      paddingVertical: 4,
+    },
+    backButtonPressed: {
+      opacity: 0.6,
+    },
+    backLabel: {
+      color: colors.accent,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    titleRow: {
+      paddingHorizontal: 20,
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    headerTitle: {
+      color: colors.text,
+      fontSize: 22,
+      fontWeight: '700',
+      textAlign: 'center',
+    },
+    controlsRow: {
+      paddingHorizontal: 20,
+      alignItems: 'flex-end',
+      marginBottom: 8,
+    },
+    historySection: {
+      flex: 1,
+      paddingHorizontal: 20,
+    },
+    listContent: {
+      paddingTop: 4,
+      paddingBottom: 48,
+    },
+    clearButton: {
+      alignSelf: 'flex-end',
+      paddingVertical: 4,
+      paddingHorizontal: 4,
+    },
+    clearButtonPressed: {
+      opacity: 0.6,
+    },
+    clearButtonDisabled: {
+      opacity: 1,
+    },
+    clearText: {
+      color: colors.accent,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    clearTextDisabled: {
+      color: colors.muted,
+    },
+    sectionTitle: {
+      color: colors.subtle,
+      fontSize: 12,
+      textTransform: 'uppercase',
+      marginTop: 22,
+      marginBottom: 12,
+      letterSpacing: 0.6,
+    },
+    row: {
+      backgroundColor: rowBackground,
+      borderRadius: 16,
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderWidth: 1,
+      borderColor,
+      minHeight: 68,
+    },
+    rowPressed: {
+      backgroundColor: rowPressedBackground,
+    },
+    rowContent: {
+      flex: 1,
+      marginRight: 16,
+    },
+    term: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    timestamp: {
+      color: colors.muted,
+      fontSize: 12,
+      marginTop: 4,
+    },
+    removeButton: {
+      padding: 6,
+      borderRadius: 999,
+    },
+    removeButtonPressed: {
+      backgroundColor: surfaceSecondary,
+    },
+    separator: {
+      height: 16,
+    },
+    emptyState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 32,
+      gap: 12,
+    },
+    emptyTitle: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    emptyCopy: {
+      color: colors.subtle,
+      fontSize: 14,
+      textAlign: 'center',
+    },
+  });
+}

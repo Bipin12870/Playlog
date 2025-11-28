@@ -23,6 +23,7 @@ import {
 
 import { auth, db } from './firebase';
 import type { FollowEdge, FollowUserSummary } from '../types/follow';
+import { createNotification } from './notifications';
 
 const RELATIONSHIPS_COLLECTION = 'userRelationships';
 const FOLLOWING_COLLECTION = 'following';
@@ -256,6 +257,10 @@ export async function followUser(targetUid: string) {
   const sourceBlockedRef = blockedDoc(sourceUid, targetUid);
   const targetBlockedRef = blockedDoc(targetUid, sourceUid);
 
+  let notificationTarget: string | null = null;
+  let notificationType: 'friend_request' | 'new_follower' | null = null;
+  let notificationMessage: string | null = null;
+
   await runTransaction(db, async (transaction) => {
     const [
       sourceSnapshot,
@@ -323,6 +328,9 @@ export async function followUser(targetUid: string) {
       );
       transaction.update(targetUserRef, { updatedAt: now });
       transaction.update(sourceUserRef, { updatedAt: now });
+      notificationTarget = targetUid;
+      notificationType = 'friend_request';
+      notificationMessage = `${sourceSummary.displayName ?? 'Someone'} sent you a follow request.`;
       return;
     }
 
@@ -368,7 +376,22 @@ export async function followUser(targetUid: string) {
       'stats.followers': increment(1),
       updatedAt: now,
     });
+
+    notificationTarget = targetUid;
+    notificationType = 'new_follower';
+    notificationMessage = `${sourceSummary.displayName ?? 'Someone'} started following you.`;
   });
+
+  if (notificationTarget && notificationType && notificationMessage) {
+    try {
+      await createNotification(notificationTarget, {
+        type: notificationType,
+        message: notificationMessage,
+      });
+    } catch (err) {
+      console.warn('Failed to create notification for follow event', err);
+    }
+  }
 }
 
 export async function unfollowUser(targetUid: string) {
@@ -687,6 +710,8 @@ export async function approveFollowRequest(requesterUid: string) {
   const incomingRequestRef = followRequestDoc(targetUid, requesterUid);
   const outgoingRequestRef = followRequestSentDoc(requesterUid, targetUid);
 
+  let notificationMessage: string | null = null;
+
   await runTransaction(db, async (transaction) => {
     const [sourceSnapshot, targetSnapshot, requestSnapshot, followingSnapshot] = await Promise.all([
       transaction.get(sourceUserRef),
@@ -745,7 +770,20 @@ export async function approveFollowRequest(requesterUid: string) {
       'stats.followers': increment(1),
       updatedAt: now,
     });
+
+    notificationMessage = `${sourceSummary.displayName ?? 'Someone'} started following you.`;
   });
+
+  if (notificationMessage) {
+    try {
+      await createNotification(targetUid, {
+        type: 'new_follower',
+        message: notificationMessage,
+      });
+    } catch (err) {
+      console.warn('Failed to create notification for approved follow', err);
+    }
+  }
 }
 
 export async function rejectFollowRequest(requesterUid: string) {

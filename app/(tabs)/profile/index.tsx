@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -25,6 +25,7 @@ import { useFollowRequests } from '../../../lib/hooks/useFollowRequests';
 import { getProfileVisibility } from '../../../lib/profileVisibility';
 import { resolveAvatarSource } from '../../../lib/avatar';
 import { useFollowAlertsContext } from '../../../lib/hooks/useFollowAlerts';
+import { useNotifications } from '../../../lib/hooks/useNotifications';
 import { SubscriptionOfferModal } from '../../../components/SubscriptionOfferModal';
 import {
   planCatalog,
@@ -32,6 +33,7 @@ import {
   createBillingPortalSession,
   type PlanId,
 } from '../../../lib/billing';
+import { useTheme, type ThemeColors } from '../../../lib/theme';
 
 type ProfileAction = {
   key:
@@ -42,15 +44,32 @@ type ProfileAction = {
     | 'edit'
     | 'reviews'
     | 'visibility'
-    | 'delete';
+    | 'delete'
+    | 'preferences'
+    | 'change-password'
+    | 'notifications';
   title: string;
   description: string;
   icon: keyof typeof Ionicons.glyphMap;
-  section: 'Social' | 'Profile' | 'Content' | 'Privacy & Safety' | 'Account';
+  section: 'Profile' | 'Social' | 'Activity' | 'Preferences' | 'Privacy & Safety' | 'Notifications';
   variant?: 'destructive';
 };
 
 const ACTIONS: ProfileAction[] = [
+  {
+    key: 'edit',
+    title: 'Edit Profile',
+    description: 'Update your display name, avatar, and bio.',
+    icon: 'create',
+    section: 'Profile',
+  },
+  {
+    key: 'visibility',
+    title: 'Profile visibility',
+    description: 'Control who can follow, message, or see your activity.',
+    icon: 'eye',
+    section: 'Profile',
+  },
   {
     key: 'followers',
     title: 'Followers',
@@ -73,31 +92,38 @@ const ACTIONS: ProfileAction[] = [
     section: 'Social',
   },
   {
-    key: 'blocked',
-    title: 'Blocked users',
-    description: 'Review and manage your blocked list.',
-    icon: 'ban',
-    section: 'Social',
-  },
-  {
-    key: 'edit',
-    title: 'Edit Profile',
-    description: 'Update your display name, avatar, and bio.',
-    icon: 'create',
-    section: 'Profile',
+    key: 'notifications',
+    title: 'Notifications',
+    description: 'View all your alerts.',
+    icon: 'notifications',
+    section: 'Notifications',
   },
   {
     key: 'reviews',
     title: 'Reviews',
     description: 'Revisit and manage shared reviews.',
     icon: 'chatbubble-ellipses',
-    section: 'Content',
+    section: 'Activity',
   },
   {
-    key: 'visibility',
-    title: 'Visibility settings',
-    description: 'Control who can follow, message, or see your activity.',
-    icon: 'eye',
+    key: 'preferences',
+    title: 'Dark/Light mode',
+    description: 'Pick your preferred appearance.',
+    icon: 'contrast',
+    section: 'Preferences',
+  },
+  {
+    key: 'blocked',
+    title: 'Blocked users',
+    description: 'Review and manage your blocked list.',
+    icon: 'ban',
+    section: 'Privacy & Safety',
+  },
+  {
+    key: 'change-password',
+    title: 'Change password',
+    description: 'Update your account password.',
+    icon: 'key',
     section: 'Privacy & Safety',
   },
   {
@@ -105,7 +131,7 @@ const ACTIONS: ProfileAction[] = [
     title: 'Delete account',
     description: 'Permanently remove your account.',
     icon: 'trash',
-    section: 'Account',
+    section: 'Privacy & Safety',
     variant: 'destructive',
   },
 ];
@@ -116,47 +142,52 @@ const ACTION_SECTIONS: Array<{
   actions: ProfileAction[];
 }> = [
   {
-    key: 'social',
-    title: 'Social',
-    actions: ACTIONS.filter((action) => action.section === 'Social'),
-  },
-  {
     key: 'profile',
     title: 'Profile',
     actions: ACTIONS.filter((action) => action.section === 'Profile'),
   },
   {
-    key: 'content',
-    title: 'Content',
-    actions: ACTIONS.filter((action) => action.section === 'Content'),
+    key: 'social',
+    title: 'Social',
+    actions: ACTIONS.filter((action) => action.section === 'Social'),
+  },
+  {
+    key: 'notifications',
+    title: 'Notifications',
+    actions: ACTIONS.filter((action) => action.section === 'Notifications'),
+  },
+  {
+    key: 'activity',
+    title: 'Activity',
+    actions: ACTIONS.filter((action) => action.section === 'Activity'),
+  },
+  {
+    key: 'preferences',
+    title: 'Preferences',
+    actions: ACTIONS.filter((action) => action.section === 'Preferences'),
   },
   {
     key: 'privacy',
     title: 'Privacy & Safety',
     actions: ACTIONS.filter((action) => action.section === 'Privacy & Safety'),
   },
-  {
-    key: 'account',
-    title: 'Account',
-    actions: ACTIONS.filter((action) => action.section === 'Account'),
-  },
 ];
 
 const SECTION_ICON: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
-  social: { icon: 'people-circle', color: '#38bdf8' },
   profile: { icon: 'person-circle', color: '#a78bfa' },
-  content: { icon: 'albums', color: '#22d3ee' },
+  social: { icon: 'people-circle', color: '#38bdf8' },
+  notifications: { icon: 'notifications', color: '#3b82f6' },
+  activity: { icon: 'albums', color: '#22d3ee' },
+  preferences: { icon: 'contrast', color: '#fbbf24' },
   privacy: { icon: 'shield-checkmark', color: '#f97316' },
-  account: { icon: 'settings', color: '#f472b6' },
 };
 
-const STAT_KEYS = ['following', 'followers', 'blocked'] as const;
+const STAT_KEYS = ['following', 'followers'] as const;
 type StatKey = (typeof STAT_KEYS)[number];
 
 const STAT_LABELS: Record<StatKey, string> = {
   followers: 'Followers',
   following: 'Following',
-  blocked: 'Blocked',
 };
 
 function formatCount(value?: number | null) {
@@ -177,6 +208,8 @@ function formatJoined(dateValue?: Date | null) {
 
 export default function ProfileHomeScreen() {
   const router = useRouter();
+  const { colors, statusBarStyle, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const { user, initializing } = useAuthUser();
   const uid = user?.uid ?? null;
   const { profile, loading, error } = useUserProfile(uid);
@@ -185,6 +218,7 @@ export default function ProfileHomeScreen() {
   const visibility = getProfileVisibility(profile ?? undefined);
   const isMobile = Platform.OS !== 'web';
   const followAlerts = useFollowAlertsContext();
+  const { notifications } = useNotifications(uid);
 
   const [subscriptionModalVisible, setSubscriptionModalVisible] = useState(false);
   const [billingLoadingPlanId, setBillingLoadingPlanId] = useState<PlanId | null>(null);
@@ -264,6 +298,30 @@ export default function ProfileHomeScreen() {
   }, [profile?.planId, profile?.subscriptionStatus, profile?.currentPeriodEnd, isPremium]);
 
   const { planTitle, subscriptionStatus, expirationLabel } = planInfo;
+  const accentColor = colors.accent;
+  const mutedIcon = colors.muted;
+  const subtleIcon = colors.subtle;
+  const dangerColor = colors.danger;
+  const successColor = colors.success;
+  const warningColor = colors.warning;
+  const unreadNotificationCount = useMemo(
+    () => notifications.filter((n) => !n.read).length,
+    [notifications],
+  );
+  const followerBadgeCount = useMemo(() => {
+    if (pendingRequests > 0) return pendingRequests;
+    if (followAlerts.hasFollowerAlerts) return Math.max(followAlerts.pendingRequests, 1);
+    return 0;
+  }, [pendingRequests, followAlerts.hasFollowerAlerts, followAlerts.pendingRequests]);
+  const followingBadgeCount = followAlerts.hasFollowingAlerts ? 1 : 0;
+  const socialBadgeCount = Math.max(followerBadgeCount, followingBadgeCount);
+  const sectionBadgeCounts = useMemo(
+    () => ({
+      social: socialBadgeCount,
+      notifications: unreadNotificationCount,
+    }),
+    [socialBadgeCount, unreadNotificationCount],
+  );
 
   const handleSignOut = async () => {
     try {
@@ -295,6 +353,10 @@ export default function ProfileHomeScreen() {
   }, []);
 
   const handleNavigate = (action: ProfileAction) => {
+    if (action.key === 'notifications') {
+      router.push('/notifications');
+      return;
+    }
     router.push(`/(tabs)/profile/${action.key}`);
   };
 
@@ -363,7 +425,7 @@ export default function ProfileHomeScreen() {
   if (initializing || loading) {
     return (
       <View style={styles.loadingState}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color={accentColor} />
         <Text style={styles.loadingText}>Loading your profile…</Text>
       </View>
     );
@@ -372,7 +434,7 @@ export default function ProfileHomeScreen() {
   if (!user || !profile) {
     return (
       <View style={styles.emptyState}>
-        <Ionicons name="person-circle-outline" size={64} color="#94a3b8" />
+        <Ionicons name="person-circle-outline" size={64} color={mutedIcon} />
         <Text style={styles.emptyTitle}>Sign in to manage your profile</Text>
         <Text style={styles.emptyCopy}>
           Log in to customise your Playlog presence. Update your display name, avatar, and bio
@@ -426,6 +488,17 @@ export default function ProfileHomeScreen() {
           onManagePlan={onManagePlan}
           openSections={openSections}
           onToggleSection={toggleSection}
+          unreadNotificationCount={unreadNotificationCount}
+          sectionBadgeCounts={sectionBadgeCounts}
+          followerBadgeCount={followerBadgeCount}
+          statusBarStyle={statusBarStyle}
+          styles={styles}
+          subtleIcon={subtleIcon}
+          accentColor={accentColor}
+          dangerColor={dangerColor}
+          warningColor={warningColor}
+          successColor={successColor}
+          mutedIcon={mutedIcon}
         />
       </>
     );
@@ -456,7 +529,7 @@ export default function ProfileHomeScreen() {
                   <Ionicons
                     name={visibility === 'private' ? 'lock-closed' : 'globe'}
                     size={14}
-                    color={visibility === 'private' ? '#f97316' : '#22c55e'}
+                    color={visibility === 'private' ? warningColor : successColor}
                   />
                   <Text style={styles.visibilityLabel}>
                     {visibility === 'private' ? 'Private profile' : 'Public profile'}
@@ -469,32 +542,36 @@ export default function ProfileHomeScreen() {
                 </Text>
               </View>
 
-              <View style={styles.subscriptionRow}>
-                <View style={styles.subscriptionInfo}>
-                  <Text style={styles.subscriptionLabel}>
-                    {isPremium ? 'Premium access' : 'Free tier'}
-                  </Text>
-                  <Text style={styles.subscriptionStatus}>
-                    {subscriptionStatus ? `${subscriptionStatus} · ` : ''}
-                    {planTitle}
-                  </Text>
-                  {expirationLabel ? (
-                    <Text style={styles.subscriptionHint}>Valid through {expirationLabel}</Text>
-                  ) : null}
+              <View style={styles.subscriptionSection}>
+                <View style={styles.subscriptionPlanRow}>
+                  <View style={styles.subscriptionPlanCopy}>
+                    <Text style={styles.subscriptionPlanLabel}>Plan :</Text>
+                    <Text
+                      style={[
+                        styles.subscriptionPlanLine,
+                        isPremium && styles.subscriptionPlanPremium,
+                      ]}
+                    >
+                      {planTitle}
+                    </Text>
+                  </View>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.subscriptionButton,
+                      pressed && styles.subscriptionButtonPressed,
+                    ]}
+                    onPress={onManagePlan}
+                  >
+                    <Text style={styles.subscriptionButtonLabel}>
+                      {isPremium ? 'Manage plan' : 'Choose plan'}
+                    </Text>
+                  </Pressable>
                 </View>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.subscriptionButton,
-                    pressed && styles.subscriptionButtonPressed,
-                  ]}
-                  onPress={onManagePlan}
-                >
-                  <Text style={styles.subscriptionButtonLabel}>
-                    {isPremium ? 'Manage plan' : 'Choose plan'}
-                  </Text>
-                </Pressable>
+                {expirationLabel ? (
+                  <Text style={styles.subscriptionHint}>Valid through {expirationLabel}</Text>
+                ) : null}
+                {billingError ? <Text style={styles.billingError}>{billingError}</Text> : null}
               </View>
-              {billingError ? <Text style={styles.billingError}>{billingError}</Text> : null}
             </View>
           </View>
           <View style={styles.statRow}>
@@ -537,26 +614,45 @@ export default function ProfileHomeScreen() {
                     <Ionicons
                       name={SECTION_ICON[section.key]?.icon ?? 'grid'}
                       size={18}
-                      color={SECTION_ICON[section.key]?.color ?? '#cbd5f5'}
+                      color={SECTION_ICON[section.key]?.color ?? subtleIcon}
                     />
                   </View>
                   <Text style={styles.actionsTitle}>{section.title}</Text>
                 </View>
-                <Ionicons
-                  name={openSections[section.key] ? 'chevron-up' : 'chevron-down'}
-                  size={16}
-                  color="#cbd5f5"
-                />
+                <View style={styles.sectionHeaderRight}>
+                  {sectionBadgeCounts[section.key] ? (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeLabel}>
+                        {sectionBadgeCounts[section.key] > 99
+                          ? '99+'
+                          : sectionBadgeCounts[section.key]}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <Ionicons
+                    name={openSections[section.key] ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color={subtleIcon}
+                  />
+                </View>
               </Pressable>
               {openSections[section.key] ? (
                 <View style={styles.actionList}>
                   {section.actions.map((action) => {
                     const highlightColor =
-                      action.variant === 'destructive' ? '#ef4444' : '#6366f1';
+                      action.variant === 'destructive' ? dangerColor : accentColor;
                     const pressedBg =
                       action.variant === 'destructive'
-                        ? 'rgba(239,68,68,0.08)'
-                        : 'rgba(99,102,241,0.08)';
+                        ? `${dangerColor}14`
+                        : `${accentColor}14`;
+                    const badgeCount =
+                      action.key === 'requests'
+                        ? pendingRequests
+                        : action.key === 'followers'
+                        ? followerBadgeCount
+                        : action.key === 'notifications'
+                        ? unreadNotificationCount
+                        : 0;
                     return (
                       <Pressable
                         key={action.key}
@@ -570,7 +666,7 @@ export default function ProfileHomeScreen() {
                           style={[
                             styles.actionIconWrap,
                             action.variant === 'destructive' && {
-                              backgroundColor: 'rgba(239,68,68,0.12)',
+                              backgroundColor: `${dangerColor}1f`,
                             },
                           ]}
                         >
@@ -588,12 +684,14 @@ export default function ProfileHomeScreen() {
                           </View>
                           <Text style={styles.actionDescription}>{action.description}</Text>
                         </View>
-                        {action.key === 'requests' && pendingRequests > 0 ? (
+                        {badgeCount > 0 ? (
                           <View style={styles.badge}>
-                            <Text style={styles.badgeLabel}>{pendingRequests}</Text>
+                            <Text style={styles.badgeLabel}>
+                              {badgeCount > 99 ? '99+' : badgeCount}
+                            </Text>
                           </View>
                         ) : null}
-                        <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
+                        <Ionicons name="chevron-forward" size={18} color={subtleIcon} />
                       </Pressable>
                     );
                   })}
@@ -603,15 +701,6 @@ export default function ProfileHomeScreen() {
           ))}
         </View>
 
-        <Pressable
-          onPress={confirmSignOut}
-          style={({ pressed }) => [
-            styles.signOutButton,
-            pressed && styles.signOutButtonPressed,
-          ]}
-        >
-          <Text style={styles.signOutLabel}>Sign out</Text>
-        </Pressable>
       </ScrollView>
     </>
   );
@@ -635,13 +724,24 @@ type MobileProfileProps = {
   onManagePlan: () => void;
   openSections: Record<string, boolean>;
   onToggleSection: (key: string) => void;
+  unreadNotificationCount: number;
+  sectionBadgeCounts: Record<string, number>;
+  followerBadgeCount: number;
+  statusBarStyle: 'light-content' | 'dark-content';
+  styles: ReturnType<typeof createStyles>;
+  subtleIcon: string;
+  accentColor: string;
+  dangerColor: string;
+  warningColor: string;
+  successColor: string;
+  mutedIcon: string;
 };
 
 function MobileProfile({
   profile,
   heroAvatar,
   stats,
-  visibility, // currently unused but kept for future
+  visibility,
   joinedLabel,
   pendingRequests,
   onNavigate,
@@ -655,12 +755,23 @@ function MobileProfile({
   onManagePlan,
   openSections,
   onToggleSection,
+  unreadNotificationCount,
+  sectionBadgeCounts,
+  followerBadgeCount,
+  statusBarStyle,
+  styles,
+  subtleIcon,
+  accentColor,
+  dangerColor,
+  warningColor,
+  successColor,
+  mutedIcon,
 }: MobileProfileProps) {
   const followAlerts = useFollowAlertsContext();
 
   return (
     <SafeAreaView style={styles.mobileSafe}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={statusBarStyle} />
       <ScrollView contentContainerStyle={styles.mobileScroll} showsVerticalScrollIndicator={false}>
         <View style={styles.mobileHeaderRow}>
           <Pressable
@@ -684,6 +795,16 @@ function MobileProfile({
               <Text style={styles.displayName}>{profile.displayName}</Text>
               {profile.bio ? <Text style={styles.mobileBio}>{profile.bio}</Text> : null}
               {joinedLabel ? <Text style={styles.mobileJoined}>Joined {joinedLabel}</Text> : null}
+              <View style={styles.mobileVisibilityMeta}>
+                <Ionicons
+                  name={visibility === 'private' ? 'lock-closed' : 'globe'}
+                  size={12}
+                  color={visibility === 'private' ? warningColor : successColor}
+                />
+                <Text style={styles.mobileVisibilityLabel}>
+                  {visibility === 'private' ? 'Private profile' : 'Public profile'}
+                </Text>
+              </View>
             </View>
           </View>
           <View style={styles.mobileStatRow}>
@@ -711,32 +832,45 @@ function MobileProfile({
           </View>
         </View>
 
+        {/* Merged version of your richer mobile subscription card with theme colors */}
         <View style={styles.mobileSubscriptionCard}>
-          <Text style={styles.mobileSubscriptionLabel}>{isPremium ? 'Premium' : 'Free tier'}</Text>
-          <Text style={styles.mobileSubscriptionPlan}>{planTitle}</Text>
-          <Text style={styles.mobileSubscriptionStatus}>
-            {subscriptionStatus ?? 'Active membership'}
-          </Text>
-          {expirationLabel ? (
-            <Text style={styles.mobileSubscriptionHint}>Valid through {expirationLabel}</Text>
-          ) : null}
-          <Pressable
-            style={({ pressed }) => [
-              styles.mobileSubscriptionButton,
-              pressed && styles.mobileSubscriptionButtonPressed,
-            ]}
-            onPress={onManagePlan}
-          >
-            <Text style={styles.mobileSubscriptionButtonLabel}>
-              {isPremium ? 'Manage plan' : 'Choose plan'}
-            </Text>
-          </Pressable>
+          <View style={styles.mobileSubscriptionHeader}>
+            <Text style={styles.mobileSubscriptionLabel}>Plan</Text>
+            <View style={styles.mobileSubscriptionStatusBadge}>
+              <Text style={styles.mobileSubscriptionStatusText}>
+                {subscriptionStatus
+                  ? subscriptionStatus.toUpperCase()
+                  : isPremium
+                  ? 'ACTIVE'
+                  : 'FREE'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.mobileSubscriptionBody}>
+            <View>
+              <Text style={styles.mobileSubscriptionPlan}>{planTitle}</Text>
+              {expirationLabel ? (
+                <Text style={styles.mobileSubscriptionHint}>Valid through {expirationLabel}</Text>
+              ) : null}
+            </View>
+            <Pressable
+              style={({ pressed }) => [
+                styles.mobileSubscriptionButton,
+                pressed && styles.mobileSubscriptionButtonPressed,
+              ]}
+              onPress={onManagePlan}
+            >
+              <Text style={styles.mobileSubscriptionButtonLabel}>
+                {isPremium ? 'Manage plan' : 'Choose plan'}
+              </Text>
+            </Pressable>
+          </View>
           {billingError ? <Text style={styles.billingError}>{billingError}</Text> : null}
         </View>
 
         <View style={styles.mobileActionsBlock}>
           {ACTION_SECTIONS.map((section) => (
-            <View key={`mobile-${section.key}`}>
+            <View key={`mobile-${section.key}`} style={styles.mobileSectionCard}>
               <Pressable
                 style={({ pressed }) => [
                   styles.mobileSectionHeader,
@@ -749,25 +883,48 @@ function MobileProfile({
                     <Ionicons
                       name={SECTION_ICON[section.key]?.icon ?? 'grid'}
                       size={16}
-                      color={SECTION_ICON[section.key]?.color ?? '#cbd5f5'}
+                      color={SECTION_ICON[section.key]?.color ?? subtleIcon}
                     />
                   </View>
                   <Text style={styles.mobileSectionTitle}>{section.title}</Text>
                 </View>
-                <Ionicons
-                  name={openSections[section.key] ? 'chevron-up' : 'chevron-down'}
-                  size={16}
-                  color="#cbd5f5"
-                />
+                <View style={styles.mobileSectionHeaderRight}>
+                  {sectionBadgeCounts[section.key] ? (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeLabel}>
+                        {sectionBadgeCounts[section.key] > 99
+                          ? '99+'
+                          : sectionBadgeCounts[section.key]}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <Ionicons
+                    name={openSections[section.key] ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color={subtleIcon}
+                  />
+                </View>
               </Pressable>
-              {openSections[section.key]
-                ? section.actions.map((action) => {
+              {openSections[section.key] ? (
+                <View style={styles.mobileSectionBody}>
+                  {section.actions.map((action, index) => {
                     const highlightColor =
-                      action.variant === 'destructive' ? '#f87171' : '#f8fafc';
+                      action.variant === 'destructive' ? dangerColor : accentColor;
+                    const badgeCount =
+                      action.key === 'requests'
+                        ? pendingRequests
+                        : action.key === 'followers'
+                        ? followerBadgeCount
+                        : action.key === 'notifications'
+                        ? unreadNotificationCount
+                        : 0;
                     return (
                       <Pressable
                         key={`mobile-${action.key}`}
-                        style={styles.mobileActionRow}
+                        style={[
+                          styles.mobileActionRow,
+                          index > 0 && styles.mobileActionRowSpacing,
+                        ]}
                         onPress={() => onNavigate(action)}
                       >
                         <Ionicons name={action.icon} size={18} color={highlightColor} />
@@ -775,7 +932,7 @@ function MobileProfile({
                           <Text
                             style={[
                               styles.mobileActionLabel,
-                              action.variant === 'destructive' && { color: '#f87171' },
+                              action.variant === 'destructive' && { color: dangerColor },
                             ]}
                           >
                             {action.title}
@@ -787,16 +944,19 @@ function MobileProfile({
                             <View style={styles.inlineAlertDot} />
                           ) : null}
                         </View>
-                        {action.key === 'requests' && pendingRequests > 0 ? (
+                        {badgeCount > 0 ? (
                           <View style={styles.badge}>
-                            <Text style={styles.badgeLabel}>{pendingRequests}</Text>
+                            <Text style={styles.badgeLabel}>
+                              {badgeCount > 99 ? '99+' : badgeCount}
+                            </Text>
                           </View>
                         ) : null}
-                        <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
+                        <Ionicons name="chevron-forward" size={16} color={subtleIcon} />
                       </Pressable>
                     );
-                  })
-                : null}
+                  })}
+                </View>
+              ) : null}
             </View>
           ))}
         </View>
@@ -805,325 +965,400 @@ function MobileProfile({
   );
 }
 
-const styles = StyleSheet.create({
-  page: { padding: 24, gap: 24 },
-  heroCard: {
-    padding: 24,
-    borderRadius: 28,
-    backgroundColor: '#0f172a',
-    borderWidth: 1,
-    borderColor: 'rgba(99,102,241,0.2)',
-    gap: 18,
-  },
-  heroRow: { flexDirection: 'row', gap: 16 },
-  avatarWrapper: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
-    backgroundColor: '#1f2937',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  avatarImage: { width: 72, height: 72, borderRadius: 24 },
-  heroDetails: { flex: 1, gap: 6 },
-  displayName: { color: '#f8fafc', fontSize: 24, fontWeight: '800' },
-  bioText: { color: '#cbd5f5', fontSize: 14 },
-  joinedText: { color: '#94a3b8', fontSize: 12 },
-  visibilityRow: { gap: 6 },
-  visibilityBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    backgroundColor: 'rgba(15,23,42,0.8)',
-    borderRadius: 999,
-  },
-  visibilityLabel: { color: '#f8fafc', fontSize: 12, fontWeight: '600' },
-  visibilityHint: { color: '#94a3b8', fontSize: 12 },
+function createStyles(colors: ThemeColors, isDark: boolean) {
+  const surface = colors.surface;
+  const surfaceAlt = colors.surfaceSecondary;
+  const border = colors.border;
+  const muted = colors.muted;
+  const subtle = colors.subtle;
+  const accent = colors.accent;
+  const accentSoft = colors.accentSoft;
+  const warning = colors.warning;
+  const danger = colors.danger;
 
-  subscriptionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginTop: 12,
-  },
-  subscriptionInfo: { flex: 1, gap: 4 },
-  subscriptionLabel: { color: '#cbd5f5', fontSize: 12, fontWeight: '600' },
-  subscriptionStatus: { color: '#f8fafc', fontSize: 14, fontWeight: '700' },
-  subscriptionHint: { color: '#94a3b8', fontSize: 12 },
-  subscriptionButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 999,
-    backgroundColor: '#6366f1',
-  },
-  subscriptionButtonPressed: {
-    opacity: 0.9,
-  },
-  subscriptionButtonLabel: {
-    color: '#f8fafc',
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  billingError: { color: '#fca5a5', fontSize: 13, marginTop: 4 },
+  return StyleSheet.create({
+    page: { padding: 24, gap: 24, backgroundColor: colors.background },
+    heroCard: {
+      padding: 24,
+      borderRadius: 28,
+      backgroundColor: surface,
+      borderWidth: 1,
+      borderColor: border,
+      gap: 18,
+    },
+    heroRow: { flexDirection: 'row', gap: 16 },
+    avatarWrapper: {
+      width: 72,
+      height: 72,
+      borderRadius: 24,
+      backgroundColor: surfaceAlt,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    avatarImage: { width: 72, height: 72, borderRadius: 24 },
+    heroDetails: { flex: 1, gap: 6 },
+    displayName: { color: colors.text, fontSize: 24, fontWeight: '800' },
+    bioText: { color: subtle, fontSize: 14 },
+    joinedText: { color: muted, fontSize: 12 },
+    visibilityRow: { gap: 6 },
+    visibilityBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      backgroundColor: isDark ? 'rgba(148,163,184,0.12)' : surfaceAlt,
+      borderRadius: 999,
+    },
+    visibilityLabel: { color: colors.text, fontSize: 12, fontWeight: '600' },
+    visibilityHint: { color: muted, fontSize: 12 },
 
-  statRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  statBlock: { flex: 1, alignItems: 'center', position: 'relative' },
-  statBlockPressed: { opacity: 0.85 },
-  statValue: { color: '#f8fafc', fontSize: 22, fontWeight: '800' },
-  statLabel: { color: '#cbd5f5', fontSize: 13 },
+    subscriptionSection: {
+      gap: 8,
+    },
+    subscriptionPlanRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      flexWrap: 'wrap',
+    },
+    subscriptionPlanCopy: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: 6,
+    },
+    subscriptionPlanLabel: { color: subtle, fontSize: 14, fontWeight: '600' },
+    subscriptionPlanLine: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    subscriptionPlanPremium: {
+      color: '#ffd500',
+    },
+    subscriptionHint: { color: muted, fontSize: 12 },
+    subscriptionButton: {
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 999,
+      backgroundColor: accent,
+    },
+    subscriptionButtonPressed: {
+      opacity: 0.9,
+    },
+    subscriptionButtonLabel: {
+      color: isDark ? colors.text : '#ffffff',
+      fontSize: 13,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+    },
+    billingError: { color: danger, fontSize: 13, marginTop: 4 },
 
-  statAlertDot: {
-    position: 'absolute',
-    top: -4,
-    left: '50%',
-    transform: [{ translateX: -5 }],
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#facc15',
-  },
-  inlineAlertDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#facc15',
-  },
+    statRow: { flexDirection: 'row', justifyContent: 'space-between' },
+    statBlock: { flex: 1, alignItems: 'center', position: 'relative' },
+    statBlockPressed: { opacity: 0.85 },
+    statValue: { color: colors.text, fontSize: 22, fontWeight: '800' },
+    statLabel: { color: subtle, fontSize: 13 },
 
-  sectionStack: { gap: 16 },
-  sectionCard: {
-    borderRadius: 18,
-    backgroundColor: '#0b1120',
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.15)',
-    overflow: 'hidden',
-  },
-  actionsTitle: { color: '#f8fafc', fontSize: 16, fontWeight: '700' },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  sectionHeaderPressed: { opacity: 0.9 },
-  sectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  sectionIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(148,163,184,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionList: { gap: 12 },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    padding: 16,
-    borderRadius: 0,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(148,163,184,0.15)',
-  },
-  actionIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(99,102,241,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionCopy: { flex: 1, gap: 4 },
-  actionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  actionTitle: { color: '#f8fafc', fontWeight: '700' },
-  actionDescription: { color: '#94a3b8', fontSize: 13 },
+    statAlertDot: {
+      position: 'absolute',
+      top: -4,
+      left: '50%',
+      transform: [{ translateX: -5 }],
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: warning,
+    },
+    inlineAlertDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: warning,
+    },
 
-  signOutButton: {
-    marginTop: 14,
-    alignSelf: 'flex-start',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: 'rgba(99,102,241,0.2)',
-  },
-  signOutButtonPressed: { opacity: 0.85 },
-  signOutLabel: { color: '#f8fafc', fontWeight: '700' },
+    sectionStack: { gap: 16 },
+    sectionCard: {
+      borderRadius: 18,
+      backgroundColor: surfaceAlt,
+      borderWidth: 1,
+      borderColor: border,
+      overflow: 'hidden',
+    },
+    actionsTitle: { color: colors.text, fontSize: 16, fontWeight: '700' },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+    },
+    sectionHeaderPressed: { opacity: 0.9 },
+    sectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    sectionHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    sectionIconWrap: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: isDark ? 'rgba(148,163,184,0.12)' : surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    actionList: { gap: 12 },
+    actionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      padding: 16,
+      borderRadius: 0,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: border,
+    },
+    actionIconWrap: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    actionCopy: { flex: 1, gap: 4 },
+    actionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    actionTitle: { color: colors.text, fontWeight: '700' },
+    actionDescription: { color: muted, fontSize: 13 },
+    badge: {
+      minWidth: 28,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 999,
+      backgroundColor: warning,
+      alignItems: 'center',
+    },
+    badgeLabel: { color: colors.text, fontSize: 12, fontWeight: '700' },
 
-  badge: {
-    minWidth: 28,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: '#f97316',
-    alignItems: 'center',
-  },
-  badgeLabel: { color: '#fff', fontSize: 12, fontWeight: '700' },
+    loadingState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+      backgroundColor: colors.background,
+    },
+    loadingText: { color: muted },
 
-  loadingState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  loadingText: { color: '#475569' },
+    emptyState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 32,
+      gap: 12,
+      backgroundColor: colors.background,
+    },
+    emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
+    emptyCopy: { color: muted, textAlign: 'center' },
+    errorText: { color: danger, marginTop: 8 },
+    emptyActionRow: {
+      flexDirection: 'row',
+      gap: 12,
+      width: '100%',
+      marginTop: 16,
+    },
+    emptyBtn: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 999,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    emptyPrimary: { backgroundColor: accent },
+    emptyPrimaryText: { color: isDark ? colors.text : '#ffffff', fontWeight: '700' },
+    emptySecondary: {
+      borderWidth: 1,
+      borderColor: border,
+      backgroundColor: 'transparent',
+    },
+    emptySecondaryText: { color: colors.text, fontWeight: '700' },
 
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-    gap: 12,
-  },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
-  emptyCopy: { color: '#4b5563', textAlign: 'center' },
-  errorText: { color: '#ef4444', marginTop: 8 },
-  emptyActionRow: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-    marginTop: 16,
-  },
-  emptyBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyPrimary: { backgroundColor: '#6366f1' },
-  emptyPrimaryText: { color: '#f8fafc', fontWeight: '700' },
-  emptySecondary: {
-    borderWidth: 1,
-    borderColor: '#cbd5f5',
-    backgroundColor: 'transparent',
-  },
-  emptySecondaryText: { color: '#0f172a', fontWeight: '700' },
+    // Mobile styles
+    mobileSafe: { flex: 1, backgroundColor: colors.background },
+    mobileScroll: { padding: 20, gap: 24, backgroundColor: colors.background },
+    mobileHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+    },
+    mobileSignOutButton: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 999,
+      backgroundColor: surfaceAlt,
+    },
+    mobileSignOutButtonPressed: { opacity: 0.8 },
+    mobileSignOutLabel: { color: colors.text, fontWeight: '600' },
+    mobileHeroCard: {
+      backgroundColor: surface,
+      borderRadius: 28,
+      padding: 20,
+      gap: 16,
+      borderWidth: 1,
+      borderColor: border,
+    },
+    mobileHeroRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+    mobileHeroDetails: { flex: 1 },
+    mobileBio: { color: subtle, fontSize: 13, marginTop: 4 },
+    mobileJoined: { color: muted, fontSize: 12, marginTop: 2 },
+    mobileVisibilityMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginTop: 4,
+    },
+    mobileVisibilityLabel: {
+      color: subtle,
+      fontSize: 11,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
 
-  // Mobile styles
-  mobileSafe: { flex: 1, backgroundColor: '#0f172a' },
-  mobileScroll: { padding: 20, gap: 24, backgroundColor: '#0f172a' },
-  mobileHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  mobileSignOutButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: '#1c1c21',
-  },
-  mobileSignOutButtonPressed: { opacity: 0.8 },
-  mobileSignOutLabel: { color: '#f8fafc', fontWeight: '600' },
-  mobileHeroCard: {
-    backgroundColor: '#1c1c21',
-    borderRadius: 28,
-    padding: 20,
-    gap: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-  },
-  mobileHeroRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  mobileHeroDetails: { flex: 1 },
-  mobileBio: { color: '#cbd5f5', fontSize: 13, marginTop: 4 },
-  mobileJoined: { color: '#9ca3af', fontSize: 12, marginTop: 2 },
+    mobileSubscriptionCard: {
+      backgroundColor: surfaceAlt,
+      borderRadius: 20,
+      padding: 16,
+      marginTop: 12,
+      borderWidth: 1,
+      borderColor: border,
+      gap: 8,
+    },
+    mobileSubscriptionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    mobileSubscriptionLabel: { color: subtle, fontSize: 12, fontWeight: '600' },
+    mobileSubscriptionStatusBadge: {
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: border,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      backgroundColor: surface,
+    },
+    mobileSubscriptionStatusText: {
+      color: subtle,
+      fontSize: 11,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      fontWeight: '600',
+    },
+    mobileSubscriptionBody: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      gap: 12,
+      marginTop: 6,
+    },
+    mobileSubscriptionPlan: { color: colors.text, fontSize: 18, fontWeight: '700' },
+    mobileSubscriptionStatus: { color: subtle, fontSize: 13 },
+    mobileSubscriptionHint: { color: muted, fontSize: 12 },
+    mobileSubscriptionButton: {
+      marginTop: 8,
+      alignSelf: 'flex-start',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 999,
+      backgroundColor: accent,
+    },
+    mobileSubscriptionButtonPressed: {
+      opacity: 0.9,
+    },
+    mobileSubscriptionButtonLabel: {
+      color: isDark ? colors.text : '#ffffff',
+      fontWeight: '700',
+      letterSpacing: 0.5,
+    },
 
-  mobileSubscriptionCard: {
-    backgroundColor: '#111827',
-    borderRadius: 20,
-    padding: 16,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    gap: 8,
-  },
-  mobileSubscriptionLabel: { color: '#cbd5f5', fontSize: 12, fontWeight: '600' },
-  mobileSubscriptionPlan: { color: '#f8fafc', fontSize: 18, fontWeight: '700' },
-  mobileSubscriptionStatus: { color: '#cbd5f5', fontSize: 13 },
-  mobileSubscriptionHint: { color: '#9ca3af', fontSize: 12 },
-  mobileSubscriptionButton: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: '#6366f1',
-  },
-  mobileSubscriptionButtonPressed: {
-    opacity: 0.9,
-  },
-  mobileSubscriptionButtonLabel: {
-    color: '#f8fafc',
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
+    mobileStatRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 12,
+      marginTop: 12,
+    },
+    mobileStatBlock: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 8,
+      borderRadius: 12,
+      backgroundColor: surfaceAlt,
+      position: 'relative',
+    },
+    mobileStatBlockPressed: { backgroundColor: surface },
+    mobileStatValue: { color: colors.text, fontSize: 18, fontWeight: '800' },
+    mobileStatLabel: { color: subtle, fontSize: 12 },
 
-  mobileStatRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  mobileStatBlock: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: '#26262b',
-    position: 'relative',
-  },
-  mobileStatBlockPressed: { backgroundColor: '#2f2f36' },
-  mobileStatValue: { color: '#f8fafc', fontSize: 18, fontWeight: '800' },
-  mobileStatLabel: { color: '#cbd5f5', fontSize: 12 },
-
-  mobileActionsBlock: {
-    marginTop: 12,
-    borderRadius: 24,
-    backgroundColor: '#1c1c21',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-  },
-  mobileSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 6,
-  },
-  mobileSectionHeaderPressed: { opacity: 0.85 },
-  mobileSectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  mobileSectionIcon: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: 'rgba(148,163,184,0.14)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mobileSectionTitle: { color: '#e5e7eb', fontSize: 13, fontWeight: '700' },
-  mobileActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
-    gap: 12,
-  },
-  mobileActionLabelWrap: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  mobileActionLabel: { color: '#f8fafc', fontWeight: '600' },
-});
+    mobileActionsBlock: {
+      marginTop: 12,
+      borderRadius: 24,
+      backgroundColor: surface,
+      borderWidth: 1,
+      borderColor: border,
+      paddingHorizontal: 4,
+      gap: 12,
+    },
+    mobileSectionCard: {
+      borderRadius: 20,
+      backgroundColor: surfaceAlt,
+      borderWidth: 1,
+      borderColor: border,
+      overflow: 'hidden',
+    },
+    mobileSectionBody: {
+      paddingHorizontal: 12,
+      paddingBottom: 12,
+      backgroundColor: surface,
+      gap: 8,
+    },
+    mobileSectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingTop: 14,
+      paddingBottom: 6,
+    },
+    mobileSectionHeaderPressed: { opacity: 0.85 },
+    mobileSectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    mobileSectionHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    mobileSectionIcon: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      backgroundColor: isDark ? 'rgba(148,163,184,0.14)' : surfaceAlt,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    mobileSectionTitle: { color: colors.text, fontSize: 13, fontWeight: '700' },
+    mobileActionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 18,
+      paddingVertical: 14,
+      borderRadius: 16,
+      backgroundColor: surface,
+      gap: 10,
+    },
+    mobileActionRowSpacing: {
+      marginTop: 10,
+    },
+    mobileActionLabelWrap: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    mobileActionLabel: { color: colors.text, fontWeight: '600' },
+  });
+}

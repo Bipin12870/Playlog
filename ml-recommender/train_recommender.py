@@ -8,7 +8,9 @@ df = pd.read_csv("data/interactions.csv")  # expects columns: user_id, game_id, 
 # 🔧 CLEANING STEP — this fixes your error
 df = df.rename(columns=lambda c: c.strip())  # remove weird spaces in headers
 df["rating"] = pd.to_numeric(df["rating"], errors="coerce")  # convert rating to number
-df = df.dropna(subset=["rating"])  # drop rows where rating is not numeric
+df["game_id"] = pd.to_numeric(df["game_id"], errors="coerce")  # ensure game_id is numeric
+df = df.dropna(subset=["rating", "game_id"])  # drop rows where values are not numeric
+df["game_id"] = df["game_id"].astype(int)
 
 # Optional: print to confirm cleaning
 print(df.head())

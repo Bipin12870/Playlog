@@ -9,11 +9,9 @@ import {
   Text,
   TextInput,
   View,
-  useColorScheme,
 } from 'react-native';
 import { signOut } from 'firebase/auth';
 import { useCallback, useEffect, useRef, useState } from 'react';
-
 import { useAuthUser } from '../../lib/hooks/useAuthUser';
 import { auth } from '../../lib/firebase';
 import {
@@ -28,7 +26,9 @@ import {
   subscribeToCategoryDrawerEvents,
 } from '../../lib/events/categoryDrawer';
 import { useSearchHistory, type SearchHistoryItem } from '../../lib/hooks/useSearchHistory';
+import { useNotifications } from '../../lib/hooks/useNotifications';
 import { SearchHistoryDropdown } from '../../components/search/SearchHistoryDropdown';
+import { useTheme } from '../../lib/theme';
 
 const LOGO = require('../../assets/logo.png');
 let pendingLogoGlow = false;
@@ -49,12 +49,20 @@ type WebNavBarProps = {
     muted: string;
     accent: string;
     isDark: boolean;
+    input: string;
   };
   user: ReturnType<typeof useAuthUser>['user'];
   pendingRequests: number;
+  unreadNotifications: number;
 };
 
-function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarProps) {
+function WebNavBar({
+  activeRoute,
+  palette,
+  user,
+  pendingRequests,
+  unreadNotifications,
+}: WebNavBarProps) {
   const router = useRouter();
   const { term, setTerm, submit, resetSearch, setScope } = useGameSearch();
   const { addEntry, filterByPrefix } = useSearchHistory();
@@ -92,9 +100,10 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
 
   const placeholder = placeholderByScope[nextScope] ?? 'Search';
   const showSearch = activeRoute !== 'profile';
+  const showNavSignOut = Boolean(user && activeRoute === 'profile');
   const isDarkSurface = palette.isDark;
-  const inputBackground = isDarkSurface ? '#1f2937' : '#ffffff';
-  const signOutTextColor = isDarkSurface ? '#f1f5f9' : '#1f2937';
+  const inputBackground = palette.input;
+  const signOutTextColor = palette.text;
 
   useEffect(() => {
     return () => {
@@ -266,7 +275,9 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
         <View style={styles.links}>
           {NAV_ITEMS.map(({ name, label }, index) => {
             const isActive = name === activeRoute;
-            const showRequestBadge = name === 'profile' && pendingRequests > 0;
+            const profileBadgeCount =
+              name === 'profile' ? pendingRequests + unreadNotifications : 0;
+            const showProfileBadge = profileBadgeCount > 0;
             return (
               <View key={name} style={styles.linkWrapper}>
                 <Link
@@ -286,7 +297,13 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
                 >
                   {label}
                 </Link>
-                {showRequestBadge ? <View style={styles.navBadge} /> : null}
+                {showProfileBadge ? (
+                  <View style={styles.navBadge}>
+                    <Text style={[styles.navBadgeText, { color: '#fff' }]}>
+                      {profileBadgeCount > 99 ? '99+' : profileBadgeCount}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             );
           })}
@@ -295,26 +312,44 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
       <View style={styles.rightSection}>
         {showSearch ? (
           <View style={styles.searchArea}>
-            <TextInput
-              placeholder={placeholder}
-              placeholderTextColor={palette.muted}
-              value={term}
-              onChangeText={handleChangeSearchTerm}
-              returnKeyType="search"
-              onSubmitEditing={() => handleSubmitSearch()}
-              autoCorrect={false}
-              autoCapitalize="none"
-              onFocus={handleSearchFocus}
-              onBlur={handleSearchBlur}
+            <View
               style={[
-                styles.searchInput,
-                {
-                  borderColor: palette.border,
-                  color: palette.text,
-                  backgroundColor: inputBackground,
-                },
+                styles.searchInputWrapper,
+                { borderColor: palette.border, backgroundColor: inputBackground },
               ]}
-            />
+            >
+              <TextInput
+                placeholder={placeholder}
+                placeholderTextColor={palette.muted}
+                value={term}
+                onChangeText={handleChangeSearchTerm}
+                returnKeyType="search"
+                onSubmitEditing={() => handleSubmitSearch()}
+                autoCorrect={false}
+                autoCapitalize="none"
+                onFocus={handleSearchFocus}
+                onBlur={handleSearchBlur}
+                style={[styles.searchInput, { color: palette.text }]}
+              />
+              <Pressable
+                onPress={handleCategoryOpen}
+                style={({ pressed }) => [
+                  styles.searchFilter,
+                  categoryActive && {
+                    borderColor: palette.accent,
+                    backgroundColor: `${palette.accent}26`,
+                  },
+                  pressed && styles.searchFilterPressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Open category filters"
+              >
+                <Ionicons name="options-outline" size={18} color={palette.text} />
+                {categoryActive ? (
+                  <View style={[styles.searchFilterDot, { backgroundColor: palette.accent }]} />
+                ) : null}
+              </Pressable>
+            </View>
             {historyDropdownVisible ? (
               <SearchHistoryDropdown
                 style={styles.historyDropdown}
@@ -327,34 +362,16 @@ function WebNavBar({ activeRoute, palette, user, pendingRequests }: WebNavBarPro
         ) : (
           <View style={styles.searchPlaceholder} />
         )}
-        <Pressable
-          onPress={handleCategoryOpen}
-          style={[
-            styles.categoryButton,
-            { borderColor: palette.border },
-            categoryActive && styles.categoryButtonActive,
-          ]}
-          hitSlop={8}
-        >
-          <Ionicons name="options-outline" size={18} color="#f8fafc" />
-        </Pressable>
         <View style={styles.authLinks}>
           {user ? (
-            <Pressable
-              onPress={confirmSignOut}
-              style={[styles.signOutButton, { borderColor: palette.border }]}
-            >
-              <Text
-                style={[
-                  styles.signOutLabel,
-                  {
-                    color: signOutTextColor,
-                  },
-                ]}
+            showNavSignOut ? (
+              <Pressable
+                onPress={confirmSignOut}
+                style={[styles.signOutButton, { borderColor: palette.border }]}
               >
-                Sign out
-              </Text>
-            </Pressable>
+                <Text style={[styles.signOutLabel, { color: signOutTextColor }]}>Sign out</Text>
+              </Pressable>
+            ) : null
           ) : (
             <>
               <Link href="/signup" style={[styles.loginLink, { color: palette.text }]}>Sign Up</Link>
@@ -407,6 +424,7 @@ function NativeTabs({
           borderTopColor: navBorder,
         },
         sceneContainerStyle: { backgroundColor: pageBackground },
+        tabBarLabelPosition: 'below-icon',
         tabBarIcon: ({ color, size }) => {
           let icon: keyof typeof Ionicons.glyphMap = 'home';
           switch (route.name) {
@@ -448,26 +466,29 @@ function NativeTabs({
     </Tabs>
   );
 }
-
 export default function TabsLayout() {
-  const scheme = useColorScheme();
-  const accent = scheme === 'dark' ? '#7dcfff' : '#2b6cb0';
+  const { colors, isDark } = useTheme();
+  const accent = colors.accent;
   const { user } = useAuthUser();
   const followRequests = useFollowRequests(user?.uid ?? null);
   const pendingRequests = followRequests.requests.length;
+  const { notifications } = useNotifications(user?.uid ?? null);
+  const unreadNotifications = notifications.filter((n) => !n.read).length;
+  const profileBadgeCount = pendingRequests + unreadNotifications;
   const profileBadge =
-    pendingRequests > 0 ? (pendingRequests > 99 ? '99+' : String(pendingRequests)) : undefined;
-  const pageBackground = '#0f172a';
-  const navBackground = pageBackground;
-  const navBorder = '#1e293b';
-  const navMuted = '#94a3b8';
+    profileBadgeCount > 0 ? (profileBadgeCount > 99 ? '99+' : String(profileBadgeCount)) : undefined;
+  const pageBackground = colors.background;
+  const navBackground = colors.surface;
+  const navBorder = colors.border;
+  const navMuted = colors.muted;
   const palette = {
     background: navBackground,
     border: navBorder,
-    text: '#f8fafc',
+    text: colors.text,
     muted: navMuted,
     accent,
-    isDark: true,
+    isDark,
+    input: colors.inputBackground,
   };
 
   if (Platform.OS === 'web') {
@@ -482,6 +503,7 @@ export default function TabsLayout() {
                   palette={palette}
                   user={user}
                   pendingRequests={pendingRequests}
+                  unreadNotifications={unreadNotifications}
                 />
               ),
               contentStyle: { backgroundColor: pageBackground },
@@ -491,6 +513,7 @@ export default function TabsLayout() {
             <Stack.Screen name="fav" />
             <Stack.Screen name="friends" />
             <Stack.Screen name="profile" />
+            <Stack.Screen name="notifications" />
           </Stack>
         </GameSearchProvider>
       </GameFavoritesProvider>
@@ -559,20 +582,31 @@ const styles = StyleSheet.create({
   },
   navBadge: {
     position: 'absolute',
-    top: -4,
-    right: -6,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: -10,
+    right: -14,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
     backgroundColor: '#f97316',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navBadgeText: { fontSize: 11, fontWeight: '700' },
+  searchInputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 18,
+    gap: 10,
   },
   searchInput: {
     flex: 1,
     minHeight: 46,
-    paddingHorizontal: 18,
     paddingVertical: 10,
-    borderWidth: 1,
-    borderRadius: 999,
+    paddingHorizontal: 6,
     fontSize: 16,
   },
   searchArea: {
@@ -585,18 +619,25 @@ const styles = StyleSheet.create({
   searchPlaceholder: {
     flex: 1,
   },
-  categoryButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    backgroundColor: 'rgba(15,23,42,0.8)',
+  searchFilter: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  categoryButtonActive: {
-    borderColor: '#7c3aed',
-    backgroundColor: 'rgba(67,56,202,0.25)',
+  searchFilterPressed: {
+    opacity: 0.85,
+  },
+  searchFilterDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginLeft: 4,
   },
   loginLink: {
     fontSize: 16,
