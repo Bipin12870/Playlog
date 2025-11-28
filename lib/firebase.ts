@@ -29,7 +29,6 @@ if (
 ) {
   throw new Error('Missing Firebase configuration. Check your .env file.');
 }
-
 const apps = getApps();
 const app = apps.length === 0 ? initializeApp(firebaseConfig) : getApp();
 const auth =
@@ -38,6 +37,13 @@ const auth =
         persistence: getReactNativePersistence(AsyncStorage),
       })
     : getAuth(app);
+
+// Disable phone reCAPTCHA checks in dev on native (DO NOT enable in production)
+if (__DEV__ && Platform.OS !== 'web' && auth && (auth as any).settings) {
+  // @ts-expect-error settings is available on native auth
+  (auth as any).settings.appVerificationDisabledForTesting = true;
+}
+
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 const phoneProvider = new PhoneAuthProvider(auth);
