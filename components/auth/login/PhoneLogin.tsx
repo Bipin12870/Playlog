@@ -220,8 +220,9 @@ export function PhoneLogin() {
 
   return (
     <View style={styles.formCard}>
-      <Text style={descriptionStyle}>We’ll send a 6-digit code to the phone number linked to your Playlog account.</Text>
-
+      <Text style={descriptionStyle}>
+        We’ll send a 6-digit code to the phone number linked to your Playlog account.
+      </Text>
       {Platform.OS === 'web' && (
         <View style={recaptchaWrapperStyle}>
           <View id="recaptcha-login-container" />
@@ -247,17 +248,28 @@ export function PhoneLogin() {
           onPress={handleSendCode}
           disabled={sendingCode || verifyingCode}
           style={({ pressed }) => [
-            styles.secondaryButton,
+            styles.primaryButton,
             (sendingCode || verifyingCode) && styles.submitDisabled,
             pressed && styles.buttonPressed,
           ]}
         >
           {sendingCode ? (
-            <ActivityIndicator color={infoAccent} />
+            <ActivityIndicator color={sendingCode || verifyingCode ? '#475569' : '#0f172a'} />
           ) : (
             <>
-              <Feather name="message-circle" size={16} color={infoAccent} />
-              <Text style={styles.secondaryButtonText}>Send code</Text>
+              <Feather
+                name="message-circle"
+                size={16}
+                color={sendingCode || verifyingCode ? '#475569' : '#0f172a'}
+              />
+              <Text
+                style={[
+                  styles.primaryButtonText,
+                  (sendingCode || verifyingCode) && styles.primaryButtonTextDisabled,
+                ]}
+              >
+                Send code
+              </Text>
             </>
           )}
         </Pressable>
@@ -289,7 +301,9 @@ export function PhoneLogin() {
               ]}
             >
               {verifyingCode ? (
-                <ActivityIndicator color={codeReady ? primaryContentColor : disabledContentColor} />
+                <ActivityIndicator
+                  color={codeReady ? primaryContentColor : disabledContentColor}
+                />
               ) : (
                 <>
                   <Ionicons
@@ -298,7 +312,10 @@ export function PhoneLogin() {
                     color={!codeReady ? disabledContentColor : primaryContentColor}
                   />
                   <Text
-                    style={[styles.primaryButtonText, (!codeReady || verifyingCode) && styles.primaryButtonTextDisabled]}
+                    style={[
+                      styles.primaryButtonText,
+                      (!codeReady || verifyingCode) && styles.primaryButtonTextDisabled,
+                    ]}
                   >
                     Verify & sign in
                   </Text>
