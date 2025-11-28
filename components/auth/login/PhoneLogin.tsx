@@ -235,17 +235,28 @@ export function PhoneLogin() {
           onPress={handleSendCode}
           disabled={sendingCode || verifyingCode}
           style={({ pressed }) => [
-            styles.secondaryButton,
+            styles.primaryButton,
             (sendingCode || verifyingCode) && styles.submitDisabled,
             pressed && styles.buttonPressed,
           ]}
         >
           {sendingCode ? (
-            <ActivityIndicator color="#38bdf8" />
+            <ActivityIndicator color={sendingCode || verifyingCode ? '#475569' : '#0f172a'} />
           ) : (
             <>
-              <Feather name="message-circle" size={16} color="#38bdf8" />
-              <Text style={styles.secondaryButtonText}>Send code</Text>
+              <Feather
+                name="message-circle"
+                size={16}
+                color={sendingCode || verifyingCode ? '#475569' : '#0f172a'}
+              />
+              <Text
+                style={[
+                  styles.primaryButtonText,
+                  (sendingCode || verifyingCode) && styles.primaryButtonTextDisabled,
+                ]}
+              >
+                Send code
+              </Text>
             </>
           )}
         </Pressable>
