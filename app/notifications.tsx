@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
+  Platform,
   StyleSheet,
   Text,
   View,
@@ -13,24 +15,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuthUser } from '../lib/hooks/useAuthUser';
 import { useNotifications } from '../lib/hooks/useNotifications';
+import type { AppNotification } from '../lib/notifications';
 import { useTheme, type ThemeColors } from '../lib/theme';
-
-export type NotificationRow = {
-  id: string;
-  type: string;
-  message: string;
-  createdAt: Date | null;
-  read: boolean;
-};
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const { colors, isDark } = useTheme();
   const { styles, palette } = useMemo(() => themedStyles(colors, isDark), [colors, isDark]);
   const { user } = useAuthUser();
-  const { notifications, loading, error, markAsRead } = useNotifications(user?.uid ?? null);
+  const { notifications, loading, error, markAsRead, removeNotification } = useNotifications(
+    user?.uid ?? null,
+  );
 
   const [visibleCount, setVisibleCount] = useState(10);
+  const [pendingDelete, setPendingDelete] = useState<AppNotification | null>(null);
 
   useEffect(() => {
     setVisibleCount((prev) => Math.min(Math.max(prev, 10), notifications.length || 10));
@@ -43,32 +41,100 @@ export default function NotificationsScreen() {
     setVisibleCount((prev) => Math.min(prev + 10, notifications.length));
   };
 
-  const renderItem = ({ item }: { item: NotificationRow }) => {
+  const resolveHref = useCallback((item: AppNotification) => {
+    switch (item.type) {
+      case 'review_comment': {
+        const gameId = item.metadata?.gameId;
+        if (!gameId) return null;
+        const reviewId = item.metadata?.reviewId;
+        const reviewQuery = reviewId ? `&reviewId=${encodeURIComponent(reviewId)}` : '';
+        return `/game/${gameId}?section=reviews${reviewQuery}`;
+      }
+      case 'new_follower': {
+        const followerId = item.metadata?.userId;
+        if (!followerId) return null;
+        return `/profile/${followerId}`;
+      }
+      default:
+        return null;
+    }
+  }, []);
+
+  const handleDelete = useCallback(
+    (item: AppNotification) => {
+      if (Platform.OS === 'web') {
+        setPendingDelete(item);
+        return;
+      }
+
+      Alert.alert('Delete notification', 'Are you sure you want to delete this notification?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => removeNotification(item.id),
+        },
+      ]);
+    },
+    [removeNotification],
+  );
+
+  const handlePress = useCallback(
+    (item: AppNotification) => {
+      void markAsRead(item.id);
+      const href = resolveHref(item);
+      if (href) {
+        router.push(href);
+      } else {
+        Alert.alert('Cannot open', 'This notification is missing link details.');
+      }
+    },
+    [markAsRead, resolveHref, router],
+  );
+
+  const renderItem = ({ item }: { item: AppNotification }) => {
     const { iconName, iconColor } = getNotificationIcon(item.type);
+    const isWeb = Platform.OS === 'web';
+    const rowStyles = [
+      styles.notificationRow,
+      isWeb ? styles.notificationRowWeb : styles.notificationRowMobile,
+      !item.read && styles.notificationRowUnread,
+    ];
     return (
-        <Pressable
-          onPress={() => markAsRead(item.id)}
-          style={({ pressed }) => [
-            styles.notificationRow,
-            !item.read && styles.notificationRowUnread,
-            pressed && styles.notificationRowPressed,
-          ]}
-        >
-        <View style={styles.notificationIconWrap}>
+      <Pressable
+        onPress={() => handlePress(item)}
+        style={({ pressed }) => [rowStyles, pressed && styles.notificationRowPressed]}
+      >
+        <View style={[styles.notificationIconWrap, !isWeb && styles.notificationIconWrapMobile]}>
           <Ionicons name={iconName} size={22} color={iconColor} />
         </View>
-        <View style={styles.notificationContent}>
+        <View style={[styles.notificationContent, !isWeb && styles.notificationContentMobile]}>
           <Text
             numberOfLines={2}
             style={[styles.notificationMessage, item.read && styles.notificationMessageRead]}
           >
             {item.message}
           </Text>
-          <Text style={styles.notificationTimestamp}>
-            {formatRelativeTime(item.createdAt)}
-          </Text>
+          <Text style={styles.notificationTimestamp}>{formatRelativeTime(item.createdAt)}</Text>
         </View>
-        {!item.read ? <View style={styles.unreadDot} /> : <View style={styles.spacer} />}
+        <View style={[styles.actionsWrap, !isWeb && styles.actionsWrapMobile]}>
+          {!item.read ? <View style={styles.unreadDot} /> : <View style={styles.spacer} />}
+          <Pressable
+            onPress={(event) => {
+              event?.stopPropagation?.();
+              event?.preventDefault?.();
+              handleDelete(item);
+            }}
+            onPressIn={(event) => {
+              event?.stopPropagation?.();
+              event?.preventDefault?.();
+            }}
+            hitSlop={12}
+            style={({ pressed }) => [styles.menuButton, pressed && styles.menuButtonPressed]}
+          >
+            <Ionicons name="ellipsis-vertical" size={18} color={palette.muted} />
+          </Pressable>
+        </View>
       </Pressable>
     );
   };
@@ -108,6 +174,7 @@ export default function NotificationsScreen() {
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
+            contentContainerStyle={styles.listContent}
           />
           {hasMore ? (
             <Pressable
@@ -119,6 +186,42 @@ export default function NotificationsScreen() {
             >
               <Text style={styles.showMoreLabel}>Show more</Text>
             </Pressable>
+          ) : null}
+          {pendingDelete ? (
+            <View style={styles.modalOverlay} pointerEvents="box-none">
+              <View style={styles.modalCard}>
+                <Text style={styles.modalTitle}>Delete notification</Text>
+                <Text style={styles.modalMessage}>
+                  Are you sure you want to delete this notification?
+                </Text>
+                <View style={styles.modalActions}>
+                  <Pressable
+                    onPress={() => setPendingDelete(null)}
+                    style={({ pressed }) => [
+                      styles.modalButton,
+                      pressed && styles.modalButtonPressed,
+                    ]}
+                  >
+                    <Text style={styles.modalCancel}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      const target = pendingDelete;
+                      setPendingDelete(null);
+                      if (target) {
+                        void removeNotification(target.id);
+                      }
+                    }}
+                    style={({ pressed }) => [
+                      styles.modalButton,
+                      pressed && styles.modalButtonPressed,
+                    ]}
+                  >
+                    <Text style={styles.modalDelete}>Delete</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
           ) : null}
         </View>
       )}
@@ -164,7 +267,7 @@ function themedStyles(colors: ThemeColors, isDark: boolean) {
     subText: colors.subtle,
     accent: colors.accent,
     unreadBg: colors.surfaceSecondary,
-    pressed: isDark ? colors.surfaceSecondary : '#e5e7eb',
+    pressed: isDark ? 'rgba(255,255,255,0.05)' : '#e5e7eb',
     error: colors.danger,
   };
 
@@ -217,18 +320,36 @@ function themedStyles(colors: ThemeColors, isDark: boolean) {
     },
     listContainer: {
       flex: 1,
-      padding: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    listContent: {
+      width: '100%',
       gap: 12,
     },
     notificationRow: {
       flexDirection: 'row',
       alignItems: 'center',
+      minHeight: 72,
       backgroundColor: palette.card,
       borderRadius: 14,
-      padding: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
       borderWidth: 1,
       borderColor: palette.border,
       gap: 12,
+      width: '100%',
+    },
+    notificationRowWeb: {
+      alignItems: 'center',
+    },
+    notificationRowMobile: {
+      alignItems: 'flex-start',
+      paddingVertical: 16,
+      paddingHorizontal: 16,
+      borderRadius: 18,
+      minHeight: 88,
+      gap: 16,
     },
     notificationRowUnread: {
       backgroundColor: palette.unreadBg,
@@ -244,13 +365,23 @@ function themedStyles(colors: ThemeColors, isDark: boolean) {
       justifyContent: 'center',
       backgroundColor: isDark ? '#0f172a' : '#eef2ff',
     },
+    notificationIconWrapMobile: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      alignSelf: 'center',
+    },
     notificationContent: {
       flex: 1,
       gap: 4,
     },
+    notificationContentMobile: {
+      justifyContent: 'center',
+      gap: 6,
+    },
     notificationMessage: {
       color: palette.text,
-      fontSize: 15,
+      fontSize: 16,
       fontWeight: '700',
     },
     notificationMessageRead: {
@@ -261,6 +392,14 @@ function themedStyles(colors: ThemeColors, isDark: boolean) {
       color: palette.subText,
       fontSize: 12,
     },
+    menuButton: {
+      padding: 6,
+      borderRadius: 8,
+      marginRight: 4,
+    },
+    menuButtonPressed: {
+      backgroundColor: palette.pressed,
+    },
     unreadDot: {
       width: 10,
       height: 10,
@@ -270,6 +409,17 @@ function themedStyles(colors: ThemeColors, isDark: boolean) {
     spacer: {
       width: 10,
       height: 10,
+    },
+    actionsWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    actionsWrapMobile: {
+      alignItems: 'center',
+      gap: 12,
+      alignSelf: 'center',
+      marginLeft: 8,
     },
     separator: {
       height: 10,
@@ -296,6 +446,66 @@ function themedStyles(colors: ThemeColors, isDark: boolean) {
       marginHorizontal: 16,
       marginTop: 6,
       fontSize: 13,
+    },
+    modalOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.45)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+    },
+    modalCard: {
+      width: '100%',
+      maxWidth: 360,
+      backgroundColor: palette.card,
+      borderRadius: 16,
+      paddingHorizontal: 20,
+      paddingVertical: 18,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: palette.border,
+      gap: 10,
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: palette.text,
+      textAlign: 'center',
+    },
+    modalMessage: {
+      fontSize: 14,
+      color: palette.subText,
+      textAlign: 'center',
+      marginTop: 4,
+    },
+    modalActions: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 12,
+      gap: 8,
+    },
+    modalButton: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: palette.border,
+    },
+    modalButtonPressed: {
+      backgroundColor: palette.pressed,
+    },
+    modalCancel: {
+      color: palette.text,
+      fontWeight: '700',
+    },
+    modalDelete: {
+      color: palette.error,
+      fontWeight: '700',
     },
   });
 

@@ -4,6 +4,7 @@ import {
   AppNotification,
   markNotificationRead,
   subscribeToNotifications,
+  deleteNotification,
 } from '../notifications';
 
 type UseNotificationsResult = {
@@ -11,6 +12,7 @@ type UseNotificationsResult = {
   loading: boolean;
   error: Error | null;
   markAsRead: (id: string) => Promise<void>;
+  removeNotification: (id: string) => Promise<void>;
 };
 
 export function useNotifications(uid: string | null): UseNotificationsResult {
@@ -54,5 +56,14 @@ export function useNotifications(uid: string | null): UseNotificationsResult {
     }
   };
 
-  return { notifications, loading, error, markAsRead };
+  const removeNotification = async (id: string) => {
+    if (!uid || !id) return;
+    try {
+      await deleteNotification(uid, id);
+    } catch (err: any) {
+      setError(err instanceof Error ? err : new Error('Failed to delete notification'));
+    }
+  };
+
+  return { notifications, loading, error, markAsRead, removeNotification };
 }

@@ -8,6 +8,7 @@ import {
   query,
   serverTimestamp,
   updateDoc,
+  deleteDoc,
 } from 'firebase/firestore';
 
 import { db } from './firebase';
@@ -18,6 +19,11 @@ export type AppNotification = {
   message: string;
   createdAt: Date | null;
   read: boolean;
+  metadata?: {
+    gameId?: number;
+    reviewId?: string;
+    userId?: string;
+  } | null;
 };
 
 function mapDocToNotification(snapshot: any): AppNotification {
@@ -33,12 +39,13 @@ function mapDocToNotification(snapshot: any): AppNotification {
     message: data.message ?? '',
     createdAt,
     read: Boolean(data.read),
+    metadata: data.metadata ?? null,
   };
 }
 
 export async function createNotification(
   targetUserId: string,
-  data: { type: string; message: string },
+  data: { type: string; message: string; metadata?: AppNotification['metadata'] },
 ) {
   if (!targetUserId) return;
 
@@ -56,6 +63,7 @@ export async function createNotification(
   await addDoc(notificationsRef, {
     type: data.type,
     message: data.message,
+    metadata: data.metadata ?? null,
     createdAt: serverTimestamp(),
     read: false,
   });
@@ -94,4 +102,10 @@ export async function updateNotificationSetting(uid: string, enabled: boolean) {
   if (!uid) return;
   const userRef = doc(db, 'users', uid);
   await updateDoc(userRef, { notificationsEnabled: enabled });
+}
+
+export async function deleteNotification(uid: string, notificationId: string) {
+  if (!uid || !notificationId) return;
+  const notificationRef = doc(db, 'users', uid, 'notifications', notificationId);
+  await deleteDoc(notificationRef);
 }

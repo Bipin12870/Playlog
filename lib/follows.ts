@@ -387,6 +387,7 @@ export async function followUser(targetUid: string) {
       await createNotification(notificationTarget, {
         type: notificationType,
         message: notificationMessage,
+        metadata: { userId: sourceUid },
       });
     } catch (err) {
       console.warn('Failed to create notification for follow event', err);
@@ -779,6 +780,7 @@ export async function approveFollowRequest(requesterUid: string) {
       await createNotification(targetUid, {
         type: 'new_follower',
         message: notificationMessage,
+        metadata: { userId: requesterUid },
       });
     } catch (err) {
       console.warn('Failed to create notification for approved follow', err);
