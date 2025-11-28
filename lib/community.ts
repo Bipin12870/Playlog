@@ -408,6 +408,7 @@ export async function submitReviewReply(
       await createNotification(reviewAuthorId, {
         type: 'review_comment',
         message: `${authorName} replied to your review.`,
+        metadata: { gameId, reviewId },
       });
     }
   } catch (err) {
