@@ -250,7 +250,7 @@ export function PhoneLogin() {
           style={({ pressed }) => [
             styles.primaryButton,
             (sendingCode || verifyingCode) && styles.submitDisabled,
-            pressed && styles.buttonPressed,
+            pressed && { opacity: 0.85 },
           ]}
         >
           {sendingCode ? (
@@ -297,7 +297,7 @@ export function PhoneLogin() {
               style={({ pressed }) => [
                 styles.primaryButton,
                 (!codeReady || verifyingCode) && styles.submitDisabled,
-                pressed && styles.buttonPressed,
+                pressed && { opacity: 0.85 },
               ]}
             >
               {verifyingCode ? (
@@ -326,16 +326,38 @@ export function PhoneLogin() {
         )}
 
         {errorMessage && (
-          <View style={styles.errorBanner}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingVertical: 8,
+              paddingHorizontal: 12,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: errorAccent,
+              backgroundColor: isDark ? 'rgba(239,68,68,0.06)' : 'rgba(239,68,68,0.06)',
+            }}
+          >
             <Feather name="alert-triangle" size={16} color={errorAccent} />
-            <Text style={styles.errorText}>{errorMessage}</Text>
+            <Text style={{ color: errorAccent, marginLeft: 8 }}>{errorMessage}</Text>
           </View>
         )}
 
         {infoMessage && (
-          <View style={styles.infoBanner}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingVertical: 8,
+              paddingHorizontal: 12,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: infoAccent,
+              backgroundColor: isDark ? 'rgba(96,165,250,0.06)' : 'rgba(96,165,250,0.06)',
+            }}
+          >
             <Feather name="info" size={16} color={infoAccent} />
-            <Text style={styles.infoText}>{infoMessage}</Text>
+            <Text style={{ color: infoAccent, marginLeft: 8 }}>{infoMessage}</Text>
           </View>
         )}
       </View>
