@@ -14,7 +14,7 @@ export const PLANS = {
     isSubscription: true,
     title: 'Premium',
     description: 'Unlimited favourites, reviews, and access to every premium feature.',
-    priceLabel: '$0.5',
+    priceLabel: '$4.99',
     billingCycle: 'per month',
     highlight: true,
   },
