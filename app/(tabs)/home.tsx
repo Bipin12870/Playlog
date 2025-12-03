@@ -20,6 +20,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -230,6 +231,8 @@ export default function HomeScreen() {
   const [sort, setSort] = useState<SortValue>('relevance');
   const [categoryActive, setCategoryActive] = useState(false);
   const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
+  const isHomeFocusedRef = useRef(false);
+  const isHomeFocused = useIsFocused();
   const {
     cacheReady: discoveryCacheReady,
     getCachedDiscovery,
@@ -777,8 +780,12 @@ const [featured, trending, personalized] = await Promise.allSettled([
   );
 
   useEffect(() => {
+    isHomeFocusedRef.current = isHomeFocused;
+  }, [isHomeFocused]);
+
+  useEffect(() => {
     const unsubscribe = subscribeToCategoryDrawerEvents((event) => {
-      if (event.type === 'open') {
+      if (event.type === 'open' && isHomeFocusedRef.current) {
         setCategoryDrawerOpen(true);
       }
     });
@@ -2709,16 +2716,27 @@ const nativeStyles = StyleSheet.create({
 });
 
 const webStyles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f172a' },
+  container: { flex: 1, backgroundColor: '#0b1021' },
   scroll: { paddingBottom: 48 },
-  shell: { alignSelf: 'center', width: '100%', paddingTop: 16 },
-  heroRow: { flexDirection: 'row', alignItems: 'stretch', paddingVertical: 24 },
+  shell: { alignSelf: 'center', width: '100%', paddingTop: 20 },
+  heroRow: { flexDirection: 'row', alignItems: 'stretch', paddingVertical: 26 },
   heroAnimatedWrap: { flex: 1 },
-  heroCard: { borderRadius: 18, backgroundColor: '#111827', overflow: 'hidden', flex: 1 },
+  heroCard: {
+    borderRadius: 22,
+    backgroundColor: '#0f1d34',
+    overflow: 'hidden',
+    flex: 1,
+    borderWidth: 1,
+    borderColor: 'rgba(14,165,233,0.22)',
+    shadowColor: '#020617',
+    shadowOpacity: 0.25,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 12 },
+  },
   heroCardMode: {
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 24,
+    paddingVertical: 26,
   },
   heroImage: { ...StyleSheet.absoluteFillObject, width: undefined, height: undefined },
   heroGloss: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.06)' },
@@ -2731,32 +2749,38 @@ const webStyles = StyleSheet.create({
     width: '70%',
     maxWidth: 320,
   },
-  heroOverlay: { marginTop: 'auto', padding: 24, backgroundColor: 'rgba(0,0,0,0.4)' },
+  heroOverlay: { marginTop: 'auto', padding: 26, backgroundColor: 'rgba(7,17,35,0.72)' },
   heroOverlayPoster: {
     backgroundColor: 'transparent',
     alignItems: 'center',
     marginTop: 20,
     paddingHorizontal: 0,
   },
-  heroTag: { color: '#cbd5f5', textTransform: 'uppercase', fontSize: 12, letterSpacing: 1 },
+  heroTag: { color: '#7dd3fc', textTransform: 'uppercase', fontSize: 12, letterSpacing: 1 },
   heroTagPoster: { alignSelf: 'center' },
-  heroTitle: { color: '#fff', fontSize: 26, fontWeight: '900', marginTop: 8 },
+  heroTitle: { color: '#e7edf8', fontSize: 28, fontWeight: '900', marginTop: 8 },
   heroTitlePoster: { textAlign: 'center' },
-  heroSubtitle: { color: '#e5e7eb', fontSize: 14, marginTop: 6 },
+  heroSubtitle: { color: '#b6c7e3', fontSize: 14, marginTop: 8 },
   heroSubtitlePoster: { textAlign: 'center' },
   heroDots: { flexDirection: 'row', gap: 6, padding: 12 },
   heroDotsPoster: { alignSelf: 'center' },
-  heroDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.3)' },
-  heroDotActive: { backgroundColor: '#fff' },
-  sideCard: { borderRadius: 18, backgroundColor: '#1f2937', overflow: 'hidden' },
+  heroDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: 'rgba(125,211,252,0.35)' },
+  heroDotActive: { backgroundColor: '#0ea5e9' },
+  sideCard: {
+    borderRadius: 18,
+    backgroundColor: '#0e1a30',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(14,165,233,0.18)',
+  },
   sideImage: { ...StyleSheet.absoluteFillObject, width: undefined, height: undefined },
-  sideGloss: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)' },
-  sideOverlay: { marginTop: 'auto', padding: 16, backgroundColor: 'rgba(0,0,0,0.5)' },
-  sideLabel: { color: '#cbd5f5', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 },
-  sideTitle: { color: '#fff', fontSize: 16, fontWeight: '700', marginTop: 4 },
+  sideGloss: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.06)' },
+  sideOverlay: { marginTop: 'auto', padding: 18, backgroundColor: 'rgba(7,17,35,0.72)' },
+  sideLabel: { color: '#9bd5ff', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 },
+  sideTitle: { color: '#e7edf8', fontSize: 16, fontWeight: '700', marginTop: 4 },
   searchResults: { marginBottom: 24 },
   resultsHeading: {
-    color: '#f8fafc',
+    color: '#e7edf8',
     fontSize: 18,
     fontWeight: '800',
     marginBottom: 12,
@@ -2764,19 +2788,19 @@ const webStyles = StyleSheet.create({
   sectionTitleWrap: { alignItems: 'center', marginTop: 6, marginBottom: 14 },
   sectionDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(125,211,252,0.18)',
     alignSelf: 'stretch',
     marginHorizontal: 16,
     marginBottom: 8,
   },
-  sectionTitle: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 0.2, marginBottom: 8 },
+  sectionTitle: { color: '#e7edf8', fontSize: 20, fontWeight: '900', letterSpacing: 0.2, marginBottom: 8 },
   posterCard: { width: '100%' },
   card: {
-    backgroundColor: '#3f3f46',
+    backgroundColor: '#0f203a',
     borderRadius: 12,
     padding: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(14,165,233,0.16)',
   },
   cardWrap: { width: '100%' },
   adSlot: {
@@ -2784,12 +2808,16 @@ const webStyles = StyleSheet.create({
     marginBottom: 16,
     padding: 24,
     borderRadius: 22,
-    backgroundColor: '#111827',
+    backgroundColor: '#0f1d34',
     borderWidth: 1,
-    borderColor: 'rgba(99,102,241,0.25)',
+    borderColor: 'rgba(14,165,233,0.26)',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 20,
+    shadowColor: '#020617',
+    shadowOpacity: 0.24,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
   },
   adContent: { flex: 1, gap: 8 },
   adBadge: {
@@ -2797,13 +2825,13 @@ const webStyles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: 'rgba(147,197,253,0.18)',
+    backgroundColor: 'rgba(14,165,233,0.18)',
   },
-  adBadgeLabel: { color: '#bfdbfe', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
-  adTitle: { color: '#f8fafc', fontSize: 22, fontWeight: '900' },
-  adCopy: { color: '#cbd5f5', fontSize: 14 },
+  adBadgeLabel: { color: '#9bd5ff', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  adTitle: { color: '#e7edf8', fontSize: 22, fontWeight: '900' },
+  adCopy: { color: '#b6c7e3', fontSize: 14 },
   adButton: {
-    backgroundColor: '#4f46e5',
+    backgroundColor: '#0ea5e9',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 999,
@@ -2818,41 +2846,41 @@ const webStyles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 999,
-    backgroundColor: '#2563eb',
+    backgroundColor: 'rgba(14,165,233,0.18)',
     borderWidth: 1,
-    borderColor: '#1d4ed8',
+    borderColor: 'rgba(14,165,233,0.4)',
     marginBottom: 8,
   },
-  friendLabelText: { color: '#f8fafc', fontSize: 12, fontWeight: '700' },
+  friendLabelText: { color: '#7dd3fc', fontSize: 12, fontWeight: '800' },
   thumbWrap: {
     width: '100%',
     aspectRatio: 2 / 3,
-    backgroundColor: '#2c2c30',
+    backgroundColor: '#0f203a',
     borderRadius: 14,
     marginBottom: 10,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.2)',
+    borderColor: 'rgba(14,165,233,0.16)',
   },
   thumbImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   thumbFallback: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  thumbText: { color: '#d1d5db', fontSize: 12 },
-  gameName: { color: '#fff', fontSize: 16, fontWeight: '800', marginBottom: 6 },
+  thumbText: { color: '#9eb1d4', fontSize: 12 },
+  gameName: { color: '#e7edf8', fontSize: 16, fontWeight: '800', marginBottom: 6 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-  metaText: { color: '#e5e7eb', fontSize: 12 },
+  metaText: { color: '#b6c7e3', fontSize: 12 },
   platformRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
   footerOuter: {
-    backgroundColor: '#0c0f18',
+    backgroundColor: '#0b1223',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.07)',
+    borderTopColor: 'rgba(125,211,252,0.14)',
     marginTop: 28,
   },
   footer: { alignSelf: 'center', width: '100%', paddingTop: 22, paddingBottom: 30 },
   footerGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   footerColWide: { minWidth: 240, gap: 8, flexShrink: 0 },
   footerCol: { minWidth: 160, gap: 8, flexShrink: 0 },
-  footerTitle: { color: '#f8fafc', fontSize: 20, fontWeight: '900', letterSpacing: 0.3 },
-  footerTag: { color: '#94a3b8', fontSize: 12 },
+  footerTitle: { color: '#e7edf8', fontSize: 20, fontWeight: '900', letterSpacing: 0.3 },
+  footerTag: { color: '#9eb1d4', fontSize: 12 },
   socialRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
   socialBtn: {
     width: 34,
@@ -2862,19 +2890,19 @@ const webStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(125,211,252,0.2)',
   },
-  footerHeading: { color: '#e5e7eb', fontWeight: '800', marginBottom: 6, fontSize: 13 },
-  footerLink: { color: '#cbd5e1', textDecorationLine: 'underline', fontSize: 13 },
-  footerText: { color: '#94a3b8', fontSize: 13 },
+  footerHeading: { color: '#e7edf8', fontWeight: '800', marginBottom: 6, fontSize: 13 },
+  footerLink: { color: '#9bd5ff', textDecorationLine: 'underline', fontSize: 13 },
+  footerText: { color: '#9eb1d4', fontSize: 13 },
   footerDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(125,211,252,0.14)',
     marginTop: 18,
     marginBottom: 12,
   },
   footerBase: { flexDirection: 'row', justifyContent: 'space-between' },
-  footerSmall: { color: '#64748b', fontSize: 12 },
+  footerSmall: { color: '#93a3c1', fontSize: 12 },
 });
 
 const statusStyles = StyleSheet.create({
@@ -2886,7 +2914,7 @@ const statusStyles = StyleSheet.create({
 const filterStyles = StyleSheet.create({
   dropdown: { flexBasis: '30%', flexGrow: 1, minWidth: 150 },
   groupLabel: { fontSize: 12, fontWeight: '700', color: '#6b7280', textTransform: 'uppercase' },
-  groupLabelDark: { color: '#cbd5f5' },
+  groupLabelDark: { color: '#b6c7e3' },
   dropdownControl: { marginTop: 6, position: 'relative' },
   dropdownButton: {
     height: 42,
@@ -2900,14 +2928,14 @@ const filterStyles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   dropdownButtonDark: {
-    backgroundColor: 'rgba(15,23,42,0.7)',
-    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(11,18,36,0.82)',
+    borderColor: 'rgba(14,165,233,0.22)',
   },
   dropdownButtonActive: {
-    borderColor: '#6366f1',
+    borderColor: '#0ea5e9',
   },
   dropdownValue: { fontSize: 14, fontWeight: '600', color: '#111827', flex: 1, marginRight: 12 },
-  dropdownValueDark: { color: '#f8fafc' },
+  dropdownValueDark: { color: '#e7edf8' },
   dropdownPlaceholder: { color: '#9ca3af' },
   dropdownMenu: {
     marginTop: 8,
@@ -2923,8 +2951,8 @@ const filterStyles = StyleSheet.create({
     maxHeight: 220,
   },
   dropdownMenuDark: {
-    backgroundColor: '#0f172a',
-    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: '#0b1223',
+    borderColor: 'rgba(14,165,233,0.18)',
   },
   dropdownScroll: { maxHeight: 220 },
   menuItem: {
@@ -2933,11 +2961,11 @@ const filterStyles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#e5e7eb',
   },
-  menuItemDark: { borderBottomColor: 'rgba(255,255,255,0.08)' },
-  menuItemActive: { backgroundColor: 'rgba(99,102,241,0.1)' },
+  menuItemDark: { borderBottomColor: 'rgba(125,211,252,0.12)' },
+  menuItemActive: { backgroundColor: 'rgba(14,165,233,0.14)' },
   menuItemText: { fontSize: 14, color: '#111827' },
-  menuItemTextDark: { color: '#e5e7eb' },
-  menuItemTextActive: { fontWeight: '700', color: '#4f46e5' },
+  menuItemTextDark: { color: '#e7edf8' },
+  menuItemTextActive: { fontWeight: '700', color: '#0ea5e9' },
 });
 
 const metaStyles = StyleSheet.create({
@@ -2951,7 +2979,7 @@ const metaStyles = StyleSheet.create({
   wrapperDark: {},
   dropdown: { flexBasis: '40%', flexGrow: 0 },
   countText: { fontSize: 13, color: '#374151', fontWeight: '600' },
-  countTextDark: { color: '#cbd5f5' },
+  countTextDark: { color: '#b6c7e3' },
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2961,11 +2989,11 @@ const metaStyles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: 'transparent',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(14,165,233,0.12)',
   },
   filterButtonActive: {
-    borderColor: '#60a5fa',
-    backgroundColor: 'rgba(37,99,235,0.25)',
+    borderColor: '#0ea5e9',
+    backgroundColor: 'rgba(14,165,233,0.22)',
   },
   filterButtonPressed: {
     opacity: 0.85,
@@ -2974,7 +3002,7 @@ const metaStyles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#60a5fa',
+    backgroundColor: '#0ea5e9',
   },
 });
 
@@ -2991,32 +3019,32 @@ const searchMenuStyles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    backgroundColor: 'rgba(15,23,42,0.85)',
+    backgroundColor: 'rgba(11,18,36,0.9)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(14,165,233,0.18)',
   },
   parentTabActive: {
-    borderColor: '#60a5fa',
-    backgroundColor: 'rgba(37,99,235,0.16)',
+    borderColor: '#0ea5e9',
+    backgroundColor: 'rgba(14,165,233,0.18)',
   },
   parentTabHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  parentLabel: { color: '#cbd5f5', fontWeight: '700', fontSize: 14 },
-  parentLabelActive: { color: '#fff' },
+  parentLabel: { color: '#b6c7e3', fontWeight: '700', fontSize: 14 },
+  parentLabelActive: { color: '#e7edf8' },
   parentDescription: { color: '#94a3b8', fontSize: 12, marginTop: 4, lineHeight: 16 },
   badgeDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#60a5fa',
+    backgroundColor: '#0ea5e9',
   },
   childSection: {
     flex: 1,
     borderRadius: 18,
-    backgroundColor: '#0b1325',
+    backgroundColor: '#0c1528',
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(14,165,233,0.18)',
   },
   childHeader: {
     flexDirection: 'row',
@@ -3026,7 +3054,7 @@ const searchMenuStyles = StyleSheet.create({
   },
   childTitle: { color: '#f8fafc', fontWeight: '900', fontSize: 18 },
   clearLink: {
-    color: '#bfdbff',
+    color: '#7dd3fc',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -3042,11 +3070,11 @@ const searchMenuStyles = StyleSheet.create({
     borderColor: 'transparent',
   },
   childItemSelected: {
-    backgroundColor: 'rgba(37,99,235,0.18)',
-    borderColor: '#60a5fa',
+    backgroundColor: 'rgba(14,165,233,0.18)',
+    borderColor: '#0ea5e9',
   },
-  childLabel: { color: '#e5e7eb', fontWeight: '600', fontSize: 15 },
-  childLabelSelected: { color: '#fff' },
+  childLabel: { color: '#b6c7e3', fontWeight: '600', fontSize: 15 },
+  childLabelSelected: { color: '#e7edf8' },
 });
 
 const drawerStyles = StyleSheet.create({
@@ -3060,12 +3088,12 @@ const drawerStyles = StyleSheet.create({
     top: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: '#050a16',
+    backgroundColor: '#0b1426',
     paddingTop: Platform.OS === 'ios' ? 56 : 32,
     paddingHorizontal: 16,
     paddingBottom: 24,
     borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: 'rgba(255,255,255,0.08)',
+    borderRightColor: 'rgba(14,165,233,0.2)',
     shadowColor: '#000',
     shadowOpacity: 0.45,
     shadowRadius: 20,
@@ -3080,7 +3108,7 @@ const drawerStyles = StyleSheet.create({
   },
   headerCopy: { flex: 1, marginRight: 12 },
   title: { color: '#f8fafc', fontSize: 20, fontWeight: '800' },
-  subtitle: { color: '#cbd5f5', fontSize: 12, marginTop: 4, lineHeight: 16 },
-  closeBtn: { padding: 6, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.08)' },
+  subtitle: { color: '#b6c7e3', fontSize: 12, marginTop: 4, lineHeight: 16 },
+  closeBtn: { padding: 6, borderRadius: 999, backgroundColor: 'rgba(14,165,233,0.14)' },
   menuBody: { flex: 1 },
 });
