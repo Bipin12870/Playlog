@@ -6,8 +6,8 @@ import { billingPlans, type PlanId } from '../lib/billing';
 
 const FEATURES = [
   'Unlimited favourite games',
-  'Access to social features',
   'Unlimited reviews access',
+  'No Ads ',
   'AI recommended games',
 ];
 
