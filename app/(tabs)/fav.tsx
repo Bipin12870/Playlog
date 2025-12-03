@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Platform,
-  Pressable,
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -17,6 +15,8 @@ import { useGameFavorites } from '../../lib/hooks/useGameFavorites';
 import { useGameSearch } from '../../lib/hooks/useGameSearch';
 import { useTheme, type ThemeColors } from '../../lib/theme';
 import type { GameSummary } from '../../types/game';
+
+const MOBILE_PAGE_SIZE = 10;
 
 export default function FavScreen() {
   const isWeb = Platform.OS === 'web';
@@ -36,8 +36,9 @@ export default function FavScreen() {
   const mobileColumnCount = width >= 640 ? 2 : 1;
   const rawColumnCount = isMobile ? mobileColumnCount : baseColumnCount;
   const columnCount = isWeb ? 6 : Math.max(rawColumnCount, 3);
-  const { term, setTerm, submit, submittedTerm, submissionId, setScope } = useGameSearch();
+  const { submittedTerm, submissionId, setScope } = useGameSearch();
   const [activeQuery, setActiveQuery] = useState('');
+  const [visibleCount, setVisibleCount] = useState(MOBILE_PAGE_SIZE);
 
   useEffect(() => {
     setScope('favourites');
@@ -46,6 +47,12 @@ export default function FavScreen() {
   useEffect(() => {
     setActiveQuery(submittedTerm.trim());
   }, [submittedTerm, submissionId]);
+
+  useEffect(() => {
+    if (!activeQuery) {
+      setVisibleCount(MOBILE_PAGE_SIZE);
+    }
+  }, [isAuthenticated, activeQuery]);
 
   const handleSelect = useCallback(
     (game: GameSummary) => {
@@ -56,6 +63,10 @@ export default function FavScreen() {
     },
     [router]
   );
+
+  const handleLoadMore = useCallback(() => {
+    setVisibleCount((prev) => prev + MOBILE_PAGE_SIZE);
+  }, []);
 
   const subtitle = useMemo(() => {
     if (!isAuthenticated) {
@@ -99,9 +110,15 @@ export default function FavScreen() {
     return baseEmptyState;
   }, [activeQuery, baseEmptyState]);
 
-  const handleSubmit = useCallback(() => {
-    submit();
-  }, [submit]);
+  const visibleFavourites = useMemo(() => {
+    if (activeQuery) {
+      return filteredFavourites;
+    }
+    const limit = Math.min(visibleCount, filteredFavourites.length);
+    return filteredFavourites.slice(0, limit);
+  }, [activeQuery, filteredFavourites, visibleCount]);
+
+  const hasMoreFavourites = !activeQuery && filteredFavourites.length > visibleFavourites.length;
 
   if (!isMobile) {
     return (
@@ -130,17 +147,12 @@ export default function FavScreen() {
   const mobileHeaderComponent = (
     <View style={styles.mobileListHeader}>
       <View style={styles.mobileIntro}>
-        <Text style={styles.mobileTitle}>My Favourite Games</Text>
-        <Text style={styles.mobileSubtitle}>Your collection of amazing games</Text>
+        <Text style={styles.mobileTitle}>Favourites</Text>
+        <Text style={styles.mobileSubtitle}>{subtitle}</Text>
+        {isAuthenticated && !hasUnlimitedFavorites && remainingSlots === 0 ? (
+          <Text style={styles.limitNotice}>You have reached your current limit.</Text>
+        ) : null}
       </View>
-    </View>
-  );
-
-  const mobileFooterComponent = (
-    <View style={styles.mobileFooter}>
-      <Pressable style={styles.loadMoreBtn} onPress={handleSubmit}>
-        <Text style={styles.loadMoreText}>Load More…</Text>
-      </Pressable>
     </View>
   );
 
@@ -149,7 +161,7 @@ export default function FavScreen() {
       <StatusBar barStyle={statusBarStyle} />
       <View style={styles.mobileContent}>
         <SearchResults
-          games={filteredFavourites}
+          games={visibleFavourites}
           loading={false}
           error={null}
           columnCount={columnCount}
@@ -159,7 +171,8 @@ export default function FavScreen() {
           cardStyle={styles.mobileCard}
           emptyState={emptyState}
           headerComponent={mobileHeaderComponent}
-          footerComponent={mobileFooterComponent}
+          onLoadMore={handleLoadMore}
+          hasMore={hasMoreFavourites}
         />
       </View>
     </SafeAreaView>
@@ -216,17 +229,5 @@ function createStyles(colors: ThemeColors, isDark: boolean) {
       borderColor,
       marginBottom: 0,
     },
-    mobileFooter: { paddingHorizontal: 20, paddingVertical: 24, alignItems: 'center' },
-    loadMoreBtn: {
-      alignSelf: 'center',
-      paddingHorizontal: 32,
-      paddingVertical: 12,
-      borderRadius: 16,
-      backgroundColor: surfaceSecondary,
-      borderWidth: 1,
-      borderColor,
-      marginBottom: 32,
-    },
-    loadMoreText: { color: colors.text, fontWeight: '700' },
   });
 }
