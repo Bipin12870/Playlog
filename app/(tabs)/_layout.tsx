@@ -153,7 +153,7 @@ function WebNavBar({
     setScope('games');
     resetSearch();
     if (activeRoute !== 'home') {
-      router.push('/(tabs)/home');
+      router.replace('/(tabs)/home');
     }
   };
   useEffect(() => {
@@ -541,9 +541,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
+    paddingVertical: 18,
     paddingHorizontal: 32,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    shadowColor: '#020617',
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6,
   },
   rightSection: {
     flex: 1,
@@ -557,11 +562,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logo: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
   },
   logoButton: {
-    borderRadius: 20,
+    borderRadius: 16,
+    padding: 8,
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   links: {
     flexDirection: 'row',
@@ -582,17 +589,17 @@ const styles = StyleSheet.create({
   },
   navBadge: {
     position: 'absolute',
-    top: -10,
-    right: -14,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 4,
-    borderRadius: 9,
-    backgroundColor: '#f97316',
+    top: -12,
+    right: -16,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+    backgroundColor: '#0ea5e9',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  navBadgeText: { fontSize: 11, fontWeight: '700' },
+  navBadgeText: { fontSize: 11, fontWeight: '800' },
   searchInputWrapper: {
     flex: 1,
     flexDirection: 'row',
@@ -600,14 +607,20 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 18,
-    gap: 10,
+    gap: 12,
+    shadowColor: '#0b1a2f',
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 5,
   },
   searchInput: {
     flex: 1,
-    minHeight: 46,
-    paddingVertical: 10,
+    minHeight: 48,
+    paddingVertical: 12,
     paddingHorizontal: 6,
     fontSize: 16,
+    fontWeight: '600',
   },
   searchArea: {
     flex: 1,
@@ -622,13 +635,13 @@ const styles = StyleSheet.create({
   searchFilter: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'transparent',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(14,165,233,0.14)',
   },
   searchFilterPressed: {
     opacity: 0.85,
@@ -637,7 +650,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    marginLeft: 4,
+    marginLeft: 6,
   },
   loginLink: {
     fontSize: 16,
@@ -649,17 +662,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   authSpacing: {
-    marginLeft: 24,
+    marginLeft: 20,
   },
   signOutButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 999,
     borderWidth: 1,
-    backgroundColor: 'rgba(148, 163, 184, 0.15)',
+    backgroundColor: 'rgba(14, 165, 233, 0.12)',
   },
   signOutLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

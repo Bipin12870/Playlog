@@ -15,6 +15,7 @@ import {
 
 import { GameCard } from '../GameCard';
 import { GameSummary } from '../../types/game';
+import { useTheme } from '../../lib/theme';
 
 type EmptyState = {
   title: string;
@@ -62,6 +63,8 @@ export function SearchResults({
   hasMore = false,
   loadingMore = false,
 }: SearchResultsProps) {
+  const { colors } = useTheme();
+  const accent = colors.accent;
   const isCompact = cardVariant === 'compact';
   const isWeb = Platform.OS === 'web';
   const baseColumns = isWeb ? Math.max(columnCount, 6) : columnCount;
@@ -97,7 +100,7 @@ export function SearchResults({
   if (loading) {
     return (
       <View style={styles.loadingRow}>
-        <ActivityIndicator size="large" color="#4f46e5" />
+        <ActivityIndicator size="large" color={accent} />
       </View>
     );
   }
@@ -114,6 +117,7 @@ export function SearchResults({
           disabled={loadingMore}
           style={({ pressed }) => [
             styles.loadMoreBtn,
+            { backgroundColor: accent },
             pressed && styles.loadMorePressed,
             loadingMore && styles.loadMoreDisabled,
           ]}
@@ -136,6 +140,7 @@ export function SearchResults({
         contentContainerStyle={[
           styles.listContent,
           isCompact && styles.compactListContent,
+          { paddingHorizontal: isWeb ? 8 : 0 },
           contentContainerStyle,
         ]}
         numColumns={resolvedColumnCount}
@@ -154,12 +159,12 @@ export function SearchResults({
         ListFooterComponent={renderFooter}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>{emptyState.title}</Text>
-            <Text style={styles.emptyCopy}>{emptyState.copy}</Text>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>{emptyState.title}</Text>
+            <Text style={[styles.emptyCopy, { color: colors.muted }]}>{emptyState.copy}</Text>
           </View>
         }
       />
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? <Text style={[styles.errorText, { color: colors.danger ?? '#ef4444' }]}>{error}</Text> : null}
     </View>
   );
 }
@@ -185,6 +190,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 999,
+    shadowColor: '#0b1a2f',
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
   },
   loadMoreLabel: { color: '#f8fafc', fontWeight: '700' },
   loadMorePressed: { opacity: 0.9 },
