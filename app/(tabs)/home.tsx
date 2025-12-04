@@ -1693,9 +1693,14 @@ function Footer({ sizes }: { sizes: ReturnType<typeof useHomeScreen>['sizes'] })
             <Text style={webStyles.footerTitle}>Playlog</Text>
             <Text style={webStyles.footerTag}>Track. Discover. Play.</Text>
             <View style={webStyles.socialRow}>
-              <IconPill name="logo-twitter" />
-              <IconPill name="logo-instagram" />
-              <IconPill name="logo-facebook" />
+              <IconPill
+                name="logo-instagram"
+                href="https://www.instagram.com/playlog.reviews/"
+              />
+              <IconPill
+                name="logo-facebook"
+                href="https://www.facebook.com/profile.php?id=61584384373604"
+              />
             </View>
           </View>
           <View style={webStyles.footerCol}>
@@ -1725,7 +1730,7 @@ function Footer({ sizes }: { sizes: ReturnType<typeof useHomeScreen>['sizes'] })
           <View style={webStyles.footerCol}>
             <Text style={webStyles.footerHeading}>Contact</Text>
             <Text style={webStyles.footerText}>
-              <Ionicons name="mail" size={12} color="#94a3b8" /> info@playlog.com.au
+              <Ionicons name="mail" size={12} color="#94a3b8" /> playlog.reviews@gmail.com
             </Text>
             <Text style={webStyles.footerText}>
               <Ionicons name="location" size={12} color="#94a3b8" /> Sydney, Australia
@@ -1771,11 +1776,37 @@ function FooterLink({ label, href }: { label: string; href?: string }) {
   );
 }
 
-function IconPill({ name }: { name: keyof typeof Ionicons.glyphMap }) {
+function IconPill({
+  name,
+  href,
+}: {
+  name: keyof typeof Ionicons.glyphMap;
+  href?: string;
+}) {
+  const handlePress = useCallback(() => {
+    if (!href) return;
+    void Linking.openURL(href);
+  }, [href]);
+
+  if (!href) {
+    return (
+      <View style={webStyles.socialBtn}>
+        <Ionicons name={name} size={16} color="#cbd5e1" />
+      </View>
+    );
+  }
+
   return (
-    <View style={webStyles.socialBtn}>
+    <Pressable
+      style={({ pressed }) => [
+        webStyles.socialBtn,
+        pressed && { opacity: 0.6 },
+      ]}
+      onPress={handlePress}
+      accessibilityRole="link"
+    >
       <Ionicons name={name} size={16} color="#cbd5e1" />
-    </View>
+    </Pressable>
   );
 }
 
