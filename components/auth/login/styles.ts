@@ -24,7 +24,7 @@ export function createLoginStyles(colors: ThemeColors, isDark: boolean) {
     /* LAYOUT */
     shell: { padding: 24, gap: 24, minHeight: '100%', flexGrow: 1 },
     shellWide: { flexDirection: 'row', alignItems: 'stretch' },
-    shellNarrow: { paddingVertical: 24, justifyContent: 'center' },
+    shellNarrow: { padding: 0, gap: 0, justifyContent: 'center' },
 
     /* LEFT SIDE (hero section) */
     leftPane: {
@@ -111,25 +111,24 @@ export function createLoginStyles(colors: ThemeColors, isDark: boolean) {
     cardSubtitle: { color: muted, fontSize: 14, textAlign: 'center', marginTop: 4, marginBottom: 20 },
     stepLabel: { color: muted, fontSize: 13, fontWeight: '600', marginBottom: 12 },
     cardMobile: {
-      borderRadius: 32,
+      flex: 1,
+      borderRadius: 0,
       backgroundColor: surface,
-      borderWidth: 1,
-      borderColor: border,
-      padding: 22,
-      shadowColor: isDark ? '#01030a' : '#000',
-      shadowOpacity: 0.2,
-      shadowRadius: 20,
-      shadowOffset: { width: 0, height: 14 },
-      elevation: 8,
-      minHeight: undefined,
+      borderWidth: 0,
+      padding: 24,
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      shadowOffset: { width: 0, height: 0 },
+      elevation: 0,
+      minHeight: '100%',
       gap: 12,
     },
-    mobileCardWrapper: { width: '100%', maxWidth: 420, alignSelf: 'center', paddingHorizontal: 8 },
+    mobileCardWrapper: { flex: 1, width: '100%', alignSelf: 'stretch' },
     mobileBrandRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 12,
+      marginBottom: 18,
     },
     mobileBrandLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     mobileLogoMark: {
@@ -151,17 +150,17 @@ export function createLoginStyles(colors: ThemeColors, isDark: boolean) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    mobileTagline: { color: muted, textAlign: 'center', marginBottom: 12, fontSize: 13 },
+    mobileTagline: { color: muted, textAlign: 'center', marginBottom: 16, fontSize: 13 },
     mobilePanel: {
-      borderRadius: 32,
+      borderRadius: 28,
       borderWidth: 1,
       borderColor: border,
-      padding: 20,
+      padding: 22,
       backgroundColor: surfaceAlt,
-      gap: 20,
+      gap: 12,
     },
-    mobilePanelHeader: { alignItems: 'center', gap: 4 },
-    mobileCharactersImg: { width: '90%', height: 140 },
+    mobilePanelHeader: { alignItems: 'center', gap: 8 },
+    mobileCharactersImg: { width: '100%', height: 170 },
     cardTitleMobile: {
       fontSize: 34,
       textAlign: 'center',
@@ -235,7 +234,7 @@ export function createLoginStyles(colors: ThemeColors, isDark: boolean) {
       borderColor: border,
       pointerEvents: 'none',
     },
-    mobileGlossBox: { borderRadius: 32, borderColor: border },
+    mobileGlossBox: { borderRadius: 0, borderColor: border },
 
     /* SHARED FORM STYLES FOR AUTH FLOWS */
     formCard: {
@@ -359,5 +358,23 @@ export function createLoginStyles(colors: ThemeColors, isDark: boolean) {
       borderColor: accent,
     },
     infoText: { color: text, fontSize: 13, flex: 1 },
+
+    /* GOOGLE INLINE (mobile) */
+    inlineGoogleCard: { gap: 10 },
+    inlineGoogleButton: {
+      minHeight: 60,
+      borderRadius: 22,
+      borderWidth: 1.5,
+      borderColor: border,
+      backgroundColor: surface,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      gap: 14,
+    },
+    inlineGoogleButtonDisabled: { opacity: 0.6 },
+    inlineGoogleButtonLoading: { opacity: 0.9 },
+    inlineGoogleText: { fontSize: 17, fontWeight: '700', color: text },
+    mobileFullBackground: { padding: 0 },
   });
 }

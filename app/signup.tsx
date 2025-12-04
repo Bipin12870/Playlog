@@ -4,6 +4,7 @@ import {
   ImageBackground,
   Pressable,
   ScrollView,
+  SafeAreaView,
   StatusBar,
   Text,
   View,
@@ -23,6 +24,7 @@ import { useTheme } from '../lib/theme';
 WebBrowser.maybeCompleteAuthSession();
 
 const BACKDROP = require('../assets/glare.png');
+const HERO_BACKGROUND = require('../assets/blue-bg.jpg');
 const LOGO = require('../assets/logo.png');
 const RUNNER = require('../assets/runners.png');
 
@@ -38,7 +40,7 @@ export default function SignupScreen() {
   const onAccentColor = isDark ? colors.text : '#0f172a';
   const muted = colors.muted;
 
-  const [method, setMethod] = useState<Method>('none');
+  const [method, setMethod] = useState<Method>(wide ? 'none' : 'email');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [verificationSent, setVerificationSent] = useState(false);
   const [sentEmail, setSentEmail] = useState('');
@@ -134,32 +136,67 @@ export default function SignupScreen() {
     );
   };
 
-  const renderSignupForm = () => (
-    <>
-      <Text style={[styles.stepLabel, isMobile && styles.stepLabelMobile]}>Choose how you’d like to sign up</Text>
-      <View style={styles.accordionStack}>
-        <AccordionSection value="email" icon="mail" label="Email">
-          <EmailSignup onError={setErrorMessage} onSuccess={handleEmailSuccess} />
-        </AccordionSection>
-        <AccordionSection value="google" icon="logo-google" label="Google">
-          <GoogleSignup onError={setErrorMessage} onVerificationError={setVerificationError} />
-        </AccordionSection>
-        <AccordionSection value="phone" icon="call" label="Phone">
-          <PhoneSignup
-            onError={setErrorMessage}
-            onVerificationError={setVerificationError}
-            onSuccess={handlePhoneSuccess}
-          />
-        </AccordionSection>
-      </View>
-      {errorMessage && (
-        <View style={styles.errorBanner}>
-          <Feather name="alert-triangle" size={16} color="#f87171" />
-          <Text style={styles.errorText}>{errorMessage}</Text>
+  const renderSignupForm = () => {
+    if (isMobile) {
+      return (
+        <>
+          <Text style={[styles.stepLabel, styles.stepLabelMobile]}>Choose how you’d like to sign up</Text>
+          <View style={styles.accordionStack}>
+            <AccordionSection value="email" icon="mail" label="Email">
+              <EmailSignup onError={setErrorMessage} onSuccess={handleEmailSuccess} />
+            </AccordionSection>
+            <AccordionSection value="phone" icon="call" label="Phone">
+              <PhoneSignup
+                onError={setErrorMessage}
+                onVerificationError={setVerificationError}
+                onSuccess={handlePhoneSuccess}
+              />
+            </AccordionSection>
+            <View style={styles.accordionBlock}>
+              <GoogleSignup
+                variant="inline"
+                onError={setErrorMessage}
+                onVerificationError={setVerificationError}
+              />
+            </View>
+          </View>
+          {errorMessage && (
+            <View style={styles.errorBanner}>
+              <Feather name="alert-triangle" size={16} color="#f87171" />
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            </View>
+          )}
+        </>
+      );
+    }
+
+    return (
+      <>
+        <Text style={[styles.stepLabel, isMobile && styles.stepLabelMobile]}>Choose how you’d like to sign up</Text>
+        <View style={styles.accordionStack}>
+          <AccordionSection value="email" icon="mail" label="Email">
+            <EmailSignup onError={setErrorMessage} onSuccess={handleEmailSuccess} />
+          </AccordionSection>
+          <AccordionSection value="google" icon="logo-google" label="Google">
+            <GoogleSignup onError={setErrorMessage} onVerificationError={setVerificationError} />
+          </AccordionSection>
+          <AccordionSection value="phone" icon="call" label="Phone">
+            <PhoneSignup
+              onError={setErrorMessage}
+              onVerificationError={setVerificationError}
+              onSuccess={handlePhoneSuccess}
+            />
+          </AccordionSection>
         </View>
-      )}
-    </>
-  );
+        {errorMessage && (
+          <View style={styles.errorBanner}>
+            <Feather name="alert-triangle" size={16} color="#f87171" />
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        )}
+      </>
+    );
+  };
 
   const renderDesktopCard = () => (
     <View style={styles.card}>
@@ -214,6 +251,55 @@ export default function SignupScreen() {
     </View>
   );
 
+  const content = (
+    <ScrollView
+      contentContainerStyle={[styles.shell, wide ? styles.shellWide : styles.shellNarrow]}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
+      {wide ? (
+        <>
+          <View
+            style={[styles.leftPane, wide ? styles.leftPaneWide : styles.leftPaneNarrow, wide && styles.leftPaneStatic]}
+          >
+            <ImageBackground
+              source={HERO_BACKGROUND}
+              style={styles.leftBackground}
+              imageStyle={styles.leftBackgroundImage}
+            >
+              <View style={styles.leftOverlay} />
+              <View style={styles.leftContent}>
+                <Link href="/(tabs)/home" asChild>
+                  <Pressable style={styles.brandRow}>
+                    <Image source={LOGO} style={styles.logoImg} />
+                    <View>
+                      <Text style={styles.brand}>Playlog</Text>
+                      <Text style={styles.brandSub}>Track. Discover. Play.</Text>
+                    </View>
+                  </Pressable>
+                </Link>
+                <View style={styles.leftCopy}>
+                  <Text style={styles.tagline}>
+                    Enjoy top-rated games{"\n"}no payment, just a free account.
+                  </Text>
+                  <Text style={styles.subTagline}>
+                    Stack your wishlist, jot quick reviews, and keep every search at your fingertips.
+                  </Text>
+                  <Text style={styles.quote}>“Keep your library ready before the next drop.”</Text>
+                  <Image source={RUNNER} style={styles.leftHeroArt} resizeMode="contain" />
+                </View>
+              </View>
+            </ImageBackground>
+          </View>
+
+          <View style={styles.rightPane}>{renderDesktopCard()}</View>
+        </>
+      ) : (
+        <View style={styles.mobileCardWrapper}>{renderMobileCard()}</View>
+      )}
+    </ScrollView>
+  );
+
   return (
     <>
       <SubscriptionOfferModal
@@ -221,54 +307,14 @@ export default function SignupScreen() {
         onClose={() => setShowSubscriptionOffer(false)}
       />
       <StatusBar barStyle={statusBarStyle} />
-      <ImageBackground source={BACKDROP} style={styles.background} imageStyle={styles.backgroundImage}>
-        <View style={styles.scrim} />
-        <ScrollView
-          contentContainerStyle={[styles.shell, wide ? styles.shellWide : styles.shellNarrow]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {wide ? (
-            <>
-              <View
-                style={[styles.leftPane, wide ? styles.leftPaneWide : styles.leftPaneNarrow, wide && styles.leftPaneStatic]}
-              >
-                <ImageBackground
-                  source={RUNNER}
-                  style={styles.leftBackground}
-                  imageStyle={styles.leftBackgroundImage}
-                >
-                  <View style={styles.leftOverlay} />
-                  <View style={styles.leftContent}>
-                    <Link href="/(tabs)/home" asChild>
-                      <Pressable style={styles.brandRow}>
-                        <Image source={LOGO} style={styles.logoImg} />
-                        <View>
-                          <Text style={styles.brand}>Playlog</Text>
-                          <Text style={styles.brandSub}>Track. Discover. Play.</Text>
-                        </View>
-                      </Pressable>
-                    </Link>
-                    <View style={styles.leftCopy}>
-                      <Text style={styles.tagline}>
-                        Enjoy top-rated games{"\n"}no payment, just a free account.
-                      </Text>
-                      <Text style={styles.subTagline}>
-                        Stack your wishlist, jot quick reviews, and keep every search at your fingertips.
-                      </Text>
-                      <Text style={styles.quote}>“Keep your library ready before the next drop.”</Text>
-                    </View>
-                  </View>
-                </ImageBackground>
-              </View>
-
-              <View style={styles.rightPane}>{renderDesktopCard()}</View>
-            </>
-          ) : (
-            <View style={styles.mobileCardWrapper}>{renderMobileCard()}</View>
-          )}
-        </ScrollView>
-      </ImageBackground>
+      {wide ? (
+        <ImageBackground source={BACKDROP} style={styles.background} imageStyle={styles.backgroundImage}>
+          <View style={styles.scrim} />
+          {content}
+        </ImageBackground>
+      ) : (
+        <SafeAreaView style={[styles.background, styles.mobileFullBackground]}>{content}</SafeAreaView>
+      )}
     </>
   );
 }

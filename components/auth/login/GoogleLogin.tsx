@@ -10,7 +10,11 @@ import { signInWithGoogleCredential } from '../../../lib/auth';
 import { useTheme } from '../../../lib/theme';
 import { createLoginStyles } from './styles';
 
-export function GoogleLogin() {
+type GoogleLoginProps = {
+  variant?: 'card' | 'inline';
+};
+
+export function GoogleLogin({ variant = 'card' }: GoogleLoginProps) {
   useEffect(() => {
     const uri = AuthSession.makeRedirectUri(); // ← no options
     console.log('REDIRECT URI >>>', uri);
@@ -173,6 +177,52 @@ export function GoogleLogin() {
       setErrorMessage(message);
     }
   };
+
+  if (variant === 'inline') {
+    return (
+      <View style={styles.inlineGoogleCard}>
+        <Pressable
+          onPress={handleGoogleLogin}
+          disabled={googleButtonDisabled}
+          style={[
+            styles.inlineGoogleButton,
+            googleButtonInactive && styles.inlineGoogleButtonDisabled,
+            googleLoading && styles.inlineGoogleButtonLoading,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Continue with Google"
+        >
+          {googleLoading ? (
+            <ActivityIndicator color={googleButtonDisabled ? disabledContentColor : primaryContentColor} />
+          ) : (
+            <>
+              <Ionicons
+                name="logo-google"
+                size={18}
+                color={googleButtonDisabled ? disabledContentColor : primaryContentColor}
+              />
+              <Text style={[styles.inlineGoogleText, googleButtonDisabled && styles.primaryButtonTextDisabled]}>
+                Continue with Google
+              </Text>
+              <Feather
+                name="arrow-right"
+                size={18}
+                color={googleButtonDisabled ? disabledContentColor : primaryContentColor}
+                style={styles.methodChevron}
+              />
+            </>
+          )}
+        </Pressable>
+
+        {errorMessage && (
+          <View style={styles.errorBanner}>
+            <Feather name="alert-triangle" size={16} color={colors.danger} />
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        )}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.formCard}>

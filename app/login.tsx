@@ -4,6 +4,7 @@ import {
   ImageBackground,
   Pressable,
   ScrollView,
+  SafeAreaView,
   StatusBar,
   Text,
   View,
@@ -23,6 +24,7 @@ import { useTheme } from '../lib/theme';
 WebBrowser.maybeCompleteAuthSession();
 
 const BACKDROP = require('../assets/glare.png');
+const HERO_BACKGROUND = require('../assets/blue-bg.jpg');
 const RUNNER = require('../assets/characters.png');
 const LOGO = require('../assets/logo.png');
 
@@ -34,7 +36,7 @@ export default function LoginScreen() {
   const { colors, isDark, statusBarStyle } = useTheme();
   const styles = useMemo(() => createLoginStyles(colors, isDark), [colors, isDark]);
 
-  const [method, setMethod] = useState<Method>('email');
+  const [method, setMethod] = useState<Method>(wide ? 'email' : 'none');
   const [showSubscriptionOffer, setShowSubscriptionOffer] = useState(true);
   const pick = (next: Method) => setMethod((prev) => (prev === next ? 'none' : next));
   const accentColor = colors.accent;
@@ -81,13 +83,19 @@ export default function LoginScreen() {
         {method === 'email' && <EmailLogin />}
       </View>
       <View style={styles.accordionBlock}>
-        <MethodPill label="Google" icon="logo-google" value="google" />
-        {method === 'google' && <GoogleLogin />}
-      </View>
-      <View style={styles.accordionBlock}>
         <MethodPill label="Phone" icon="call" value="phone" />
         {method === 'phone' && <PhoneLogin />}
       </View>
+      {wide ? (
+        <View style={styles.accordionBlock}>
+          <MethodPill label="Google" icon="logo-google" value="google" />
+          {method === 'google' && <GoogleLogin />}
+        </View>
+      ) : (
+        <View style={styles.accordionBlock}>
+          <GoogleLogin variant="inline" />
+        </View>
+      )}
     </View>
   );
 
@@ -155,6 +163,60 @@ export default function LoginScreen() {
     </View>
   );
 
+  const content = (
+    <ScrollView
+      contentContainerStyle={[styles.shell, wide ? styles.shellWide : styles.shellNarrow]}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
+      {wide ? (
+        <>
+          {/* LEFT HERO PANEL */}
+          <View
+            style={[
+              styles.leftPane,
+              wide ? styles.leftPaneWide : styles.leftPaneNarrow,
+              wide && styles.leftPaneStatic,
+            ]}
+          >
+            <ImageBackground
+              source={HERO_BACKGROUND}
+              style={styles.leftBackground}
+              imageStyle={styles.leftBackgroundImage}
+            >
+              <View style={styles.leftOverlay} />
+              <View style={styles.leftContent}>
+                {/* CLICKABLE LOGO */}
+                <Link href="/(tabs)/home" asChild>
+                  <Pressable style={styles.brandRow} accessibilityRole="link" accessibilityLabel="Go back home">
+                    <Image source={LOGO} style={styles.logoImg} />
+                    <View>
+                      <Text style={styles.brand}>Playlog</Text>
+                      <Text style={styles.brandSub}>Track. Discover. Play.</Text>
+                    </View>
+                  </Pressable>
+                </Link>
+
+                {/* TAGLINE ABOVE CHARACTER */}
+                <View style={styles.leftCopy}>
+                  <Text style={styles.tagline}>You are one login away.</Text>
+                </View>
+
+                {/* CHARACTER IMAGE */}
+                <Image source={RUNNER} style={styles.charactersImg} resizeMode="contain" />
+              </View>
+            </ImageBackground>
+          </View>
+
+          {/* RIGHT LOGIN FORM */}
+          <View style={styles.rightPane}>{renderDesktopCard()}</View>
+        </>
+      ) : (
+        <View style={styles.mobileCardWrapper}>{renderMobileCard()}</View>
+      )}
+    </ScrollView>
+  );
+
   return (
     <>
       <SubscriptionOfferModal
@@ -162,56 +224,14 @@ export default function LoginScreen() {
         onClose={() => setShowSubscriptionOffer(false)}
       />
       <StatusBar barStyle={statusBarStyle} />
-      <ImageBackground source={BACKDROP} style={styles.background} imageStyle={styles.backgroundImage}>
-      <View style={styles.scrim} />
-      <ScrollView
-        contentContainerStyle={[styles.shell, wide ? styles.shellWide : styles.shellNarrow]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {wide ? (
-          <>
-            {/* LEFT HERO PANEL */}
-            <View
-              style={[
-                styles.leftPane,
-                wide ? styles.leftPaneWide : styles.leftPaneNarrow,
-                wide && styles.leftPaneStatic,
-              ]}
-            >
-              <ImageBackground style={styles.leftBackground} imageStyle={styles.leftBackgroundImage}>
-                <View style={styles.leftOverlay} />
-                <View style={styles.leftContent}>
-                  {/* CLICKABLE LOGO */}
-                  <Link href="/(tabs)/home" asChild>
-                    <Pressable style={styles.brandRow} accessibilityRole="link" accessibilityLabel="Go back home">
-                      <Image source={LOGO} style={styles.logoImg} />
-                      <View>
-                        <Text style={styles.brand}>Playlog</Text>
-                        <Text style={styles.brandSub}>Track. Discover. Play.</Text>
-                      </View>
-                    </Pressable>
-                  </Link>
-
-                  {/* TAGLINE ABOVE CHARACTER */}
-                  <View style={styles.leftCopy}>
-                    <Text style={styles.tagline}>You are one login away.</Text>
-                  </View>
-
-                  {/* CHARACTER IMAGE */}
-                  <Image source={RUNNER} style={styles.charactersImg} resizeMode="contain" />
-                </View>
-              </ImageBackground>
-            </View>
-
-            {/* RIGHT LOGIN FORM */}
-            <View style={styles.rightPane}>{renderDesktopCard()}</View>
-          </>
-        ) : (
-          <View style={styles.mobileCardWrapper}>{renderMobileCard()}</View>
-        )}
-      </ScrollView>
-    </ImageBackground>
+      {wide ? (
+        <ImageBackground source={BACKDROP} style={styles.background} imageStyle={styles.backgroundImage}>
+          <View style={styles.scrim} />
+          {content}
+        </ImageBackground>
+      ) : (
+        <SafeAreaView style={[styles.background, styles.mobileFullBackground]}>{content}</SafeAreaView>
+      )}
     </>
   );
 }
