@@ -19,14 +19,16 @@ const FOUNDERS = [
   { name: 'Premesh Wasti', image: require('../assets/founders/premesh.png') },
 ];
 
-const ABOUT_PARAGRAPHS = [
-  'Playlog was created by four friends — Bipin Sapkota, Kiran Shrestha, Saugat Uprety, and Premesh Wasti — who began as students building small projects together and slowly turned those late-night ideas into something bigger. Playlog exists because all four of us believe games deserve a better place to be shared, celebrated, and remembered.',
-  "Every line of code, every design choice, and every feature came from countless hours of working after class, helping each other learn, arguing over UI colours, and pushing through moments where the whole thing felt impossible. What kept us going wasn't just the vision of what Playlog could become, but the joy of building it together.",
+// NEW CLEAN PROFESSIONAL ABOUT TEXT
+const ABOUT_PARAGRAPHs = [
+  'Playlog was built by four friends who wanted a better way to discover, track, and share games. What started as small student experiments eventually grew into something we realised the gaming community genuinely needed — a clean, social, and modern platform designed specifically for gamers.',
+  'Our goal is simple: make it easier to save the games you love, find new ones worth playing, and connect with people who share the same passion. Every feature in Playlog comes from countless late-night builds, constant iteration, and a shared belief that gaming deserves a platform made with care.',
+  'Playlog is still growing, but the mission stays the same — celebrate games, empower communities, and make discovery fun again.',
 ];
 
 const HIGHLIGHTS = [
   { label: 'Founders', value: '4', emoji: '👥', gradient: ['#667eea', '#764ba2'] },
-  { label: 'Journey', value: '2024', emoji: '🚀', gradient: ['#f093fb', '#f5576c'] },
+  { label: 'Started', value: '2024', emoji: '🚀', gradient: ['#f093fb', '#f5576c'] },
   { label: 'Mission', value: 'Gaming', emoji: '🎮', gradient: ['#4facfe', '#00f2fe'] },
 ];
 
@@ -129,7 +131,7 @@ export default function AboutScreen() {
                 >
                   Built with passion,{'\n'}
                   <Text style={{ color: colors.accent, fontStyle: 'italic' }}>
-                    powered by friendship
+                    designed for gamers
                   </Text>
                 </Text>
 
@@ -150,8 +152,7 @@ export default function AboutScreen() {
                     },
                   ]}
                 >
-                  From late-night prototypes to a platform celebrating gaming culture — this is the
-                  journey of four friends who dared to dream bigger.
+                  A platform built to help gamers discover, save, and share what they play — designed with passion and crafted with purpose.
                 </Text>
               </View>
             </View>
@@ -230,7 +231,7 @@ export default function AboutScreen() {
             </View>
 
             <View style={styles.storyContent}>
-              {ABOUT_PARAGRAPHS.map((paragraph, index) => (
+              {ABOUT_PARAGRAPHs.map((paragraph, index) => (
                 <View key={index} style={styles.paragraphContainer}>
                   <View style={styles.paragraphDecoration}>
                     <View
@@ -280,7 +281,7 @@ export default function AboutScreen() {
                     },
                   ]}
                 >
-                  "What kept us going wasn't just the vision, but the joy of building it together."
+                  "Built for gamers, powered by passion."
                 </Text>
               </View>
             </View>
@@ -301,7 +302,7 @@ export default function AboutScreen() {
                 Meet the Team
               </Text>
               <Text style={[styles.sectionSubtitle, { color: colors.muted }]}>
-                Four friends who turned a dream into reality
+                Four friends who turned a vision into reality
               </Text>
               <View
                 style={[
@@ -334,26 +335,13 @@ export default function AboutScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  scrollArea: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingVertical: 32,
-  },
-  inner: {
-    width: '100%',
-    maxWidth: 900,
-    alignSelf: 'center',
-  },
-  innerWide: {
-    maxWidth: 1040,
-  },
-  heroContainer: {
-    marginBottom: 32,
-  },
+  /* ---- STYLES UNTOUCHED ---- */
+  safeArea: { flex: 1 },
+  scrollArea: { flex: 1 },
+  scrollContent: { paddingVertical: 32 },
+  inner: { width: '100%', maxWidth: 900, alignSelf: 'center' },
+  innerWide: { maxWidth: 1040 },
+  heroContainer: { marginBottom: 32 },
   hero: {
     borderRadius: 28,
     borderWidth: 1,
@@ -381,10 +369,7 @@ const styles = StyleSheet.create({
     borderRadius: 90,
     opacity: 0.25,
   },
-  heroContent: {
-    position: 'relative',
-    zIndex: 1,
-  },
+  heroContent: { position: 'relative', zIndex: 1 },
   heroLabelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -395,9 +380,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     gap: 8,
   },
-  heroLabelDot: {
-    fontSize: 8,
-  },
+  heroLabelDot: { fontSize: 8 },
   heroLabel: {
     fontSize: 11,
     fontWeight: '700',
@@ -409,22 +392,9 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     letterSpacing: -0.4,
   },
-  heroDivider: {
-    width: 56,
-    height: 3,
-    borderRadius: 999,
-    marginBottom: 16,
-  },
-  heroSubtitle: {
-    fontWeight: '400',
-    maxWidth: 620,
-  },
-  badgesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 14,
-    marginBottom: 32,
-  },
+  heroDivider: { width: 56, height: 3, borderRadius: 999, marginBottom: 16 },
+  heroSubtitle: { fontWeight: '400', maxWidth: 620 },
+  badgesContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 32 },
   badge: {
     flex: 1,
     minWidth: 150,
@@ -459,21 +429,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     zIndex: 1,
   },
-  badgeEmoji: {
-    fontSize: 28,
-  },
-  badgeValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: 4,
-    letterSpacing: -0.3,
-  },
-  badgeLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
+  badgeEmoji: { fontSize: 28 },
+  badgeValue: { fontSize: 22, fontWeight: '800', marginBottom: 4, letterSpacing: -0.3 },
+  badgeLabel: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8 },
   storyCard: {
     borderRadius: 26,
     borderWidth: 1,
@@ -486,16 +444,8 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 4,
   },
-  storyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 22,
-  },
-  storyIconWrapper: {
-    padding: 4,
-    borderRadius: 16,
-    marginRight: 16,
-  },
+  storyHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 22 },
+  storyIconWrapper: { padding: 4, borderRadius: 16, marginRight: 16 },
   storyIcon: {
     width: 48,
     height: 48,
@@ -503,49 +453,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  storyIconText: {
-    fontSize: 24,
-  },
-  storyHeaderText: {
-    flex: 1,
-  },
-  storyTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: 2,
-    letterSpacing: -0.3,
-  },
-  storySubtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    opacity: 0.85,
-  },
-  storyContent: {
-    gap: 22,
-  },
-  paragraphContainer: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  paragraphDecoration: {
-    alignItems: 'center',
-    paddingTop: 4,
-  },
-  paragraphDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  paragraphLine: {
-    width: 2,
-    flex: 1,
-    borderRadius: 1,
-  },
-  bodyText: {
-    flex: 1,
-    fontWeight: '400',
-  },
+  storyIconText: { fontSize: 24 },
+  storyHeaderText: { flex: 1 },
+  storyTitle: { fontSize: 22, fontWeight: '800', marginBottom: 2, letterSpacing: -0.3 },
+  storySubtitle: { fontSize: 13, fontWeight: '500', opacity: 0.85 },
+  storyContent: { gap: 22 },
+  paragraphContainer: { flexDirection: 'row', gap: 16 },
+  paragraphDecoration: { alignItems: 'center', paddingTop: 4 },
+  paragraphDot: { width: 8, height: 8, borderRadius: 4, marginBottom: 8 },
+  paragraphLine: { width: 2, flex: 1, borderRadius: 1 },
+  bodyText: { flex: 1, fontWeight: '400' },
   quoteContainer: {
     borderLeftWidth: 3,
     borderRadius: 12,
@@ -553,10 +470,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     marginTop: 6,
   },
-  quoteText: {
-    fontWeight: '600',
-    fontStyle: 'italic',
-  },
+  quoteText: { fontWeight: '600', fontStyle: 'italic' },
   foundersCard: {
     borderRadius: 26,
     borderWidth: 1,
@@ -568,37 +482,12 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 4,
   },
-  foundersHeader: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: 6,
-    letterSpacing: -0.3,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    fontWeight: '400',
-    marginBottom: 12,
-    opacity: 0.85,
-  },
-  sectionDivider: {
-    width: 44,
-    height: 3,
-    borderRadius: 999,
-  },
-  founderGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 18,
-  },
-  founderScroll: {
-    flexDirection: 'row',
-    paddingBottom: 4,
-    gap: 16,
-    paddingHorizontal: 4,
-  },
+  foundersHeader: { marginBottom: 24 },
+  sectionTitle: { fontSize: 22, fontWeight: '800', marginBottom: 6, letterSpacing: -0.3 },
+  sectionSubtitle: { fontSize: 14, fontWeight: '400', marginBottom: 12, opacity: 0.85 },
+  sectionDivider: { width: 44, height: 3, borderRadius: 999 },
+  founderGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 18 },
+  founderScroll: { flexDirection: 'row', paddingBottom: 4, gap: 16, paddingHorizontal: 4 },
   founderCard: {
     alignItems: 'center',
     width: 170,
@@ -612,49 +501,11 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     elevation: 4,
   },
-  founderImageContainer: {
-    position: 'relative',
-    marginBottom: 16,
-  },
-  founderImageGlow: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    right: 10,
-    bottom: 10,
-    borderRadius: 60,
-  },
-  founderImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    zIndex: 1,
-  },
-  founderImageRing: {
-    position: 'absolute',
-    top: -5,
-    left: -5,
-    right: -5,
-    bottom: -5,
-    borderRadius: 55,
-    borderWidth: 2,
-  },
-  founderName: {
-    fontSize: 15,
-    fontWeight: '800',
-    textAlign: 'center',
-    marginBottom: 8,
-    letterSpacing: -0.2,
-  },
-  founderBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  founderRole: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.9,
-  },
+  founderImageContainer: { position: 'relative', marginBottom: 16 },
+  founderImageGlow: { position: 'absolute', top: 10, left: 10, right: 10, bottom: 10, borderRadius: 60 },
+  founderImage: { width: 100, height: 100, borderRadius: 50, zIndex: 1 },
+  founderImageRing: { position: 'absolute', top: -5, left: -5, right: -5, bottom: -5, borderRadius: 55, borderWidth: 2 },
+  founderName: { fontSize: 15, fontWeight: '800', textAlign: 'center', marginBottom: 8, letterSpacing: -0.2 },
+  founderBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
+  founderRole: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.9 },
 });
