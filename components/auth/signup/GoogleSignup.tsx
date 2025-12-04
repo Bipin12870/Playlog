@@ -9,12 +9,13 @@ import { signInWithGoogleCredential } from '../../../lib/auth';
 import { useTheme } from '../../../lib/theme';
 import { createSignupStyles } from './styles';
 
-interface GoogleSignupProps {
+type GoogleSignupProps = {
   onError: (message: string | null) => void;
   onVerificationError: (message: string | null) => void;
-}
+  variant?: 'card' | 'inline';
+};
 
-export function GoogleSignup({ onError, onVerificationError }: GoogleSignupProps) {
+export function GoogleSignup({ onError, onVerificationError, variant = 'card' }: GoogleSignupProps) {
   const router = useRouter();
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createSignupStyles(colors, isDark), [colors, isDark]);
@@ -170,6 +171,69 @@ export function GoogleSignup({ onError, onVerificationError }: GoogleSignupProps
     }
   };
 
+  const renderButton = () => (
+    <Pressable
+      onPress={handleGoogleSignup}
+      disabled={googleButtonDisabled}
+      style={[
+        variant === 'inline' ? styles.inlineGoogleButton : styles.primaryButton,
+        (googleButtonDisabled || googleButtonInactive) && styles.submitDisabled,
+      ]}
+    >
+      {googleLoading ? (
+        <ActivityIndicator color={googleButtonDisabled ? disabledContentColor : primaryContentColor} />
+      ) : (
+        <>
+          <Ionicons
+            name="logo-google"
+            size={18}
+            color={googleButtonDisabled ? disabledContentColor : primaryContentColor}
+          />
+          <Text
+            style={[
+              variant === 'inline' ? styles.inlineGoogleText : styles.primaryButtonText,
+              googleButtonDisabled && styles.primaryButtonTextDisabled,
+            ]}
+          >
+            Continue with Google
+          </Text>
+          {variant === 'inline' ? (
+            <Feather
+              name="arrow-right"
+              size={18}
+              color={googleButtonDisabled ? disabledContentColor : primaryContentColor}
+              style={styles.methodChevron}
+            />
+          ) : null}
+        </>
+      )}
+    </Pressable>
+  );
+
+  const renderTerms = () => (
+    <Pressable style={styles.checkboxRow} onPress={() => setTermsAccepted((prev) => !prev)}>
+      <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+        {termsAccepted ? <Feather name="check" size={16} color={primaryContentColor} /> : null}
+      </View>
+      <Text style={styles.checkboxLabel}>
+        I agree to the{' '}
+        <Text style={styles.linkText} onPress={handleOpenTerms}>
+          terms &amp; conditions
+        </Text>
+      </Text>
+    </Pressable>
+  );
+
+  if (variant === 'inline') {
+    return (
+      <View style={styles.inlineGoogleCard}>
+        <Text style={styles.inlineGoogleHint}>Use Google to create your Playlog account.</Text>
+        {renderTerms()}
+        {renderButton()}
+      </View>
+    );
+  }
+
   return (
     <View style={styles.formCard}>
       <Text style={styles.formTitle}>Sign up with Google</Text>
@@ -177,36 +241,8 @@ export function GoogleSignup({ onError, onVerificationError }: GoogleSignupProps
         We’ll open Google to verify your account. By continuing you agree to our terms.
       </Text>
 
-      <Pressable style={styles.checkboxRow} onPress={() => setTermsAccepted((prev) => !prev)}>
-        <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
-          {termsAccepted ? <Feather name="check" size={16} color={primaryContentColor} /> : null}
-        </View>
-        <Text style={styles.checkboxLabel}>
-          I agree to the{' '}
-          <Text style={styles.linkText} onPress={handleOpenTerms}>
-            terms &amp; conditions
-          </Text>
-        </Text>
-      </Pressable>
-
-      <Pressable
-        onPress={handleGoogleSignup}
-        disabled={googleButtonDisabled}
-        style={[styles.primaryButton, (googleButtonDisabled || googleButtonInactive) && styles.submitDisabled]}
-      >
-        {googleLoading ? (
-          <ActivityIndicator color={googleButtonDisabled ? disabledContentColor : primaryContentColor} />
-        ) : (
-          <>
-            <Ionicons
-              name="logo-google"
-              size={18}
-              color={googleButtonDisabled ? disabledContentColor : primaryContentColor}
-            />
-            <Text style={styles.primaryButtonText}>Continue with Google</Text>
-          </>
-        )}
-      </Pressable>
+      {renderTerms()}
+      {renderButton()}
     </View>
   );
 }
