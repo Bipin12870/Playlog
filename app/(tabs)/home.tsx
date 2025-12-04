@@ -25,6 +25,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
+import { AdBanner } from '../../components/AdBanner';
 import { GameCard } from '../../components/GameCard';
 import { SearchResults } from '../../components/home';
 import { SearchHistoryDropdown } from '../../components/search/SearchHistoryDropdown';
@@ -166,6 +167,11 @@ const HOME_AD_SLOTS: HomeAdSlotConfig[] = [
     cta: 'Talk to us',
   },
 ];
+
+const AD_BANNER_SLOT_IDS: Record<HomeAdSlotConfig['key'], string> = {
+  'publisher-highlight': '8660025541',
+  'community-event': '7155372183',
+};
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -1561,25 +1567,7 @@ function NativeCardContent({
 }
 
 function NativeAdSlot({ slot }: { slot: HomeAdSlotConfig }) {
-  return (
-    <View style={nativeStyles.adSlot}>
-      <View style={nativeStyles.adBadge}>
-        <Ionicons name="megaphone-outline" size={16} color="#fbbf24" />
-        <Text style={nativeStyles.adBadgeLabel}>Sponsored</Text>
-      </View>
-      <Text style={nativeStyles.adTitle}>{slot.title}</Text>
-      <Text style={nativeStyles.adCopy}>{slot.copy}</Text>
-      <Pressable
-        style={({ pressed }) => [
-          nativeStyles.adCtaButton,
-          pressed && nativeStyles.adCtaButtonPressed,
-        ]}
-        accessibilityRole="button"
-      >
-        <Text style={nativeStyles.adCtaText}>{slot.cta}</Text>
-      </Pressable>
-    </View>
-  );
+  return <AdBanner slot={AD_BANNER_SLOT_IDS[slot.key]} />;
 }
 
 function WebGameCard({
@@ -1639,23 +1627,7 @@ function WebGameCard({
 }
 
 function WebAdSlot({ slot }: { slot: HomeAdSlotConfig }) {
-  return (
-    <View style={webStyles.adSlot}>
-      <View style={webStyles.adContent}>
-        <View style={webStyles.adBadge}>
-          <Text style={webStyles.adBadgeLabel}>Sponsored</Text>
-        </View>
-        <Text style={webStyles.adTitle}>{slot.title}</Text>
-        <Text style={webStyles.adCopy}>{slot.copy}</Text>
-      </View>
-      <Pressable
-        style={({ pressed }) => [webStyles.adButton, pressed && webStyles.adButtonPressed]}
-        accessibilityRole="button"
-      >
-        <Text style={webStyles.adButtonText}>{slot.cta}</Text>
-      </Pressable>
-    </View>
-  );
+  return <AdBanner slot={AD_BANNER_SLOT_IDS[slot.key]} />;
 }
 
 function SectionTitle({ title, tight }: { title: string; tight?: boolean }) {

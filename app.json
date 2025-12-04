@@ -27,7 +27,8 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/logo.png"
+      "favicon": "./assets/logo.png",
+      "index": "./web/index.html"
     },
     "plugins": [
       "expo-router",
