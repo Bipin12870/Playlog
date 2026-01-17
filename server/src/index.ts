@@ -12,12 +12,15 @@ dotenv.config();
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+const PERSPECTIVE_API_KEY = process.env.PERSPECTIVE_API_KEY;
 const STRIPE_SUCCESS_URL =
   process.env.STRIPE_SUCCESS_URL ??
   'https://example.com/stripe-success?session_id={CHECKOUT_SESSION_ID}';
 const STRIPE_CANCEL_URL = process.env.STRIPE_CANCEL_URL ?? 'https://example.com/stripe-cancel';
 const STRIPE_PORTAL_RETURN_URL =
   process.env.STRIPE_PORTAL_RETURN_URL ?? 'https://example.com/stripe-portal-return';
+const PERSPECTIVE_API_URL =
+  'https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze';
 
 if (!STRIPE_SECRET_KEY) {
   throw new Error('Missing STRIPE_SECRET_KEY. Set this in your billing backend environment.');
@@ -84,6 +87,42 @@ type SubscriptionPayload = {
   currentPeriodEnd: number | null;
 };
 
+const PERSPECTIVE_ATTRIBUTES = [
+  'TOXICITY',
+  'SEVERE_TOXICITY',
+  'INSULT',
+  'PROFANITY',
+  'IDENTITY_ATTACK',
+  'THREAT',
+  'SEXUALLY_EXPLICIT',
+  'HATE_SPEECH',
+] as const;
+
+type PerspectiveAttribute = typeof PERSPECTIVE_ATTRIBUTES[number];
+
+type ModerationRequest = {
+  text?: string;
+  threshold?: number;
+  attributes?: PerspectiveAttribute[];
+  languages?: string[];
+};
+
+function toRequestedAttributes(attributes: PerspectiveAttribute[]) {
+  return attributes.reduce<Record<PerspectiveAttribute, Record<string, never>>>((acc, attribute) => {
+    acc[attribute] = {};
+    return acc;
+  }, {} as Record<PerspectiveAttribute, Record<string, never>>);
+}
+
+function sanitizeAttributes(input?: unknown): PerspectiveAttribute[] {
+  if (!Array.isArray(input)) {
+    return [...PERSPECTIVE_ATTRIBUTES];
+  }
+  const allowed = new Set(PERSPECTIVE_ATTRIBUTES);
+  const filtered = input.filter((item): item is PerspectiveAttribute => allowed.has(item));
+  return filtered.length ? filtered : [...PERSPECTIVE_ATTRIBUTES];
+}
+
 app.post(
   '/stripe/create-checkout-session',
   express.json(),
@@ -142,6 +181,62 @@ app.post(
       const session = await stripe.checkout.sessions.create(sessionParams);
 
       return res.status(200).json({ url: session.url, sessionId: session.id });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+app.post(
+  '/moderation/check',
+  express.json(),
+  async (req: Request<{}, {}, ModerationRequest>, res: Response, next: NextFunction) => {
+    try {
+      if (!PERSPECTIVE_API_KEY) {
+        throw new ApiError('Moderation API key is not configured', 500);
+      }
+
+      const text = typeof req.body.text === 'string' ? req.body.text.trim() : '';
+      if (!text) {
+        return res.status(200).json({ allowed: true, flagged: [] });
+      }
+
+      const threshold =
+        typeof req.body.threshold === 'number' ? req.body.threshold : 0.75;
+      const attributes = sanitizeAttributes(req.body.attributes);
+
+      const response = await fetch(`${PERSPECTIVE_API_URL}?key=${encodeURIComponent(PERSPECTIVE_API_KEY)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          comment: { text },
+          languages: Array.isArray(req.body.languages) ? req.body.languages : undefined,
+          requestedAttributes: toRequestedAttributes(attributes),
+          doNotStore: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorPayload = await response.text();
+        throw new ApiError(errorPayload || 'Moderation service failed', 502);
+      }
+
+      const payload = (await response.json()) as {
+        attributeScores?: Partial<Record<PerspectiveAttribute, { summaryScore?: { value?: number } }>>;
+      };
+
+      const flagged = attributes.reduce<{ attribute: PerspectiveAttribute; score: number }[]>(
+        (acc, attribute) => {
+          const score = payload.attributeScores?.[attribute]?.summaryScore?.value;
+          if (typeof score === 'number' && score >= threshold) {
+            acc.push({ attribute, score });
+          }
+          return acc;
+        },
+        [],
+      );
+
+      return res.status(200).json({ allowed: flagged.length === 0, flagged, response: payload });
     } catch (error) {
       next(error);
     }

@@ -1,3 +1,5 @@
+import { MODERATION_URL } from '../src/config/env';
+
 type PerspectiveAttribute =
   | 'TOXICITY'
   | 'SEVERE_TOXICITY'
@@ -46,7 +48,7 @@ const DEFAULT_THRESHOLD = 0.75;
 function getApiKey() {
   const key = process.env.EXPO_PUBLIC_PERSPECTIVE_API_KEY;
   if (!key) {
-    throw new Error('Missing Perspective API key. Set EXPO_PUBLIC_PERSPECTIVE_API_KEY.');
+    throw new Error('Missing moderation configuration.');
   }
   return key;
 }
@@ -71,10 +73,19 @@ export async function moderateText(
     return { allowed: true, flagged: [] };
   }
 
-  const apiKey = getApiKey();
   const threshold = typeof options?.threshold === 'number' ? options.threshold : DEFAULT_THRESHOLD;
   const attributes = options?.attributes ?? DEFAULT_ATTRIBUTES;
   const requestedAttributes = toRequestedAttributes(attributes);
+
+  if (MODERATION_URL) {
+    return moderateViaServer(trimmed, {
+      threshold,
+      attributes,
+      languages: options?.languages,
+    });
+  }
+
+  const apiKey = getApiKey();
 
   const response = await fetch(`${PERSPECTIVE_API_URL}?key=${encodeURIComponent(apiKey)}`, {
     method: 'POST',
@@ -109,4 +120,40 @@ export async function moderateText(
   }
 
   return { allowed: flagged.length === 0, flagged, response: payload };
+}
+
+async function moderateViaServer(
+  text: string,
+  options: {
+    threshold: number;
+    attributes: PerspectiveAttribute[];
+    languages?: string[];
+  },
+): Promise<ModerationVerdict> {
+  const baseUrl = MODERATION_URL?.replace(/\/+$/, '');
+  if (!baseUrl) {
+    throw new Error('Missing moderation configuration.');
+  }
+
+  const response = await fetch(`${baseUrl}/moderation/check`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      text,
+      threshold: options.threshold,
+      attributes: options.attributes,
+      languages: options.languages,
+    }),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || 'Unable to check content for abusive language.');
+  }
+
+  const payload = (await response.json()) as ModerationVerdict;
+  if (!payload || typeof payload.allowed !== 'boolean' || !Array.isArray(payload.flagged)) {
+    throw new Error('Invalid moderation response.');
+  }
+  return payload;
 }
