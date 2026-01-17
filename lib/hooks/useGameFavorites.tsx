@@ -225,7 +225,7 @@ export function GameFavoritesProvider({ children }: { children: ReactNode }) {
         setFavourites((prev) => prev.filter((item) => item.id !== game.id));
       });
     },
-    [user, hasUnlimitedFavorites, isFavourite]
+    [user, favourites, hasUnlimitedFavorites, isPremium, isFavourite]
   );
 
   const value = useMemo<GameFavoritesContextValue>(() => {

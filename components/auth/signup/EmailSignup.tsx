@@ -19,6 +19,7 @@ import {
 } from 'firebase/auth';
 
 import { auth, db } from '../../../lib/firebase';
+import { ensureUserProfile } from '../../../lib/auth';
 import { useTheme } from '../../../lib/theme';
 import { createSignupStyles } from './styles';
 import type { SignupStyles } from './styles';
@@ -81,6 +82,7 @@ export function EmailSignup({ onSuccess, onError }: EmailSignupProps) {
     onError(null);
 
     let userCreated = false;
+    let createdUser: typeof auth.currentUser | null = null;
     let verificationError: string | null = null;
 
     try {
@@ -92,8 +94,10 @@ export function EmailSignup({ onSuccess, onError }: EmailSignupProps) {
       const credential = await createUserWithEmailAndPassword(auth, emailValue, password);
       const { user } = credential;
       userCreated = true;
+      createdUser = user;
 
       await updateProfile(user, { displayName });
+      await ensureUserProfile(user);
 
       try {
         await sendEmailVerification(user);
@@ -142,6 +146,8 @@ export function EmailSignup({ onSuccess, onError }: EmailSignupProps) {
         }
       } else if (error instanceof Error && error.message === 'USERNAME_TAKEN') {
         message = 'That display name is already in use. Please choose another one.';
+      } else if (error instanceof Error && error.message === 'USERNAME_CONFLICT') {
+        message = 'That display name is already in use. Please choose another one.';
       } else if (error instanceof Error) {
         message = error.message;
       }
@@ -149,6 +155,9 @@ export function EmailSignup({ onSuccess, onError }: EmailSignupProps) {
       onError(message);
 
       if (userCreated) {
+        if (createdUser) {
+          await createdUser.delete().catch(() => {});
+        }
         await signOut(auth).catch(() => {});
       }
     } finally {

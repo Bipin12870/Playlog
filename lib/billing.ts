@@ -13,11 +13,7 @@ export type BillingPortalSession = {
 
 const BASE_URL = BILLING_URL?.replace(/\/+$/, '');
 
-if (!STRIPE_PUBLISHABLE_KEY) {
-  throw new Error('Missing STRIPE_PUBLISHABLE_KEY. Configure this in your .env file.');
-}
-
-export const stripePublishableKey = STRIPE_PUBLISHABLE_KEY;
+export const stripePublishableKey = STRIPE_PUBLISHABLE_KEY ?? null;
 
 export const billingPlans: ReadonlyArray<PlanDetail> = PLAN_DETAILS.filter(
   (plan) => plan.isSubscription,

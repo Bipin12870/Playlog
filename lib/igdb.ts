@@ -15,9 +15,10 @@ export async function igdbQuery(endpoint: string, query: string) {
 export async function searchGames(term: string, opts?: { limit?: number; offset?: number }) {
   const limit = Math.max(1, opts?.limit ?? 12);
   const offset = Math.max(0, opts?.offset ?? 0);
+  const safeTerm = escapeSearchTerm(term);
   const query = `
     fields name, cover.url, summary, rating, first_release_date, platforms.slug, platforms.abbreviation, screenshots.url, artworks.url, genres.id, genres.name;
-    search "${term}";
+    search "${safeTerm}";
     where version_parent = null;
     limit ${limit};
     ${offset ? `offset ${offset};` : ''}
@@ -193,4 +194,13 @@ function pickMediaUrl(game: any): string | null | undefined {
     : null;
   if (artwork) return artwork;
   return game?.cover?.url ?? null;
+}
+
+function escapeSearchTerm(term: string) {
+  return term
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\r?\n|\r/g, ' ')
+    .replace(/;/g, ' ')
+    .trim();
 }
